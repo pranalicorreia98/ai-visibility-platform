@@ -349,6 +349,85 @@ model CachedResponse {
   createdAt   DateTime @default(now())
   expiresAt   DateTime
 }
+
+// ─────────────────────────────────────────────────────────────
+// RECOMMENDATIONS ENGINE (NEW)
+// ─────────────────────────────────────────────────────────────
+
+model Recommendation {
+  id              String   @id @default(cuid())
+  brandId         String
+  brand           Brand    @relation(fields: [brandId], references: [id])
+
+  category        String   // 'entity' | 'content' | 'authority' | 'technical' | 'community'
+  priority        String   // 'high' | 'medium' | 'low'
+  title           String
+  description     String
+  effort          String   // "2 hours" | "Ongoing"
+  timeline        String   // "1-2 weeks" | "4-8 weeks"
+  expectedImpact  String   // "+5-10% visibility"
+  actionUrl       String?
+  guideUrl        String?
+  competitorGap   String?  // "Competitors have 50+ reviews"
+
+  isCompleted     Boolean  @default(false)
+  completedAt     DateTime?
+
+  generatedAt     DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// BACKREFERENCE TRACKING (NEW)
+// ─────────────────────────────────────────────────────────────
+
+model BackreferenceStatus {
+  id              String   @id @default(cuid())
+  brandId         String
+  brand           Brand    @relation(fields: [brandId], references: [id])
+
+  platform        String   // "G2", "LinkedIn", "Crunchbase", etc.
+  tier            String   // 'foundation' | 'reviews' | 'community' | 'pr' | 'india'
+  status          String   // 'present' | 'missing' | 'incomplete'
+  details         String?  // "4.2★, 12 reviews"
+  profileUrl      String?  // URL to their profile
+  competitorStatus String? // "Asana has 2500+ reviews"
+  priority        String   // 'high' | 'medium' | 'low'
+
+  claimedAt       DateTime?
+  lastCheckedAt   DateTime @default(now())
+
+  @@unique([brandId, platform])
+}
+
+// ─────────────────────────────────────────────────────────────
+// EMAIL & REPORT PREFERENCES (NEW)
+// ─────────────────────────────────────────────────────────────
+
+model EmailPreference {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+
+  weeklyReport    Boolean  @default(true)
+  monthlyReport   Boolean  @default(true)
+  scoreAlerts     Boolean  @default(true)
+
+  unsubscribedAt  DateTime?
+  updatedAt       DateTime @updatedAt
+}
+
+model ReportGeneration {
+  id          String   @id @default(cuid())
+  brandId     String
+  brand       Brand    @relation(fields: [brandId], references: [id])
+
+  type        String   // 'weekly' | 'monthly' | 'ondemand'
+  pdfUrl      String?  // S3/Cloudinary URL
+  pdfData     String?  // Base64 for small PDFs (MVP)
+
+  generatedAt DateTime @default(now())
+  emailSentAt DateTime?
+}
 ```
 
 ### 4.2 Database Size Estimates
@@ -402,6 +481,30 @@ SQLite can easily handle this with excellent performance.
 ├── /visibility
 │   ├── GET    /score       # Get visibility score
 │   └── GET    /trend       # Get trend data (7/30 days)
+│
+├── /recommendations        # NEW
+│   ├── GET    /            # Get recommendations for brand
+│   ├── POST   /generate    # Generate new recommendations
+│   └── PUT    /[id]/complete  # Mark recommendation as done
+│
+├── /backreferences         # NEW
+│   ├── GET    /            # Get backreference checklist
+│   ├── POST   /check       # Trigger platform presence check
+│   └── PUT    /[id]/claim  # Mark platform as claimed
+│
+├── /reports                # NEW
+│   ├── GET    /            # List generated reports
+│   ├── POST   /generate    # Generate PDF report
+│   └── GET    /[id]/download  # Download PDF
+│
+├── /email                  # NEW
+│   ├── GET    /preferences # Get email preferences
+│   ├── PUT    /preferences # Update email preferences
+│   └── POST   /send-test   # Send test email
+│
+├── /cron                   # NEW (Vercel Cron)
+│   ├── POST   /weekly-reports  # Send weekly emails (Monday 9am IST)
+│   └── POST   /monthly-reports # Send monthly emails (1st of month)
 │
 └── /ai
     ├── /chatgpt
@@ -820,4 +923,354 @@ Build a simple `/admin` page showing:
 
 ---
 
-*This architecture prioritizes speed of development and zero infrastructure cost while maintaining a professional demo experience.*
+## 11. PDF Report Generation (NEW)
+
+### 11.1 Technical Approach
+
+For MVP, we use **HTML-to-PDF via Puppeteer** because:
+- Reuses existing dashboard components
+- Better chart support (Recharts renders properly)
+- Easier styling with CSS
+- Serverless-friendly with `@sparticuz/chromium`
+
+### 11.2 Implementation
+
+```typescript
+// lib/pdf/generate-report.ts
+
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
+
+export async function generateReportPDF(reportData: ReportData): Promise<Buffer> {
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
+  });
+
+  const page = await browser.newPage();
+
+  // Generate HTML from React component
+  const html = renderReportHTML(reportData);
+  await page.setContent(html, { waitUntil: 'networkidle0' });
+
+  const pdf = await page.pdf({
+    format: 'A4',
+    printBackground: true,
+    margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' },
+  });
+
+  await browser.close();
+  return pdf;
+}
+
+// API Route
+// app/api/reports/generate/route.ts
+
+export async function POST(req: NextRequest) {
+  const { brandId } = await req.json();
+
+  // Gather all data
+  const reportData = await gatherReportData(brandId);
+
+  // Generate PDF
+  const pdfBuffer = await generateReportPDF(reportData);
+
+  // Store reference
+  const report = await prisma.reportGeneration.create({
+    data: {
+      brandId,
+      type: 'ondemand',
+      pdfData: pdfBuffer.toString('base64'),
+      generatedAt: new Date(),
+    },
+  });
+
+  return NextResponse.json({ reportId: report.id });
+}
+```
+
+### 11.3 Report Template Structure
+
+```typescript
+// lib/pdf/report-template.ts
+
+function renderReportHTML(data: ReportData): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: 'Inter', sans-serif; padding: 40px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .score-card {
+          font-size: 72px;
+          font-weight: bold;
+          text-align: center;
+          color: ${getScoreColor(data.score)};
+        }
+        .section { margin-bottom: 30px; page-break-inside: avoid; }
+        .recommendation {
+          border: 1px solid #e5e7eb;
+          padding: 16px;
+          margin: 8px 0;
+          border-radius: 8px;
+        }
+        .priority-high { border-left: 4px solid #ef4444; }
+        .priority-medium { border-left: 4px solid #f59e0b; }
+        .priority-low { border-left: 4px solid #22c55e; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>AI Visibility Report</h1>
+        <h2>${data.brandName}</h2>
+        <p>Generated: ${formatDate(data.generatedAt)}</p>
+      </div>
+
+      <div class="section">
+        <div class="score-card">${data.score}/100</div>
+        <p style="text-align: center;">Visibility Score</p>
+      </div>
+
+      <!-- More sections... -->
+    </body>
+    </html>
+  `;
+}
+```
+
+---
+
+## 12. Email System (NEW)
+
+### 12.1 Email Provider: Resend
+
+| Feature | Free Tier Limit |
+|---------|-----------------|
+| Emails/month | 3,000 |
+| Domains | 1 |
+| API access | Yes |
+| React Email | Yes |
+
+### 12.2 Implementation
+
+```typescript
+// lib/email/send-weekly-report.ts
+
+import { Resend } from 'resend';
+import { WeeklyReportEmail } from './templates/weekly-report';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function sendWeeklyReport(
+  user: User,
+  reportData: WeeklyReportData
+) {
+  await resend.emails.send({
+    from: 'AI Visibility <reports@yourplatform.com>',
+    to: user.email,
+    subject: `Your AI Visibility Weekly: Score ${reportData.score} | ${reportData.brandName}`,
+    react: WeeklyReportEmail({ data: reportData }),
+  });
+}
+```
+
+### 12.3 Email Templates (React Email)
+
+```tsx
+// lib/email/templates/weekly-report.tsx
+
+import {
+  Html,
+  Head,
+  Body,
+  Container,
+  Section,
+  Text,
+  Button,
+  Hr,
+} from '@react-email/components';
+
+export function WeeklyReportEmail({ data }: { data: WeeklyReportData }) {
+  return (
+    <Html>
+      <Head />
+      <Body style={styles.body}>
+        <Container style={styles.container}>
+          <Section style={styles.header}>
+            <Text style={styles.title}>📊 Weekly AI Visibility Update</Text>
+            <Text style={styles.subtitle}>
+              {data.brandName} | Week of {data.weekStart}
+            </Text>
+          </Section>
+
+          <Section style={styles.scoreSection}>
+            <Text style={styles.scoreNumber}>{data.score}/100</Text>
+            <Text style={styles.scoreTrend}>
+              {data.trend > 0 ? '▲' : data.trend < 0 ? '▼' : '─'}
+              {Math.abs(data.trend)} from last week
+            </Text>
+          </Section>
+
+          <Hr />
+
+          <Section>
+            <Text style={styles.sectionTitle}>📈 This Week's Highlights</Text>
+            <Text>• {data.newMentions} new brand mentions detected</Text>
+            <Text>• Sentiment: {data.positivePercent}% positive</Text>
+            {data.topRanking && (
+              <Text>• Ranked #{data.topRanking.position} for "{data.topRanking.query}"</Text>
+            )}
+          </Section>
+
+          <Hr />
+
+          <Section>
+            <Text style={styles.sectionTitle}>🎯 Top Action for This Week</Text>
+            <Text style={styles.actionTitle}>{data.topRecommendation.title}</Text>
+            <Text>
+              Effort: {data.topRecommendation.effort} |
+              Impact: {data.topRecommendation.impact}
+            </Text>
+          </Section>
+
+          <Section style={styles.ctaSection}>
+            <Button href={data.dashboardUrl} style={styles.button}>
+              View Full Dashboard
+            </Button>
+          </Section>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+```
+
+### 12.4 Cron Jobs (Vercel Cron)
+
+```json
+// vercel.json
+{
+  "crons": [
+    {
+      "path": "/api/cron/weekly-reports",
+      "schedule": "0 3 * * 1"  // Monday 3:30 UTC = 9:00 AM IST
+    },
+    {
+      "path": "/api/cron/monthly-reports",
+      "schedule": "0 3 1 * *"  // 1st of month 3:30 UTC = 9:00 AM IST
+    }
+  ]
+}
+```
+
+```typescript
+// app/api/cron/weekly-reports/route.ts
+
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(req: NextRequest) {
+  // Verify cron secret
+  const authHeader = req.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Get all users with weekly reports enabled
+  const users = await prisma.emailPreference.findMany({
+    where: { weeklyReport: true, unsubscribedAt: null },
+    include: { user: { include: { brands: true } } },
+  });
+
+  // Send reports
+  for (const pref of users) {
+    for (const brand of pref.user.brands) {
+      const reportData = await generateWeeklyReportData(brand.id);
+      await sendWeeklyReport(pref.user, reportData);
+    }
+  }
+
+  return NextResponse.json({ sent: users.length });
+}
+```
+
+---
+
+## 13. Updated Page Structure (NEW)
+
+```
+app/
+├── (auth)/
+│   ├── login/page.tsx
+│   └── layout.tsx
+├── (dashboard)/
+│   ├── layout.tsx
+│   ├── page.tsx                    # Main Dashboard
+│   ├── simulator/page.tsx          # Prompt Simulator
+│   ├── monitoring/page.tsx         # Brand Monitoring
+│   ├── competitors/page.tsx        # Competitor View
+│   ├── recommendations/page.tsx    # NEW: Improvement Recommendations
+│   ├── backreferences/page.tsx     # NEW: Platform Checklist
+│   ├── reports/page.tsx            # NEW: Report History
+│   └── settings/
+│       ├── page.tsx                # Brand Settings
+│       └── email/page.tsx          # NEW: Email Preferences
+├── api/
+│   ├── auth/[...nextauth]/route.ts
+│   ├── brands/route.ts
+│   ├── competitors/route.ts
+│   ├── simulate/route.ts
+│   ├── mentions/route.ts
+│   ├── visibility/route.ts
+│   ├── recommendations/route.ts    # NEW
+│   ├── backreferences/route.ts     # NEW
+│   ├── reports/
+│   │   ├── route.ts                # NEW
+│   │   └── generate/route.ts       # NEW
+│   ├── email/
+│   │   └── preferences/route.ts    # NEW
+│   ├── cron/
+│   │   ├── weekly-reports/route.ts # NEW
+│   │   └── monthly-reports/route.ts # NEW
+│   └── ai/
+│       ├── chatgpt/route.ts
+│       └── gemini/route.ts
+└── components/
+    ├── recommendations/            # NEW
+    │   ├── RecommendationCard.tsx
+    │   ├── RecommendationList.tsx
+    │   └── ProjectedScore.tsx
+    ├── backreferences/             # NEW
+    │   ├── PlatformChecklist.tsx
+    │   ├── PlatformCard.tsx
+    │   └── CompetitorComparison.tsx
+    └── reports/                    # NEW
+        ├── ReportGenerator.tsx
+        └── ReportHistory.tsx
+```
+
+---
+
+## 14. New Dependencies
+
+```json
+// package.json additions
+
+{
+  "dependencies": {
+    // Existing...
+    "@react-pdf/renderer": "^3.x",      // Alternative PDF option
+    "puppeteer-core": "^22.x",          // PDF generation
+    "@sparticuz/chromium": "^123.x",    // Serverless Chromium
+    "resend": "^3.x",                   // Email sending
+    "@react-email/components": "^0.x",  // Email templates
+    "date-fns": "^3.x"                  // Date formatting
+  }
+}
+```
+
+---
+
+*This architecture prioritizes speed of development and zero infrastructure cost while maintaining a professional demo experience. The new PDF and email features add significant value without requiring additional paid services.*

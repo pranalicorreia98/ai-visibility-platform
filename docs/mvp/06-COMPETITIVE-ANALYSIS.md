@@ -4,10 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.0.0 |
-| Status | Draft |
+| Version | 2.0.0 |
+| Status | Updated |
 | Created | 2026-07-02 |
-| Focus | RankAI and Market Landscape |
+| Updated | 2026-07-04 |
+| Focus | RankAI, Peec.ai, and Market Landscape |
 
 ---
 
@@ -76,7 +77,104 @@
 
 ---
 
-## 2. Competitive Landscape (2026)
+## 2. Peec.ai Deep Dive (NEW)
+
+### 2.1 Company Overview
+
+| Attribute | Details |
+|-----------|---------|
+| **Website** | [peec.ai](https://peec.ai) |
+| **Funding** | $29M raised |
+| **Positioning** | "AI Search Analytics for Marketing teams and SEO agencies" |
+| **Model** | SaaS (self-serve) |
+| **AI Platforms** | ChatGPT, Perplexity, Gemini, AI Overviews + Claude, DeepSeek, Grok (add-ons) |
+
+### 2.2 Peec.ai Pricing
+
+| Plan | Price | Projects | Countries | Models | Key Features |
+|------|-------|----------|-----------|--------|--------------|
+| **Starter** | €89/mo (~$95) | 1 | 1 | 3 | Daily tracking, community support |
+| **Pro** | €199/mo (~$215) | 3 | 3 | 3 | Email support, Looker integration |
+| **Advanced** | Custom | 5 | 3 | 3 | Priority support, API access |
+| **Enterprise** | Custom | Unlimited | Unlimited | All + Claude/Grok | Custom models, dedicated support |
+
+**Add-ons**: Claude, Gemini, DeepSeek, Grok = €20-30/month each
+
+### 2.3 Key Peec.ai Features
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PEEC.AI FEATURE SET                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  CORE TRACKING                                                               │
+│  ─────────────                                                               │
+│  ✅ Visibility Score        Track how visible brand is across AI systems    │
+│  ✅ Position Tracking        Where brand ranks in AI responses               │
+│  ✅ Sentiment Analysis       How AI frames the brand (positive/negative)    │
+│  ✅ Competitive Benchmarking Compare against competitors                    │
+│                                                                              │
+│  UNIQUE FEATURES                                                             │
+│  ───────────────                                                             │
+│  ✅ Prompt Management        Organize prompts with tags                      │
+│  ✅ AI-Suggested Prompts     Discover high-impact queries                   │
+│  ✅ Search Volume Data       Know which prompts matter most                 │
+│  ✅ Source Attribution       See which domains AI cites                     │
+│                                                                              │
+│  ACTIONS FEATURE (Key Differentiator)                                        │
+│  ─────────────────────────────────────                                       │
+│  ✅ Prioritized GEO Roadmap  Turns data into action items                   │
+│  ✅ Owned Media Opportunities Articles, comparison pages, how-to guides    │
+│  ✅ Earned Media Gaps         Editorial, Reddit, forums, reference sites    │
+│  ✅ Relative Opportunity Score Low/Medium/High prioritization              │
+│                                                                              │
+│  INTEGRATIONS                                                                │
+│  ────────────                                                                │
+│  ✅ CSV Exports              Download data for analysis                     │
+│  ✅ Looker Studio            Build custom dashboards                        │
+│  ✅ API Access               Enterprise only                                 │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 2.4 Peec.ai Strengths
+
+| Strength | Details |
+|----------|---------|
+| **Actions Feature** | Clusters sources into Owned vs Earned media opportunities |
+| **Opportunity Scoring** | Prioritizes actions by citation frequency |
+| **Source Transparency** | Shows exactly which URLs AI systems cite |
+| **Quick Setup** | 30-minute setup vs weeks with competitors |
+| **Unlimited Seats** | No per-user pricing on all plans |
+
+### 2.5 Peec.ai Weaknesses
+
+| Weakness | Details | Our Opportunity |
+|----------|---------|-----------------|
+| **Diagnosis without treatment** | "Excels at diagnosis but offers no treatment" | We provide actionable playbook |
+| **No content creation** | Identifies problems, can't fix them | We give step-by-step guides |
+| **No improvement timeline** | Doesn't tell you when to expect results | We provide specific timelines |
+| **15-25 hours/week required** | Users need significant time to act on insights | We make actions bite-sized |
+| **No AI traffic attribution** | Can't connect visibility to revenue | Future opportunity |
+| **Enterprise API only** | Smaller teams can't automate | We offer API at lower tiers |
+
+### 2.6 Peec.ai vs Our MVP
+
+| Feature | Peec.ai | Our MVP | Advantage |
+|---------|---------|---------|-----------|
+| **Visibility Tracking** | ✅ Strong | ✅ Strong | Tie |
+| **Source Attribution** | ✅ Detailed | ⚠️ Basic | Peec |
+| **Actions/Recommendations** | ✅ Good | ✅ **Better** | Us (specific timelines) |
+| **Improvement Timeline** | ❌ None | ✅ **Specific** | Us |
+| **Backreference Checklist** | ⚠️ Implicit | ✅ **Explicit** | Us |
+| **PDF Reports** | ❌ No | ✅ Yes | Us |
+| **Email Reports** | ❌ No | ✅ Yes | Us |
+| **Pricing (India)** | €89/mo (~₹8,000) | ₹999-2,999/mo | Us (70% cheaper) |
+| **API Access** | Enterprise only | Pro tier | Us |
+
+---
+
+## 3. Competitive Landscape (2026)
 
 ### 2.1 Market Overview
 
@@ -127,28 +225,32 @@
 
 ---
 
-## 3. Feature Comparison
+## 4. Feature Comparison
 
-### 3.1 Feature Matrix
+### 4.1 Feature Matrix (Updated with Peec.ai)
 
-| Feature | RankAI | Profound | Otterly | Our MVP | Our Future |
-|---------|--------|----------|---------|---------|------------|
+| Feature | Peec.ai | RankAI | Profound | Our MVP | Our Future |
+|---------|---------|--------|----------|---------|------------|
 | ChatGPT Tracking | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Gemini Tracking | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Gemini Tracking | ✅ (add-on) | ✅ | ✅ | ✅ | ✅ |
 | Perplexity | ✅ | ✅ | ✅ | ⏳ | ✅ |
-| Claude | ❓ | ✅ | ✅ | ⏳ | ✅ |
-| Copilot | ❓ | ✅ | ❓ | ⏳ | ✅ |
+| Claude | ✅ (add-on) | ❓ | ✅ | ⏳ | ✅ |
 | Brand Mentions | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Citation Tracking | ✅ | ✅ | ✅ | ⏳ | ✅ |
-| Sentiment Analysis | ❓ | ✅ | ❓ | ✅ | ✅ |
+| Source Attribution | ✅ Strong | ✅ | ✅ | ⚠️ Basic | ✅ |
+| Sentiment Analysis | ✅ | ❓ | ✅ | ✅ | ✅ |
 | Competitor Tracking | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Visibility Score | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Prompt Simulator | ✅ | ❓ | ❓ | ✅ | ✅ |
-| GEO Auditor | ✅ | ✅ | ❓ | ⏳ | ✅ |
-| Content Creation | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Auto-Optimization | ✅ | ❓ | ❌ | ⏳ | ✅ |
-| API Access | ❓ | ✅ | ❓ | ⏳ | ✅ |
-| Free Tier/Trial | ✅ | ❓ | ❓ | ✅ | ✅ |
+| Prompt Simulator | ❓ | ✅ | ❓ | ✅ | ✅ |
+| **Actions/Recommendations** | ✅ Good | ✅ | ❓ | ✅ **Better** | ✅ |
+| **Improvement Timeline** | ❌ None | ❌ Vague | ❌ | ✅ **Specific** | ✅ |
+| **Backreference Checklist** | ❌ | ❌ | ❌ | ✅ **New** | ✅ |
+| **PDF Reports** | ❌ | ❌ | ❓ | ✅ **New** | ✅ |
+| **Email Reports** | ❌ | ❌ | ❓ | ✅ **New** | ✅ |
+| GEO Auditor | ❌ | ✅ | ✅ | ⏳ | ✅ |
+| Content Creation | ❌ | ✅ | ❌ | ❌ | ❌ |
+| API Access | Enterprise | ❓ | ✅ | Pro tier | ✅ |
+| Free Trial | 7 days | ✅ | ❓ | 14 days | ✅ |
+| India Pricing | ~₹8,000/mo | Premium | Enterprise | **₹999-2,999/mo** | ✅ |
 
 ### 3.2 RankAI vs Our MVP
 
@@ -254,27 +356,45 @@ RankAI offers 6 free tools for lead generation. We should consider:
 
 ## 6. Revised Competitive Positioning
 
-### 6.1 Our Unique Value Proposition
+### 6.1 Our Unique Value Proposition (Updated)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              OUR POSITIONING                                 │
+│                         OUR POSITIONING (UPDATED)                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  "The affordable, self-serve AI visibility dashboard"                       │
-│                                                                              │
-│  FOR:     SMBs and marketing teams                                          │
-│  WHO:     Want to understand their AI presence                              │
-│  UNLIKE:  Expensive agencies or enterprise platforms                        │
-│  WE:      Provide real-time visibility monitoring at startup prices         │
+│  "We don't just show you the problem — we give you the solution"            │
 │                                                                              │
 │  ─────────────────────────────────────────────────────────────────────────  │
 │                                                                              │
-│  Key Messages:                                                               │
-│  • "See how ChatGPT and Gemini describe your brand"                         │
-│  • "Track your AI visibility score over time"                               │
-│  • "Compare against competitors"                                            │
-│  • "No content creation required - just insights"                           │
+│  FOR:     Indian SMBs, digital marketing agencies, D2C brands               │
+│  WHO:     Want to improve their AI presence (not just track it)            │
+│  UNLIKE:  Peec.ai (diagnosis only) or RankAI (expensive agency)            │
+│  WE:      Provide actionable playbook with specific timelines               │
+│                                                                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  UNIQUE DIFFERENTIATORS:                                                     │
+│                                                                              │
+│  1. ACTIONABLE RECOMMENDATIONS                                               │
+│     Peec.ai: "You have a visibility gap"                                    │
+│     Us: "Claim your G2 profile (2 hrs), expect +5% in 2-3 weeks"           │
+│                                                                              │
+│  2. SPECIFIC TIMELINES                                                       │
+│     Competitors: No timeline                                                 │
+│     Us: "Quick wins (1-2 weeks), Medium-term (2-6 weeks), Long-term"       │
+│                                                                              │
+│  3. BACKREFERENCE CHECKLIST                                                  │
+│     Competitors: Buried in data                                              │
+│     Us: "You're on 8/25 platforms. Claim these 3 next."                    │
+│                                                                              │
+│  4. PDF + EMAIL REPORTS                                                      │
+│     Competitors: Dashboard only                                              │
+│     Us: Weekly email + monthly PDF for stakeholders                         │
+│                                                                              │
+│  5. INDIA-FIRST PRICING                                                      │
+│     Peec.ai: €89/mo (~₹8,000)                                               │
+│     Us: ₹999/mo (88% cheaper)                                               │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -328,11 +448,20 @@ RankAI offers 6 free tools for lead generation. We should consider:
 
 ## Sources
 
+- [Peec.ai](https://peec.ai/)
+- [Peec.ai Pricing](https://peec.ai/pricing)
+- [Peec.ai Review - Discovered Labs](https://discoveredlabs.com/blog/peec-ai-review-best-for-ai-visibility-monitoring-use-cases-limits-alternatives)
 - [RankAI](https://rankai.ai/)
 - [RankAI AI Search Visibility Checker](https://rankai.ai/tools/ai-search-visibility-checker)
 - [Rankability: Best AI Search Visibility Tools 2026](https://www.rankability.com/blog/best-ai-search-visibility-tracking-tools/)
 - [Nick Lafferty: AI Visibility Platforms Ranked](https://nicklafferty.com/blog/best-ai-visibility-optimization-platforms/)
+- [14 Tactics to Rank Higher in ChatGPT](https://nicklafferty.com/blog/how-to-rank-higher-in-chatgpt-perplexity/)
+- [GEO Complete Guide 2026](https://www.enrichlabs.ai/blog/generative-engine-optimization-geo-complete-guide-2026)
+- [25 Best Backlinks for AEO](https://skyseodigital.com/the-25-best-backlinks-for-aeo-ai-seo-in-2026/)
+- [AI SEO Checklist](https://www.localmighty.com/blog/ai-seo-checklist-aeo-geo-llm-optimization/)
+- [HubSpot AI Visibility Playbook](https://blog.hubspot.com/marketing/ai-search-visibility)
+- [Profound AI Visibility Tools](https://www.tryprofound.com/blog/best-ai-visibility-tools-for-marketing-agencies)
 
 ---
 
-*This competitive analysis confirms market demand and helps position our MVP effectively against established players like RankAI.*
+*This competitive analysis confirms market demand and positions our MVP as the "actionable alternative" to diagnosis-only tools like Peec.ai, at India-friendly pricing.*

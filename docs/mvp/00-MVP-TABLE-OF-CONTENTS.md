@@ -2,10 +2,12 @@
 
 ## AI Visibility Platform - Minimum Viable Product
 
-**Version:** 1.0.0
+**Version:** 2.0.0
 **Created:** 2026-07-02
+**Updated:** 2026-07-04
 **Target:** Demo-Ready MVP for Indian Market
 **Primary Market:** India (Digital Marketing Agencies, D2C Brands, SaaS Startups)
+**Key Differentiator:** Actionable recommendations with specific improvement timelines
 
 ---
 
@@ -26,12 +28,13 @@ This folder contains the complete MVP implementation plan for the AI Visibility 
 | # | Document | Description | Key Content |
 |---|----------|-------------|-------------|
 | 1 | [01-MVP-OVERVIEW.md](./01-MVP-OVERVIEW.md) | Strategy & Philosophy | MVP goals, free API strategy, demo script outline, success criteria |
-| 2 | [02-MVP-TECHNICAL-ARCHITECTURE.md](./02-MVP-TECHNICAL-ARCHITECTURE.md) | Technical Design | Next.js stack, SQLite schema, API design, deployment |
-| 3 | [03-MVP-FEATURE-SPECIFICATIONS.md](./03-MVP-FEATURE-SPECIFICATIONS.md) | Feature Details | Prompt Simulator, Dashboard, Brand Monitoring, Competitors, Auth |
-| 4 | [04-MVP-COST-ANALYSIS.md](./04-MVP-COST-ANALYSIS.md) | Cost Breakdown | $0-1/month operating cost, free tier utilization, scaling triggers |
-| 5 | [05-MVP-IMPLEMENTATION-TIMELINE.md](./05-MVP-IMPLEMENTATION-TIMELINE.md) | Development Schedule | 4-week breakdown, daily tasks, deliverables checklist |
-| 6 | [06-COMPETITIVE-ANALYSIS.md](./06-COMPETITIVE-ANALYSIS.md) | Market Research | RankAI analysis, competitor landscape, positioning strategy |
-| 7 | [07-INDIA-MARKET-STRATEGY.md](./07-INDIA-MARKET-STRATEGY.md) | India Go-to-Market | INR pricing, Razorpay, target segments, localization |
+| 2 | [02-MVP-TECHNICAL-ARCHITECTURE.md](./02-MVP-TECHNICAL-ARCHITECTURE.md) | Technical Design | Next.js stack, SQLite schema, API design, PDF/Email |
+| 3 | [03-MVP-FEATURE-SPECIFICATIONS.md](./03-MVP-FEATURE-SPECIFICATIONS.md) | Feature Details | Simulator, Dashboard, Recommendations, Backreferences, Reports |
+| 4 | [04-MVP-COST-ANALYSIS.md](./04-MVP-COST-ANALYSIS.md) | Cost Breakdown | $0-1/month operating cost, free tier utilization |
+| 5 | [05-MVP-IMPLEMENTATION-TIMELINE.md](./05-MVP-IMPLEMENTATION-TIMELINE.md) | Development Schedule | 5-6 week breakdown, daily tasks, new features |
+| 6 | [06-COMPETITIVE-ANALYSIS.md](./06-COMPETITIVE-ANALYSIS.md) | Market Research | Peec.ai, RankAI analysis, differentiation strategy |
+| 7 | [07-INDIA-MARKET-STRATEGY.md](./07-INDIA-MARKET-STRATEGY.md) | India Go-to-Market | INR pricing, Razorpay, target segments |
+| 8 | [08-RECOMMENDATIONS-ENGINE.md](./08-RECOMMENDATIONS-ENGINE.md) | **NEW** Recommendations | GEO/AEO playbook, backreferences, improvement timelines |
 
 ---
 
@@ -46,23 +49,26 @@ This folder contains the complete MVP implementation plan for the AI Visibility 
 │                                                                              │
 │  AI Systems:     ChatGPT (via GitHub Models) + Gemini (via Google AI Studio)│
 │  Cost:           ~$0-1/month (free tiers)                                   │
-│  Timeline:       4-6 weeks                                                   │
+│  Timeline:       5-6 weeks                                                   │
 │  Tech Stack:     Next.js 14 + SQLite + Vercel                               │
 │                                                                              │
 │  Features Included:                                                          │
 │  ✅ Prompt Simulator (hero feature)                                         │
 │  ✅ Visibility Dashboard                                                     │
 │  ✅ Brand Monitoring                                                         │
-│  ✅ Competitor Comparison (up to 3)                                         │
+│  ✅ Competitor Comparison (up to 5)                                         │
+│  ✅ Recommendations Engine (NEW - Key Differentiator)                       │
+│  ✅ Backreference Checklist (NEW - 25 platforms)                            │
+│  ✅ PDF Reports (NEW - Downloadable)                                        │
+│  ✅ Email Reports (NEW - Weekly/Monthly)                                    │
+│  ✅ Improvement Timelines (NEW - Specific estimates)                        │
 │  ✅ Simple Authentication                                                    │
 │                                                                              │
 │  Features Deferred:                                                          │
 │  ⏳ Claude, Perplexity, Copilot (add more AI systems later)                 │
-│  ⏳ Citation Tracking (complex extraction)                                   │
 │  ⏳ GEO Auditor (needs crawling infrastructure)                             │
 │  ⏳ Auto-Fix Engine (needs CMS integrations)                                │
-│  ⏳ API/SDK (internal only for MVP)                                         │
-│  ⏳ Multi-tenancy (single workspace for MVP)                                │
+│  ⏳ API/SDK (Pro tier feature)                                              │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```

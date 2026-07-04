@@ -21,14 +21,18 @@
 | Visibility Dashboard | P0 | **INCLUDED** | Simplified |
 | Visibility Score | P0 | **INCLUDED** | 2 systems only |
 | Brand Monitoring | P0 | **INCLUDED** | Basic version |
-| Competitor View | P0 | **INCLUDED** | Up to 3 competitors |
+| Competitor View | P0 | **INCLUDED** | Up to 5 competitors |
+| **Recommendations Engine** | P0 | **NEW - INCLUDED** | Actionable improvement playbook |
+| **Backreference Checklist** | P0 | **NEW - INCLUDED** | Platform presence tracker |
+| **PDF Reports** | P0 | **NEW - INCLUDED** | Downloadable reports |
+| **Email Reports** | P1 | **NEW - INCLUDED** | Weekly summary emails |
+| **Improvement Timeline** | P0 | **NEW - INCLUDED** | Expected results timeline |
 | Citation Tracking | P0 | DEFERRED | Complex extraction |
 | AI Search Analytics | P1 | DEFERRED | Needs web analytics |
 | AI Reputation Monitoring | P0 | PARTIAL | Basic sentiment only |
 | Content Optimizer | P0 | DEFERRED | Needs crawling |
 | GEO Auditor | P1 | DEFERRED | Needs infrastructure |
 | Auto-Fix Engine | P1 | DEFERRED | Needs CMS integration |
-| Executive Reporting | P1 | DEFERRED | Can show mockups |
 | API Access | P0 | DEFERRED | Internal API only |
 | Multi-tenant | P0 | DEFERRED | Single workspace |
 
@@ -698,7 +702,397 @@ interface VisibilityScore {
 | SentimentBadge | Colored sentiment indicator |
 | PositionBadge | Ranking position display |
 | ShareOfVoiceBar | Horizontal bar chart |
+| RecommendationCard | Action item with priority/timeline |
+| BackreferenceChecklist | Platform presence tracker |
+| ImprovementTimeline | Visual timeline component |
 
 ---
 
-*This document specifies all MVP features in detail. Development should follow these specifications to ensure a consistent, demo-ready product.*
+## 9. Feature 6: Recommendations Engine (NEW)
+
+### 9.1 Overview
+
+The Recommendations Engine transforms our platform from "visibility tracking" to "visibility improvement" by providing actionable, prioritized recommendations with expected timelines.
+
+> **Key Differentiator**: Competitors like Peec.ai show you the problem. We show you the solution.
+
+### 9.2 User Interface
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  IMPROVEMENT RECOMMENDATIONS                           [Generated: Today]    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  YOUR VISIBILITY SCORE: 42/100                                               │
+│  Projected score with all actions: 72/100 (+30)                             │
+│  Estimated timeline: 6-8 weeks                                               │
+│                                                                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  🔴 HIGH PRIORITY                                                            │
+│  ═════════════════                                                           │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  1. Claim your G2 profile                                    [⬜ Done] │ │
+│  │  ────────────────────────────────────────────────────────────────────  │ │
+│  │  Status: Not found on G2                                               │ │
+│  │  Competitor gap: All 3 competitors have G2 profiles with 20+ reviews  │ │
+│  │                                                                        │ │
+│  │  ⏱ Effort: 2 hours        📅 Results in: 2-3 weeks                    │ │
+│  │  📈 Expected impact: +5-8% visibility                                  │ │
+│  │                                                                        │ │
+│  │  Why: G2 is cited in 23% of ChatGPT responses for your category       │ │
+│  │  Action: Visit g2.com/products/new to claim your profile              │ │
+│  │                                                                        │ │
+│  │  [🔗 Go to G2]  [📚 View Guide]                                       │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  2. Add FAQ section to homepage                              [⬜ Done] │ │
+│  │  ────────────────────────────────────────────────────────────────────  │ │
+│  │  Status: No FAQ content detected on your website                       │ │
+│  │  Competitor gap: 2 of 3 competitors have FAQ sections                  │ │
+│  │                                                                        │ │
+│  │  ⏱ Effort: 4-6 hours      📅 Results in: 1-2 weeks                    │ │
+│  │  📈 Expected impact: +10-15% AI citation rate                          │ │
+│  │                                                                        │ │
+│  │  Why: FAQ content is cited 30% more often by AI systems               │ │
+│  │  Action: Add 6-10 common questions with direct answers                │ │
+│  │                                                                        │ │
+│  │  [📝 Sample FAQs]  [📚 View Guide]                                    │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  🟡 MEDIUM PRIORITY                                                          │
+│  ═══════════════════                                                         │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  3. Get featured on YourStory or Inc42              ⏱ 10-20 hrs       │ │
+│  │     📅 Results in: 4-8 weeks  📈 Impact: +10-15%                      │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  4. Start Reddit engagement in r/SaaS               ⏱ 2 hrs/week      │ │
+│  │     📅 Results in: 4-8 weeks  📈 Impact: +8-12%                       │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  🟢 QUICK WINS (Do Today)                                                    │
+│  ═════════════════════════                                                   │
+│                                                                              │
+│  ☐ Complete LinkedIn company page About section (1 hr, +3%)                 │
+│  ☐ Add Organization schema to website (2 hrs, +2%)                          │
+│  ☐ Update meta descriptions with direct answers (2 hrs, +2%)               │
+│                                                                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  [📥 Download PDF Report]  [📧 Email Me Weekly Updates]                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.3 Requirements
+
+| ID | Requirement | Priority | Notes |
+|----|-------------|----------|-------|
+| REC-001 | Generate prioritized recommendations | P0 | High/Medium/Low |
+| REC-002 | Show effort estimate per action | P0 | Hours/ongoing |
+| REC-003 | Show timeline to results | P0 | Days/weeks |
+| REC-004 | Show expected impact | P0 | % improvement |
+| REC-005 | Show competitor gap context | P0 | "Competitors have X" |
+| REC-006 | Mark recommendations as done | P1 | Progress tracking |
+| REC-007 | Link to guides/resources | P1 | How-to content |
+| REC-008 | Calculate projected score | P0 | If all actions done |
+
+### 9.4 Recommendation Categories
+
+| Category | Examples |
+|----------|----------|
+| **Entity Presence** | G2, LinkedIn, Crunchbase, Google Business |
+| **Content Structure** | FAQ sections, comparison pages, listicles |
+| **Authority Building** | Reviews, PR coverage, backlinks |
+| **Technical SEO** | Schema markup, meta descriptions |
+| **Community** | Reddit, Quora, forums |
+
+---
+
+## 10. Feature 7: Backreference Checklist (NEW)
+
+### 10.1 Overview
+
+A visual checklist showing which platforms the brand is present on vs. missing, with priority ranking for acquisition.
+
+### 10.2 User Interface
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  BACKREFERENCE CHECKLIST                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  YOUR PRESENCE: 8/25 platforms (32%)                                        │
+│  Competitor average: 15/25 platforms (60%)                                  │
+│                                                                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  TIER 1: ENTITY FOUNDATION (Must Have)                                      │
+│  ══════════════════════════════════════                                     │
+│                                                                              │
+│  ✅ Google Business Profile          Claimed, 4.2★ (12 reviews)             │
+│  ✅ LinkedIn Company Page             Complete, 500 followers                │
+│  ❌ Crunchbase                        NOT FOUND - Priority: HIGH            │
+│  ❌ Wikipedia                         NOT FOUND - Priority: LOW (hard)      │
+│                                                                              │
+│  TIER 2: REVIEW PLATFORMS                                                    │
+│  ═════════════════════════                                                  │
+│                                                                              │
+│  ❌ G2                                NOT FOUND - Priority: HIGH            │
+│     ↳ Competitor "Asana" has 2,500+ reviews                                │
+│  ❌ Capterra                          NOT FOUND - Priority: HIGH            │
+│  ✅ Trustpilot                        Present, 3.8★ (28 reviews)            │
+│                                                                              │
+│  TIER 3: COMMUNITY PLATFORMS                                                 │
+│  ════════════════════════════                                               │
+│                                                                              │
+│  ❌ Reddit                            No presence - Priority: MEDIUM        │
+│     ↳ Mentioned in r/SaaS 3 times (all by competitors)                     │
+│  ✅ Quora                             5 answers by team members              │
+│  ❌ Product Hunt                      NOT FOUND - Priority: MEDIUM          │
+│                                                                              │
+│  TIER 4: INDIA-SPECIFIC                                                      │
+│  ══════════════════════                                                     │
+│                                                                              │
+│  ❌ YourStory                         No coverage - Priority: MEDIUM        │
+│  ❌ Inc42                             No coverage - Priority: MEDIUM        │
+│  ✅ JustDial                          Listed, verified                       │
+│                                                                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  RECOMMENDED NEXT STEPS (in order):                                          │
+│  1. Claim G2 profile (2 hrs) → Highest AI citation impact                   │
+│  2. Create Crunchbase profile (1 hr) → Entity recognition                  │
+│  3. Claim Capterra profile (2 hrs) → Review platform presence              │
+│                                                                              │
+│  [📥 Download Checklist PDF]                                                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.3 Requirements
+
+| ID | Requirement | Priority | Notes |
+|----|-------------|----------|-------|
+| BR-001 | Show presence status per platform | P0 | ✅/❌ |
+| BR-002 | Show competitor presence comparison | P0 | Gap analysis |
+| BR-003 | Categorize platforms by tier | P0 | Foundation, Reviews, etc. |
+| BR-004 | Show priority level for missing | P0 | High/Medium/Low |
+| BR-005 | India-specific platforms | P0 | YourStory, Inc42, JustDial |
+| BR-006 | Link to claim/create profiles | P1 | Direct action |
+| BR-007 | Track when user claims platform | P1 | Progress tracking |
+
+### 10.4 Platform List (25 Core + India)
+
+See [08-RECOMMENDATIONS-ENGINE.md](./08-RECOMMENDATIONS-ENGINE.md) for complete platform list with priorities.
+
+---
+
+## 11. Feature 8: PDF Reports (NEW)
+
+### 11.1 Overview
+
+Downloadable PDF reports for stakeholder presentations and record-keeping.
+
+### 11.2 Report Structure
+
+```
+PAGE 1: EXECUTIVE SUMMARY
+─────────────────────────
+• Brand name & date
+• Overall visibility score (large display)
+• Score breakdown: ChatGPT vs Gemini
+• 30-day trend chart
+• Top 3 recommendations
+
+PAGE 2: VISIBILITY ANALYSIS
+────────────────────────────
+• Mention rate by AI system
+• Sentiment distribution
+• Position/ranking analysis
+• Competitor comparison
+
+PAGE 3: IMPROVEMENT RECOMMENDATIONS
+─────────────────────────────────────
+• High priority actions (5-7 items)
+• Expected timeline to results
+• Projected score improvement
+
+PAGE 4: BACKREFERENCE STATUS
+────────────────────────────────
+• Platform presence checklist
+• Gaps to fill
+• Priority order
+
+PAGE 5: ACTION PLAN
+───────────────────────
+• Week-by-week action items
+• Next steps
+• Next report date
+```
+
+### 11.3 Requirements
+
+| ID | Requirement | Priority | Notes |
+|----|-------------|----------|-------|
+| PDF-001 | Generate PDF on demand | P0 | Download button |
+| PDF-002 | Include all key metrics | P0 | Score, mentions, sentiment |
+| PDF-003 | Include recommendations | P0 | Prioritized list |
+| PDF-004 | Include competitor comparison | P0 | Visual chart |
+| PDF-005 | Branded template | P1 | Logo, colors |
+| PDF-006 | Include action timeline | P0 | Week-by-week |
+
+### 11.4 Technical Implementation
+
+**Option A (Recommended for MVP)**: HTML-to-PDF via Puppeteer
+- Reuse dashboard components
+- Better chart support
+- Use `@sparticuz/chromium` for serverless
+
+**Option B**: React-PDF
+- Client-side generation
+- More limited styling
+- Smaller bundle size
+
+---
+
+## 12. Feature 9: Email Reports (NEW)
+
+### 12.1 Overview
+
+Automated email reports to keep users engaged and informed without logging in.
+
+### 12.2 Email Types
+
+| Email | Frequency | Content |
+|-------|-----------|---------|
+| **Weekly Summary** | Every Monday 9am IST | Score change, top mentions, 1 action |
+| **Monthly Report** | 1st of month | Full PDF attached |
+| **Score Drop Alert** | Real-time | If score drops >10 points |
+| **Milestone** | As achieved | "You reached 70+ score!" |
+
+### 12.3 Weekly Email Template
+
+```
+Subject: Your AI Visibility Weekly: Score 68 (+3) | Acme Software
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 WEEKLY AI VISIBILITY UPDATE
+Acme Software | Week of July 1-7, 2026
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+YOUR VISIBILITY SCORE
+
+        68/100  ▲ +3 from last week
+
+ChatGPT: 72 (+4)     Gemini: 64 (+2)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📈 THIS WEEK'S HIGHLIGHTS
+
+• 12 new brand mentions detected
+• Sentiment improved: 75% positive
+• Ranked #2 for "best project management software"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 TOP ACTION FOR THIS WEEK
+
+Complete your G2 profile
+Effort: 2 hours | Expected Impact: +5% visibility
+
+[View All Recommendations →]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[View Dashboard]     [Download PDF Report]
+```
+
+### 12.4 Requirements
+
+| ID | Requirement | Priority | Notes |
+|----|-------------|----------|-------|
+| EMAIL-001 | Weekly summary email | P0 | Every Monday |
+| EMAIL-002 | Monthly PDF attachment | P1 | 1st of month |
+| EMAIL-003 | Email preferences | P0 | Opt-in/out |
+| EMAIL-004 | Unsubscribe link | P0 | Required by law |
+| EMAIL-005 | Score drop alerts | P1 | >10 point drop |
+
+### 12.5 Technical Implementation
+
+Using **Resend** (free tier: 3,000 emails/month):
+- Simple API integration
+- React Email for templates
+- Vercel Cron for scheduling
+
+---
+
+## 13. Updated Data Models
+
+### 13.1 New Entities
+
+```typescript
+// Recommendation
+interface Recommendation {
+  id: string;
+  brandId: string;
+  category: 'entity' | 'content' | 'authority' | 'technical' | 'community';
+  priority: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  effort: string;
+  timeline: string;
+  expectedImpact: string;
+  actionUrl?: string;
+  guideUrl?: string;
+  competitorGap?: string;
+  isCompleted: boolean;
+  completedAt?: Date;
+  generatedAt: Date;
+}
+
+// BackreferenceStatus
+interface BackreferenceStatus {
+  id: string;
+  brandId: string;
+  platform: string;
+  tier: 'foundation' | 'reviews' | 'community' | 'pr' | 'india';
+  status: 'present' | 'missing' | 'incomplete';
+  details?: string; // "4.2★, 12 reviews"
+  competitorStatus?: string; // "Asana has 2500+ reviews"
+  priority: 'high' | 'medium' | 'low';
+  claimedAt?: Date;
+  lastCheckedAt: Date;
+}
+
+// EmailPreference
+interface EmailPreference {
+  userId: string;
+  weeklyReport: boolean;
+  monthlyReport: boolean;
+  scoreAlerts: boolean;
+  unsubscribedAt?: Date;
+}
+
+// ReportGeneration
+interface ReportGeneration {
+  id: string;
+  brandId: string;
+  type: 'weekly' | 'monthly' | 'ondemand';
+  pdfUrl?: string;
+  generatedAt: Date;
+  emailSentAt?: Date;
+}
+```
+
+---
+
+*This document now includes all MVP features including the new Recommendations Engine, Backreference Checklist, PDF Reports, and Email Reports. Development should prioritize these features to differentiate from competitors.*

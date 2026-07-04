@@ -4,10 +4,12 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.0.0 |
-| Status | Draft |
+| Version | 2.0.0 |
+| Status | Updated |
 | Created | 2026-07-02 |
-| Total Duration | 4-6 weeks |
+| Updated | 2026-07-04 |
+| Total Duration | 5-6 weeks |
+| New Features | Recommendations, Backreferences, PDF/Email Reports |
 
 ---
 
@@ -16,49 +18,65 @@
 ### 1.1 High-Level Schedule
 
 ```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                         MVP IMPLEMENTATION TIMELINE                         │
-├────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  WEEK 1          WEEK 2          WEEK 3          WEEK 4          WEEK 5    │
-│  ──────          ──────          ──────          ──────          ──────    │
-│                                                                             │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │ PHASE 1: Foundation                                                  │  │
-│  │ Project setup, auth, database                                        │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-│                  ┌──────────────────────────────────────────────────────┐  │
-│                  │ PHASE 2: Core Features                               │  │
-│                  │ Prompt Simulator (hero feature)                      │  │
-│                  └──────────────────────────────────────────────────────┘  │
-│                                                                             │
-│                                  ┌──────────────────────────────────────┐  │
-│                                  │ PHASE 3: Dashboard & Monitoring      │  │
-│                                  │ Dashboard, brand config, mentions    │  │
-│                                  └──────────────────────────────────────┘  │
-│                                                                             │
-│                                                  ┌──────────────────────┐  │
-│                                                  │ PHASE 4: Polish      │  │
-│                                                  │ Competitors, UI, demo│  │
-│                                                  └──────────────────────┘  │
-│                                                                             │
-│  ●────────────●────────────●────────────●────────────●────────────●        │
-│  Start       W1 End      W2 End      W3 End      W4 End      Demo Ready   │
-│                                                                             │
-└────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    MVP IMPLEMENTATION TIMELINE (UPDATED)                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  WEEK 1        WEEK 2        WEEK 3        WEEK 4        WEEK 5        WEEK 6   │
+│  ──────        ──────        ──────        ──────        ──────        ──────   │
+│                                                                                  │
+│  ┌────────────────────────────────────────────────────────────────────────────┐ │
+│  │ PHASE 1: Foundation                                                        │ │
+│  │ Project setup, auth, database, AI integration                              │ │
+│  └────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                  │
+│               ┌────────────────────────────────────────────────────────────────┐│
+│               │ PHASE 2: Core Features                                         ││
+│               │ Prompt Simulator, Brand Config, Mentions                       ││
+│               └────────────────────────────────────────────────────────────────┘│
+│                                                                                  │
+│                            ┌───────────────────────────────────────────────────┐│
+│                            │ PHASE 3: Dashboard & Competitors                  ││
+│                            │ Visibility Dashboard, Competitor View             ││
+│                            └───────────────────────────────────────────────────┘│
+│                                                                                  │
+│                                         ┌──────────────────────────────────────┐│
+│                                         │ PHASE 4: Recommendations (NEW)       ││
+│                                         │ Playbook, Backreferences, Timelines  ││
+│                                         └──────────────────────────────────────┘│
+│                                                                                  │
+│                                                      ┌─────────────────────────┐│
+│                                                      │ PHASE 5: Reports (NEW)  ││
+│                                                      │ PDF, Email, Polish, Demo││
+│                                                      └─────────────────────────┘│
+│                                                                                  │
+│  ●──────────●──────────●──────────●──────────●──────────●──────────●           │
+│  Start     W1        W2        W3        W4        W5        Demo Ready        │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 Effort Estimates
+### 1.2 Effort Estimates (Updated)
 
 | Phase | Duration | Developer Days | Effort |
 |-------|----------|----------------|--------|
-| Phase 1: Foundation | 5 days | 5 | 20% |
-| Phase 2: Core Features | 7 days | 7 | 30% |
-| Phase 3: Dashboard & Monitoring | 6 days | 6 | 25% |
-| Phase 4: Polish & Demo | 5 days | 5 | 20% |
-| Buffer | 2 days | 2 | 5% |
-| **TOTAL** | **25 days (~5 weeks)** | **25** | **100%** |
+| Phase 1: Foundation | 5 days | 5 | 17% |
+| Phase 2: Core Features | 6 days | 6 | 20% |
+| Phase 3: Dashboard & Competitors | 5 days | 5 | 17% |
+| **Phase 4: Recommendations (NEW)** | 5 days | 5 | 17% |
+| **Phase 5: Reports & Polish (NEW)** | 6 days | 6 | 20% |
+| Buffer | 3 days | 3 | 9% |
+| **TOTAL** | **30 days (~6 weeks)** | **30** | **100%** |
+
+### 1.3 New Features Added
+
+| Feature | Phase | Days | Priority |
+|---------|-------|------|----------|
+| Recommendations Engine | Phase 4 | 3 | P0 |
+| Backreference Checklist | Phase 4 | 2 | P0 |
+| PDF Report Generation | Phase 5 | 2 | P0 |
+| Email Reports | Phase 5 | 2 | P1 |
+| Improvement Timelines | Phase 4 | Included | P0 |
 
 ---
 
@@ -437,22 +455,79 @@ END OF WEEK 3 MILESTONE: Dashboard and monitoring complete
 
 ---
 
-## 5. Phase 4: Polish & Demo Ready (Week 4)
+## 5. Phase 4: Recommendations Engine (Week 4) - NEW
 
 ### 5.1 Objectives
 
-- Build competitor comparison view
-- Final UI polish
-- Demo preparation
-- Testing and bug fixes
+- Build recommendations engine with actionable playbook
+- Create backreference checklist
+- Add improvement timeline estimates
+- Competitor comparison view
 
 ### 5.2 Daily Breakdown
 
 ```
-WEEK 4: POLISH & DEMO READY
+WEEK 4: RECOMMENDATIONS ENGINE (NEW)
 ═══════════════════════════════════════════════════════════════════════════
 
-DAY 19: Competitor Comparison
+DAY 19: Recommendations Backend
+───────────────────────────────
+□ Create recommendation data model and migrations
+□ Build recommendation generator logic (lib/recommendations/)
+  - Rule-based recommendation engine
+  - Priority scoring (High/Medium/Low)
+  - Effort and timeline estimates
+  - Competitor gap detection
+□ Create recommendations API routes
+  - GET /api/recommendations
+  - POST /api/recommendations/generate
+  - PUT /api/recommendations/[id]/complete
+□ Build recommendation templates (25+ pre-built)
+
+Deliverable: Working recommendations API
+
+───────────────────────────────────────────────────────────────────────────
+
+DAY 20: Recommendations Frontend
+────────────────────────────────
+□ Build RecommendationCard component
+  - Priority badge (High/Medium/Low)
+  - Effort and timeline display
+  - Expected impact
+  - Action buttons
+  - Competitor gap context
+□ Build RecommendationList component
+  - Grouped by priority
+  - Progress tracking
+  - Projected score display
+□ Build Recommendations page (/recommendations)
+□ Add "Top Action" to dashboard
+
+Deliverable: Recommendations UI complete
+
+───────────────────────────────────────────────────────────────────────────
+
+DAY 21: Backreference Checklist
+───────────────────────────────
+□ Create backreference status model
+□ Build platform presence data (25 core + India-specific)
+  - Platform name, tier, priority
+  - Claim URLs
+  - Competitor presence data
+□ Create backreference API routes
+  - GET /api/backreferences
+  - PUT /api/backreferences/[id]/claim
+□ Build PlatformChecklist component
+  - Tier grouping (Foundation, Reviews, Community, PR, India)
+  - Status indicators (✅/❌)
+  - Priority badges
+  - Competitor comparison
+
+Deliverable: Backreference checklist complete
+
+───────────────────────────────────────────────────────────────────────────
+
+DAY 22: Competitor Comparison
 ─────────────────────────────
 □ Create competitor stats API (/api/competitors/stats)
   - Visibility scores for all brands
@@ -471,57 +546,188 @@ Deliverable: Competitor comparison page
 
 ───────────────────────────────────────────────────────────────────────────
 
-DAY 20: UI Polish
-─────────────────
+DAY 23: Integration & Testing
+─────────────────────────────
+□ Connect recommendations to visibility data
+□ Test recommendation generation with various scenarios
+□ Add recommendations to dashboard widgets
+□ Link recommendations from mentions/simulator
+□ Fix any bugs
+
+Deliverable: Fully integrated recommendations
+
+═══════════════════════════════════════════════════════════════════════════
+END OF WEEK 4 MILESTONE: Recommendations & Backreferences complete
+═══════════════════════════════════════════════════════════════════════════
+```
+
+### 5.3 Week 4 Deliverables Checklist
+
+| # | Deliverable | Status |
+|---|-------------|--------|
+| 1 | Recommendations API working | ⬜ |
+| 2 | Recommendations UI complete | ⬜ |
+| 3 | Backreference checklist working | ⬜ |
+| 4 | Competitor comparison working | ⬜ |
+| 5 | Improvement timelines displayed | ⬜ |
+
+---
+
+## 6. Phase 5: Reports & Demo Ready (Week 5) - NEW
+
+### 6.1 Objectives
+
+- Build PDF report generation
+- Implement email reports
+- Final UI polish
+- Demo preparation
+- Testing and deployment
+
+### 6.2 Daily Breakdown
+
+```
+WEEK 5: REPORTS & DEMO READY (NEW)
+═══════════════════════════════════════════════════════════════════════════
+
+DAY 24: PDF Report Generation
+─────────────────────────────
+□ Install PDF dependencies (puppeteer-core, @sparticuz/chromium)
+□ Create report HTML template (lib/pdf/report-template.ts)
+  - Executive summary page
+  - Visibility analysis page
+  - Recommendations page
+  - Backreference checklist page
+□ Build PDF generation API (/api/reports/generate)
+□ Create "Download PDF" button on dashboard
+□ Test PDF generation and formatting
+
+Deliverable: Working PDF report download
+
+───────────────────────────────────────────────────────────────────────────
+
+DAY 25: Email Reports Setup
+───────────────────────────
+□ Set up Resend account and API key
+□ Create email templates (lib/email/templates/)
+  - Weekly summary email
+  - Monthly report email (with PDF attachment)
+□ Build email preferences UI (/settings/email)
+□ Create email API routes
+  - GET/PUT /api/email/preferences
+  - POST /api/email/send-test
+□ Test email sending
+
+Deliverable: Email preferences and test emails working
+
+───────────────────────────────────────────────────────────────────────────
+
+DAY 26: Cron Jobs & Automation
+──────────────────────────────
+□ Configure Vercel Cron jobs
+  - Weekly reports (Monday 9am IST)
+  - Monthly reports (1st of month)
+□ Build cron handler APIs
+  - /api/cron/weekly-reports
+  - /api/cron/monthly-reports
+□ Add cron secret verification
+□ Test cron job execution
+
+Deliverable: Automated email reports working
+
+───────────────────────────────────────────────────────────────────────────
+
+DAY 27: UI Polish & Demo Data
+─────────────────────────────
 □ Audit all pages for visual consistency
-□ Add transitions and animations (subtle)
-□ Improve loading states (skeletons everywhere)
-□ Add toast notifications for actions
+□ Add loading states and skeletons
 □ Improve error messages
-□ Add confirmation dialogs where needed
-□ Review and fix typography
-□ Check color contrast accessibility
-
-Deliverable: Polished, professional-looking UI
-
-───────────────────────────────────────────────────────────────────────────
-
-DAY 21: Demo Data Setup
-───────────────────────
-□ Create demo seed script (prisma/seed.ts)
+□ Create demo seed script with recommendations
   - Demo user account
-  - Pre-configured brand
-  - 3 competitors
-  - 50+ historical simulations
-  - Variety of mentions and sentiments
-□ Run seed script
-  $ npx prisma db seed
-□ Create demo login bypass (optional)
-□ Test demo data appears correctly
-□ Create backup of demo database
+  - Pre-configured brand with 5 competitors
+  - 100+ historical simulations
+  - Pre-generated recommendations
+  - Backreference statuses
+□ Run seed script and verify
 
-Deliverable: Fully populated demo environment
+Deliverable: Polished UI + demo environment
 
 ───────────────────────────────────────────────────────────────────────────
 
-DAY 22: Demo Script Rehearsal
+DAY 28: Deployment
+──────────────────
+□ Create Vercel project
+□ Configure environment variables
+  - Database, Auth, AI APIs
+  - Resend API key
+  - Cron secret
+□ Set up Turso database (production)
+□ Run migrations on production
+□ Deploy to Vercel
+□ Test all features on production
+□ Configure custom domain (if ready)
+
+Deliverable: Live production deployment
+
+───────────────────────────────────────────────────────────────────────────
+
+DAY 29-30: Demo Prep & Buffer
 ─────────────────────────────
 □ Write demo script (docs/mvp/DEMO-SCRIPT.md)
-  - Opening hook
-  - Feature walkthrough
-  - Live simulation moments
-  - Closing
+  - Opening hook with recommendations preview
+  - Simulator walkthrough
+  - Dashboard + recommendations demo
+  - Backreference checklist reveal
+  - PDF download moment
+  - Email preview
 □ Practice demo end-to-end
-□ Identify 3-5 "wow moment" prompts
-□ Pre-run and cache wow moment responses
+□ Pre-run and cache demo responses
 □ Prepare fallback screenshots
-□ Time the demo (target: 15-20 min)
+□ Time the demo (target: 20-25 min)
+□ Final bug fixes
 
-Deliverable: Rehearsed demo ready for clients
+Deliverable: Demo-ready MVP with recommendations!
 
-───────────────────────────────────────────────────────────────────────────
+═══════════════════════════════════════════════════════════════════════════
+END OF WEEK 5 MILESTONE: MVP READY WITH FULL RECOMMENDATIONS! 🎉
+═══════════════════════════════════════════════════════════════════════════
+```
 
-DAY 23: Deployment
+### 6.3 Week 5 Deliverables Checklist
+
+| # | Deliverable | Status |
+|---|-------------|--------|
+| 1 | PDF report generation working | ⬜ |
+| 2 | Email preferences UI | ⬜ |
+| 3 | Weekly email sending | ⬜ |
+| 4 | Cron jobs configured | ⬜ |
+| 5 | Production deployment live | ⬜ |
+| 6 | Demo script rehearsed | ⬜ |
+
+---
+
+## 7. Phase 6: Buffer Week (Week 6) - If Needed
+
+```
+WEEK 6: BUFFER (Optional)
+═══════════════════════════════════════════════════════════════════════════
+
+Use only if behind schedule:
+
+□ DAY 31-32: Catch-up on delayed features
+□ DAY 33: Extra testing and bug fixes
+□ DAY 34: Additional demo preparation
+□ DAY 35: Final polish and launch
+
+═══════════════════════════════════════════════════════════════════════════
+```
+
+---
+
+## 8. Legacy: Original Phase 4 (Now Merged)
+
+Note: The original Phase 4 tasks (competitor comparison, UI polish, demo setup) have been distributed across the new Phase 4 and Phase 5 to accommodate the new recommendation features.
+
+### Original DAY 23: Deployment (Now DAY 28)
 ──────────────────
 □ Create Vercel project
 □ Configure environment variables
