@@ -1,0 +1,300 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// USER & AUTH
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+
+  accounts        Account[]
+  sessions        Session[]
+  brands          Brand[]
+  simulations     Simulation[]
+  emailPreference EmailPreference?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────────────────────
+// BRAND CONFIGURATION
+// ─────────────────────────────────────────────────────────────
+
+model Brand {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  domain         String?
+  alternateNames String?  // JSON array stored as string
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  competitors          Competitor[]
+  mentions             Mention[]
+  simulations          Simulation[]
+  recommendations      Recommendation[]
+  backreferenceStatus  BackreferenceStatus[]
+  reportGenerations    ReportGeneration[]
+  monitoringConfig     MonitoringConfig?
+}
+
+model Competitor {
+  id        String   @id @default(cuid())
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name      String
+  domain    String?
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// SIMULATIONS & MENTIONS
+// ─────────────────────────────────────────────────────────────
+
+model Simulation {
+  id      String  @id @default(cuid())
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brandId String?
+  brand   Brand?  @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  prompt String
+
+  // Responses stored as JSON strings
+  chatgptResponse    String?
+  geminiResponse     String?
+  perplexityResponse String?
+
+  // Parsed analysis
+  chatgptMentions    String? // JSON array
+  geminiMentions     String? // JSON array
+  perplexityMentions String? // JSON array
+  chatgptSentiment   Float?
+  geminiSentiment    Float?
+  perplexitySentiment Float?
+  chatgptPosition    Int?
+  geminiPosition     Int?
+  perplexityPosition Int?
+
+  createdAt DateTime  @default(now())
+  mentions  Mention[]
+}
+
+model Mention {
+  id           String      @id @default(cuid())
+  brandId      String
+  brand        Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  simulationId String?
+  simulation   Simulation? @relation(fields: [simulationId], references: [id], onDelete: SetNull)
+
+  aiSystem String // 'chatgpt' | 'gemini'
+  prompt   String
+  response String
+  context  String? // Surrounding text of mention
+
+  sentiment Float? // -1.0 to 1.0
+  position  Int?   // Ranking position if applicable
+
+  isCompetitor   Boolean @default(false)
+  competitorName String?
+
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// API USAGE TRACKING (Rate Limit Management)
+// ─────────────────────────────────────────────────────────────
+
+model ApiUsage {
+  id       String @id @default(cuid())
+  provider String // 'gemini' | 'chatgpt'
+
+  date          String    @default("") // YYYY-MM-DD for daily tracking
+  requestCount  Int       @default(0)
+  tokenCount    Int       @default(0)
+  lastRequestAt DateTime?
+
+  @@unique([provider, date])
+}
+
+// ─────────────────────────────────────────────────────────────
+// CACHED RESPONSES (Demo Optimization)
+// ─────────────────────────────────────────────────────────────
+
+model CachedResponse {
+  id String @id @default(cuid())
+
+  promptHash String @unique // MD5 hash of normalized prompt
+  prompt     String
+  provider   String
+
+  response  String
+  analysis  String? // JSON: mentions, sentiment, position
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+// ─────────────────────────────────────────────────────────────
+// RECOMMENDATIONS ENGINE
+// ─────────────────────────────────────────────────────────────
+
+model Recommendation {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  category       String // 'entity' | 'content' | 'authority' | 'technical' | 'community'
+  priority       String // 'high' | 'medium' | 'low'
+  title          String
+  description    String
+  effort         String // "2 hours" | "Ongoing"
+  timeline       String // "1-2 weeks" | "4-8 weeks"
+  expectedImpact String // "+5-10% visibility"
+  actionUrl      String?
+  guideUrl       String?
+  competitorGap  String? // "Competitors have 50+ reviews"
+
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  generatedAt DateTime  @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// BACKREFERENCE TRACKING
+// ─────────────────────────────────────────────────────────────
+
+model BackreferenceStatus {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  platform         String // "G2", "LinkedIn", "Crunchbase", etc.
+  tier             String // 'foundation' | 'reviews' | 'community' | 'pr' | 'india'
+  status           String // 'present' | 'missing' | 'incomplete'
+  details          String? // "4.2★, 12 reviews"
+  profileUrl       String? // URL to their profile
+  competitorStatus String? // "Asana has 2500+ reviews"
+  priority         String // 'high' | 'medium' | 'low'
+
+  claimedAt     DateTime?
+  lastCheckedAt DateTime  @default(now())
+
+  @@unique([brandId, platform])
+}
+
+// ─────────────────────────────────────────────────────────────
+// EMAIL & REPORT PREFERENCES
+// ─────────────────────────────────────────────────────────────
+
+model EmailPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  weeklyReport  Boolean @default(true)
+  monthlyReport Boolean @default(true)
+  scoreAlerts   Boolean @default(true)
+
+  unsubscribedAt DateTime?
+  updatedAt      DateTime  @updatedAt
+}
+
+model ReportGeneration {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  type         String // 'weekly' | 'monthly' | 'ondemand'
+  pdfUrl       String? // Storage URL
+  pdfData      String? // Base64 for small PDFs (MVP)
+  analysisData String? // JSON: Full AnalysisResult from AI visibility analysis
+
+  generatedAt DateTime  @default(now())
+  emailSentAt DateTime?
+}
+
+// ─────────────────────────────────────────────────────────────
+// PROMPT CACHING FOR CONSISTENCY
+// ─────────────────────────────────────────────────────────────
+
+model PromptCache {
+  id       String @id @default(cuid())
+  cacheKey String @unique // MD5 hash of normalized prompt + brand + system
+  brandId  String
+  prompt   String
+  aiSystem String // 'chatgpt' | 'gemini'
+  response String
+  analysis String? // JSON: mentions, sentiment, position
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// BRAND MONITORING CONFIGURATION
+// ─────────────────────────────────────────────────────────────
+
+model MonitoringConfig {
+  id      String @id @default(cuid())
+  brandId String @unique
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  enabled   Boolean @default(true)
+  frequency String  @default("daily") // 'hourly' | 'daily' | 'weekly'
+  prompts   String? // JSON array of custom prompts
+
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
