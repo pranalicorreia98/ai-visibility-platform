@@ -22,48 +22,96 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Action is required" }, { status: 400 });
     }
 
+    // Extract detailed context
+    const {
+      industry,
+      domain,
+      competitors,
+      currentScore,
+      platformScores,
+      sentiment,
+      weaknesses,
+    } = context || {};
+
+    // Build competitor context string
+    const competitorContext = competitors?.length
+      ? `Key Competitors: ${competitors.map((c: { name: string }) => c.name).join(", ")}`
+      : "";
+
+    // Build platform performance context
+    const platformContext = platformScores
+      ? `Platform Performance:
+   - ChatGPT Score: ${platformScores.chatgpt || 0}/100
+   - Gemini Score: ${platformScores.gemini || 0}/100
+   - Perplexity Score: ${platformScores.perplexity || 0}/100`
+      : "";
+
+    // Build sentiment context
+    const sentimentContext = sentiment
+      ? `Sentiment Analysis:
+   - Positive: ${sentiment.positive || 0}%
+   - Neutral: ${sentiment.neutral || 0}%
+   - Negative: ${sentiment.negative || 0}%`
+      : "";
+
+    // Build weaknesses context
+    const weaknessContext = weaknesses?.length
+      ? `Known Weaknesses: ${weaknesses.join("; ")}`
+      : "";
+
     // Generate the prompt for step-by-step plan
-    const prompt = `You are an AI visibility and digital marketing expert. Generate a detailed step-by-step execution plan for the following action.
+    const prompt = `You are an expert AI visibility consultant and digital marketing strategist. Generate a HIGHLY SPECIFIC and ACTIONABLE step-by-step execution plan tailored specifically for this brand.
 
 ## ACTION TO EXECUTE
 "${action}"
 
-## BRAND CONTEXT
-Brand: ${brandName || "Not specified"}
-${context ? `Additional Context: ${context}` : ""}
+## BRAND DETAILS
+Brand Name: ${brandName || "Not specified"}
+${domain ? `Website: ${domain}` : ""}
+${industry ? `Industry: ${industry}` : ""}
+${competitorContext}
 
-## REQUIREMENTS
-Generate a practical, actionable step-by-step plan that:
-1. Can be executed by a marketing team or business owner
-2. Includes specific tools, platforms, or resources to use
-3. Has clear success metrics for each step
-4. Is realistic and achievable
+## CURRENT AI VISIBILITY STATUS
+${currentScore !== undefined ? `Overall AI Visibility Score: ${currentScore}/100` : ""}
+${platformContext}
+${sentimentContext}
+${weaknessContext}
+
+## CRITICAL REQUIREMENTS
+You MUST generate a plan that is:
+1. **SPECIFIC TO ${brandName?.toUpperCase() || "THIS BRAND"}** - Reference the brand by name in steps. Include specific examples relevant to their industry.
+2. **IMMEDIATELY ACTIONABLE** - Each step should be something they can do TODAY with exact instructions.
+3. **CONCRETE WITH EXAMPLES** - Provide actual sample content, templates, or scripts they can use/adapt.
+4. **TOOL-SPECIFIC** - Name exact tools/platforms with step-by-step usage instructions.
+5. **MEASURABLE** - Include specific metrics and KPIs to track progress.
 
 ## RESPONSE FORMAT
 Respond with a JSON object in this exact format:
 {
-  "title": "Brief title for this plan",
+  "title": "Brief title for this plan (include brand name)",
   "estimatedTime": "Estimated time to complete (e.g., '2-3 days', '1 week')",
   "difficulty": "easy" | "medium" | "hard",
   "steps": [
     {
       "step": 1,
-      "title": "Step title",
-      "description": "Detailed description of what to do",
-      "tools": ["Tool 1", "Tool 2"],
-      "tips": "Pro tips or best practices",
-      "successMetric": "How to know this step is complete"
+      "title": "Step title (be specific)",
+      "description": "DETAILED description with SPECIFIC instructions for ${brandName || "the brand"}. Include actual examples, sample content, or templates they can use. Reference their industry and competitors where relevant.",
+      "tools": ["Specific Tool 1 with version/link", "Specific Tool 2"],
+      "tips": "Pro tips specific to ${brandName || "this brand"}'s situation and industry",
+      "successMetric": "Specific, measurable outcome (e.g., 'Published 3 blog posts optimized for AI citations' not 'Content created')"
     }
   ],
   "resources": [
     {
       "name": "Resource name",
       "type": "tool" | "article" | "template" | "service",
-      "description": "Brief description"
+      "description": "How this specifically helps ${brandName || "the brand"}"
     }
   ],
-  "expectedOutcome": "What results to expect after completing all steps"
+  "expectedOutcome": "Specific, measurable results ${brandName || "the brand"} should expect (include realistic metrics)"
 }
+
+Remember: Generic advice is NOT helpful. Every step must be customized for ${brandName || "this specific brand"}'s situation.
 
 Respond ONLY with valid JSON. No markdown code blocks.`;
 

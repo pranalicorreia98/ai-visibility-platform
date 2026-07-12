@@ -6,10 +6,6 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Target,
-  Lightbulb,
-  Link2,
-  Users,
-  FileBarChart,
   Settings,
   Zap,
   ChevronRight,
@@ -19,10 +15,6 @@ import {
 const navigation = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { name: "AI Visibility", href: "/dashboard/analysis", icon: Target },
-  { name: "Recommendations", href: "/dashboard/recommendations", icon: Lightbulb },
-  { name: "Citation Tracker", href: "/dashboard/backreferences", icon: Link2 },
-  { name: "Competitors", href: "/dashboard/competitors", icon: Users },
-  { name: "Reports", href: "/dashboard/reports", icon: FileBarChart },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 

@@ -15,16 +15,13 @@ import {
   Check,
   ChevronRight,
   Download,
-  ExternalLink,
   Eye,
   Globe,
   Hash,
   Lightbulb,
-  Link2,
   MessageSquare,
   Play,
   RefreshCw,
-  Sparkles,
   Target,
   ThumbsUp,
   ThumbsDown,
@@ -286,56 +283,19 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* ROW 5: Citation Tracker Preview */}
+      {/* ROW 5: Market Overview */}
       <Card className="card-premium">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Link2 className="h-5 w-5 text-indigo-600" />
-              Citation Tracker
-            </CardTitle>
-            <CardDescription>Track where your brand is cited and find opportunities</CardDescription>
-          </div>
-          <Link href="/dashboard/backreferences">
-            <Button variant="ghost" size="sm" className="text-indigo-600">
-              View All
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </Link>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Globe className="h-5 w-5 text-indigo-600" />
+            Market Overview
+          </CardTitle>
+          <CardDescription>Industry snapshot and opportunities</CardDescription>
         </CardHeader>
         <CardContent>
-          <CitationTrackerPreview />
+          <MarketOverviewPreview />
         </CardContent>
       </Card>
-
-      {/* ROW 6 & 7: Market Overview & Industry Trends */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="card-premium">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Globe className="h-5 w-5 text-indigo-600" />
-              Market Overview
-            </CardTitle>
-            <CardDescription>Industry snapshot and opportunities</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MarketOverviewPreview />
-          </CardContent>
-        </Card>
-
-        <Card className="card-premium">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-indigo-600" />
-              Industry Trends
-            </CardTitle>
-            <CardDescription>Emerging AI queries and opportunities</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <IndustryTrendsPreview />
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
@@ -913,70 +873,6 @@ function ActionPlanList() {
   );
 }
 
-// Citation Tracker Preview
-function CitationTrackerPreview() {
-  const citations = [
-    { source: "G2 Reviews", mentioned: true, authority: 92, quality: "High", status: "cited" },
-    { source: "Capterra", mentioned: true, authority: 88, quality: "High", status: "cited" },
-    { source: "TechCrunch", mentioned: false, authority: 95, quality: "-", status: "missing" },
-    { source: "Forbes", mentioned: false, authority: 94, quality: "-", status: "opportunity" },
-    { source: "ProductHunt", mentioned: true, authority: 78, quality: "Medium", status: "weak" },
-  ];
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "cited": return <span className="badge-success text-xs px-2 py-0.5 rounded-full">Cited</span>;
-      case "missing": return <span className="badge-danger text-xs px-2 py-0.5 rounded-full">Missing</span>;
-      case "weak": return <span className="badge-warning text-xs px-2 py-0.5 rounded-full">Weak</span>;
-      case "opportunity": return <span className="badge-info text-xs px-2 py-0.5 rounded-full">Opportunity</span>;
-      default: return null;
-    }
-  };
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="table-modern">
-        <thead>
-          <tr>
-            <th>Citation Source</th>
-            <th>Mentioned</th>
-            <th>Authority</th>
-            <th>Quality</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {citations.map((citation, i) => (
-            <tr key={i}>
-              <td className="font-medium text-gray-900">{citation.source}</td>
-              <td>
-                {citation.mentioned ? (
-                  <CheckCircle className="h-4 w-4 text-emerald-500" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-gray-300" />
-                )}
-              </td>
-              <td>
-                <div className="flex items-center gap-2">
-                  <div className="w-12 h-1.5 bg-gray-100 rounded-full">
-                    <div
-                      className="h-full bg-indigo-500 rounded-full"
-                      style={{ width: `${citation.authority}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-500">{citation.authority}</span>
-                </div>
-              </td>
-              <td className="text-gray-600">{citation.quality}</td>
-              <td>{getStatusBadge(citation.status)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 // Market Overview Preview
 function MarketOverviewPreview() {
   const metrics = [
@@ -997,34 +893,6 @@ function MarketOverviewPreview() {
               <span className="text-xs text-emerald-600 font-medium">{metric.trend}</span>
             )}
           </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Industry Trends Preview
-function IndustryTrendsPreview() {
-  const trends = [
-    { title: "AI-powered CRM comparisons rising", change: "+45%", hot: true },
-    { title: "Voice search optimization queries", change: "+32%", hot: true },
-    { title: "Enterprise software alternatives", change: "+28%", hot: false },
-    { title: "Pricing comparison requests", change: "+22%", hot: false },
-  ];
-
-  return (
-    <div className="space-y-3">
-      {trends.map((trend, i) => (
-        <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100 hover:bg-gray-100 transition-colors">
-          <div className="flex items-center gap-3">
-            {trend.hot && (
-              <span className="px-2 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-600 rounded-full">
-                HOT
-              </span>
-            )}
-            <span className="text-sm text-gray-700">{trend.title}</span>
-          </div>
-          <span className="text-sm font-medium text-emerald-600">{trend.change}</span>
         </div>
       ))}
     </div>

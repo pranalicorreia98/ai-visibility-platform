@@ -131,3 +131,53 @@ export function AIEngineLogo({
       return null;
   }
 }
+
+// LLM Logo with Tooltip - displays model name on hover
+export function LLMLogoWithTooltip({
+  engine,
+  className = "",
+  size = 24,
+}: {
+  engine: "chatgpt" | "gemini" | "perplexity";
+  className?: string;
+  size?: number;
+}) {
+  const engineNames = {
+    chatgpt: "ChatGPT (OpenAI GPT-4)",
+    gemini: "Google Gemini",
+    perplexity: "Perplexity AI",
+  };
+
+  const engineColors = {
+    chatgpt: "hover:bg-emerald-100",
+    gemini: "hover:bg-blue-100",
+    perplexity: "hover:bg-violet-100",
+  };
+
+  return (
+    <div className="relative group inline-flex">
+      <div className={`p-1 rounded-lg transition-colors cursor-pointer ${engineColors[engine]} ${className}`}>
+        <AIEngineLogo engine={engine} size={size} />
+      </div>
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+        {engineNames[engine]}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+      </div>
+    </div>
+  );
+}
+
+// ChatGPT Logo with Tooltip
+export function ChatGPTLogoWithTooltip({ className = "", size = 24 }: LogoProps) {
+  return <LLMLogoWithTooltip engine="chatgpt" className={className} size={size} />;
+}
+
+// Gemini Logo with Tooltip
+export function GeminiLogoWithTooltip({ className = "", size = 24 }: LogoProps) {
+  return <LLMLogoWithTooltip engine="gemini" className={className} size={size} />;
+}
+
+// Perplexity Logo with Tooltip
+export function PerplexityLogoWithTooltip({ className = "", size = 24 }: LogoProps) {
+  return <LLMLogoWithTooltip engine="perplexity" className={className} size={size} />;
+}
