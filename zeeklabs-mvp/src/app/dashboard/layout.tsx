@@ -1,6 +1,5 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { FloatingPromptLab } from "@/components/layout/floating-prompt-lab";
 import { BrandProvider } from "@/contexts/brand-context";
 
 export default function DashboardLayout({
@@ -24,9 +23,6 @@ export default function DashboardLayout({
             {children}
           </main>
         </div>
-
-        {/* Floating Prompt Lab button */}
-        <FloatingPromptLab />
       </div>
     </BrandProvider>
   );

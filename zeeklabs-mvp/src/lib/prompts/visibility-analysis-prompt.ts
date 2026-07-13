@@ -101,12 +101,17 @@ export interface VisibilityAnalysisResult {
     featureAdvantages: string[];
   };
 
-  // Citations & Sources
+  // Citations & Sources (Comprehensive list of citation opportunities)
   citations: Array<{
     source: string;
-    type: "review_site" | "news" | "social" | "industry_report" | "official";
+    type: "review_site" | "news" | "social" | "industry_report" | "official" | "directory" | "content" | "academic";
+    category: string; // e.g., "Review Platform", "Tech News", "Social Media", etc.
+    status: "cited" | "weak" | "missing"; // Current citation status
+    priority: "high" | "medium" | "low"; // Priority for acquiring this citation
+    effort: "low" | "medium" | "high"; // Effort required to get cited
     relevance: string;
     url?: string;
+    aiRecommendation?: string; // Specific action to improve citation
   }>;
 
   // Actionable Recommendations
@@ -214,13 +219,47 @@ Identify 3-5 emerging companies in this space that are NOT in the competitor lis
 - Identify feature gaps vs competitors
 - Identify feature advantages
 
-### 7. CITATIONS & SOURCES
-List real platforms and sources where this brand and competitors are discussed:
-- Review sites (G2, Capterra, TrustRadius, etc.)
-- News mentions
-- Social platforms
-- Industry reports
-- Official sources
+### 7. CITATIONS & SOURCES (IMPORTANT - Be Comprehensive)
+List AT LEAST 15-20 real platforms and sources where this brand could be or should be mentioned. This is critical for AI visibility. Include:
+
+**Review & Rating Platforms:**
+- G2, Capterra, TrustRadius, GetApp, Software Advice, Gartner Peer Insights
+- Trustpilot, Google Reviews, Yelp, Glassdoor, Indeed (employer reviews)
+- Amazon reviews (if applicable), App Store, Google Play
+
+**News & Media:**
+- TechCrunch, Forbes, Business Insider, Bloomberg, CNBC, Reuters
+- Industry-specific publications and trade journals
+- Local/regional news outlets relevant to the brand's market
+
+**Social & Community:**
+- Reddit (relevant subreddits), Quora, Stack Overflow/Stack Exchange
+- Twitter/X, LinkedIn, Facebook groups, Discord communities
+- Industry forums and community platforms
+
+**Directories & Databases:**
+- Crunchbase, PitchBook, CB Insights, LinkedIn Company Pages
+- Wikipedia, industry association directories
+- Local business directories (Google Business, Bing Places)
+
+**Content Platforms:**
+- YouTube (brand channel, reviews, tutorials)
+- Medium, Substack, industry blogs
+- ProductHunt, BetaList, AlternativeTo
+
+**Academic & Research:**
+- Google Scholar citations, research papers
+- University case studies, whitepapers
+
+**Official Sources:**
+- Press releases, investor relations, company blog
+- Official certifications and compliance databases
+
+For each source, indicate:
+- Whether the brand is currently cited (status: cited/weak/missing)
+- The priority for getting cited (high/medium/low)
+- The effort required (low/medium/high)
+- A specific recommendation for improving presence
 
 ### 8. ACTIONABLE RECOMMENDATIONS
 Provide specific, actionable recommendations:
@@ -324,10 +363,15 @@ Respond ONLY with valid JSON matching this exact structure:
   },
   "citations": [
     {
-      "source": "<source name>",
-      "type": "<review_site|news|social|industry_report|official>",
-      "relevance": "<why this source matters>",
-      "url": "<url if known>"
+      "source": "<source name e.g. G2, TechCrunch, Reddit>",
+      "type": "<review_site|news|social|industry_report|official|directory|content|academic>",
+      "category": "<e.g. Review Platform, Tech News, Social Media, Business Directory>",
+      "status": "<cited|weak|missing>",
+      "priority": "<high|medium|low>",
+      "effort": "<low|medium|high>",
+      "relevance": "<why this source matters for AI visibility>",
+      "url": "<url if known>",
+      "aiRecommendation": "<specific action to improve or maintain citation>"
     }
   ],
   "recommendations": {

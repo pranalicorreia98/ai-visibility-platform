@@ -14,54 +14,74 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Activity,
   AlertCircle,
   ArrowRight,
   ArrowUpRight,
   ArrowDownRight,
+  Award,
   BarChart3,
+  Briefcase,
+  BookOpen,
+  Calendar,
   CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  ClipboardList,
+  Clock,
+  DollarSign,
+  Download,
   ExternalLink,
   Eye,
+  FileDown,
+  FileText,
+  Gem,
   Globe,
+  Hash,
+  HelpCircle,
+  Info,
+  Layers,
   Lightbulb,
+  Link2,
+  ListChecks,
+  ListOrdered,
   Loader2,
+  MapPin,
   MessageSquare,
   Minus,
-  Play,
-  Target,
-  ThumbsUp,
-  ThumbsDown,
-  TrendingUp,
-  Users,
-  Zap,
-  Link2,
-  XCircle,
-  ChevronDown,
-  ChevronUp,
-  Sparkles,
-  Download,
-  FileText,
-  Calendar,
-  RefreshCw,
-  Hash,
-  Briefcase,
+  Newspaper,
   Package,
-  BookOpen,
-  ClipboardList,
-  Info,
-  ListChecks,
+  Play,
   Quote,
+  RefreshCw,
+  Rocket,
+  Scale,
+  Search,
+  Shield,
+  Sparkles,
+  Star,
+  Target,
+  ThumbsDown,
+  ThumbsUp,
+  TrendingUp,
   Trophy,
-  HelpCircle,
-  Clock,
+  Users,
   Wrench,
-  FileDown,
-  ChevronRight,
+  XCircle,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { jsPDF } from "jspdf";
 import { useBrand, AnalysisResult } from "@/contexts/brand-context";
 import { ChatGPTLogo, GeminiLogo, PerplexityLogo, LLMLogoWithTooltip } from "@/components/ui/ai-logos";
+import { determineBrandScale, generateBrandPrompts, getIndustryContext, getPromptCount, type BrandScale } from "@/lib/prompts/prompt-generator";
 
 export default function AnalysisPage() {
   const {
@@ -200,6 +220,7 @@ export default function AnalysisPage() {
           title="AI Visibility"
           icon={<Eye className="h-5 w-5" />}
           variant="primary"
+          tooltip="Overall visibility score (0-100) calculated as weighted average of scores across ChatGPT (40%), Gemini (35%), and Perplexity (25%). Higher scores indicate stronger brand presence in AI responses."
         >
           <VisibilityDonutChart
             chatgpt={vis?.score?.chatgpt || 0}
@@ -213,6 +234,7 @@ export default function AnalysisPage() {
         <InsightIsland
           title="Brand Mentions"
           icon={<MessageSquare className="h-5 w-5" />}
+          tooltip="Total number of times your brand was mentioned in AI-generated responses across all platforms. Tracked from simulated user queries related to your industry and products."
         >
           <MetricDisplay
             value={vis?.mentions?.total || 0}
@@ -226,6 +248,7 @@ export default function AnalysisPage() {
         <InsightIsland
           title="Mention Frequency"
           icon={<Activity className="h-5 w-5" />}
+          tooltip="Average number of brand mentions per week based on simulated AI queries. Calculated by running industry-relevant prompts across AI platforms and counting brand appearances."
         >
           <MetricDisplay
             value={vis?.simulations || 0}
@@ -240,6 +263,7 @@ export default function AnalysisPage() {
         <InsightIsland
           title="Typical Position"
           icon={<Hash className="h-5 w-5" />}
+          tooltip="Your average ranking position when mentioned in AI responses. Position #1 means you're mentioned first. Lower numbers indicate higher prominence in AI recommendations."
         >
           <div className="flex items-baseline gap-1">
             <span className="text-4xl font-bold text-gray-900">#</span>
@@ -272,6 +296,11 @@ export default function AnalysisPage() {
         brandScore={vis?.score?.overall || 0}
       />
 
+      {/* Progress Tracking Graph */}
+      {selectedBrandId && (
+        <ProgressTrackingGraph brandId={selectedBrandId} />
+      )}
+
       {/* Improvement & Action Plan - Full Detail */}
       <ImprovementActionPlanIsland
         currentScore={vis?.score?.overall || 0}
@@ -298,7 +327,11 @@ export default function AnalysisPage() {
       />
 
       {/* Citation Opportunities - Full Detail */}
-      <CitationOpportunitiesIsland />
+      <CitationOpportunitiesIsland
+        citations={result?.citations}
+        brandName={selectedBrand?.name || "Your Brand"}
+        industry={result?.marketIntelligence?.industryTrends?.[0]?.split(" ")[0]}
+      />
 
       {/* Analysis Results */}
       {result ? (
@@ -309,19 +342,18 @@ export default function AnalysisPage() {
             brandName={selectedBrand?.name || "Your Brand"}
           />
 
-          {/* Analysis Prompts Used - Enhanced */}
-          <AnalysisPromptsIslandEnhanced brandName={selectedBrand?.name || "Your Brand"} />
+          {/* Analysis Prompts Used */}
+          <AnalysisPromptsUsedIsland
+            brandName={selectedBrand?.name || "Your Brand"}
+            domain={selectedBrand?.domain || ""}
+            competitors={selectedBrand?.competitors || []}
+            visibilityScore={visibilityData?.score?.overall}
+          />
 
           {/* Market Intelligence - Enhanced */}
           {result.marketIntelligence && (
             <MarketIntelligenceIsland marketIntelligence={result.marketIntelligence} />
           )}
-
-          {/* Market Overview & Industry Trends - Enhanced */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <MarketOverviewIsland marketIntelligence={result.marketIntelligence} />
-            <IndustryTrendsIsland trends={result.marketIntelligence?.industryTrends} />
-          </div>
 
           {/* Methodology - Enhanced */}
           <MethodologyIsland />
@@ -465,6 +497,25 @@ function useAnimatedCounter(target: number, duration: number = 1000) {
   return count;
 }
 
+// Score Tooltip Component - Reusable tooltip for explaining how scores are calculated
+function ScoreTooltip({ content, children }: { content: string; children: React.ReactNode }) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-help inline-flex items-center gap-1">
+            {children}
+            <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+          {content}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 // Insight Island Component
 function InsightIsland({
   title,
@@ -474,6 +525,7 @@ function InsightIsland({
   className = "",
   expandable = false,
   expandedContent,
+  tooltip,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -482,6 +534,7 @@ function InsightIsland({
   className?: string;
   expandable?: boolean;
   expandedContent?: React.ReactNode;
+  tooltip?: string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -499,7 +552,23 @@ function InsightIsland({
             <div className="p-2 rounded-lg bg-gray-100 text-gray-600">
               {icon}
             </div>
-            <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+            {tooltip ? (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 cursor-help">
+                      {title}
+                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                    </h3>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                    {tooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+            )}
           </div>
           {expandable && (
             <button
@@ -1967,6 +2036,328 @@ function SentimentDisplay({
 }
 
 // ============================================
+// PROGRESS TRACKING GRAPH
+// ============================================
+
+interface ProgressDataPoint {
+  date: string;
+  label: string;
+  overallScore: number;
+  chatgptScore: number | null;
+  geminiScore: number | null;
+  perplexityScore: number | null;
+  totalMentions: number;
+  sentimentScore: number | null;
+  avgPosition: number | null;
+  count: number;
+}
+
+interface ProgressSummary {
+  currentScore: number;
+  startScore: number;
+  change: number;
+  changePercent: number;
+  totalSnapshots: number;
+  period: string;
+  avgScore: number;
+  highestScore: number;
+  lowestScore: number;
+}
+
+function ProgressTrackingGraph({ brandId }: { brandId: string }) {
+  const [period, setPeriod] = useState<"week" | "month" | "quarter" | "year">("month");
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<ProgressDataPoint[]>([]);
+  const [summary, setSummary] = useState<ProgressSummary | null>(null);
+
+  const fetchProgressData = useCallback(async () => {
+    if (!brandId) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/progress?brandId=${brandId}&period=${period}`);
+      if (response.ok) {
+        const result = await response.json();
+        setData(result.data || []);
+        setSummary(result.summary || null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch progress data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [brandId, period]);
+
+  useEffect(() => {
+    fetchProgressData();
+  }, [fetchProgressData]);
+
+  const periods = [
+    { id: "week" as const, label: "Week", shortLabel: "7D" },
+    { id: "month" as const, label: "Month", shortLabel: "30D" },
+    { id: "quarter" as const, label: "Quarter", shortLabel: "90D" },
+    { id: "year" as const, label: "Year", shortLabel: "1Y" },
+  ];
+
+  // Calculate graph dimensions
+  const maxScore = data.length > 0 ? Math.max(...data.map(d => d.overallScore), 100) : 100;
+  const minScore = data.length > 0 ? Math.min(...data.map(d => d.overallScore), 0) : 0;
+  const scoreRange = maxScore - minScore || 100;
+
+  // Generate SVG path for the line chart
+  const generatePath = (points: ProgressDataPoint[]): string => {
+    if (points.length === 0) return "";
+
+    const width = 100; // percentage
+    const height = 100;
+    const padding = 5;
+
+    const xStep = (width - padding * 2) / Math.max(points.length - 1, 1);
+
+    const pathPoints = points.map((point, i) => {
+      const x = padding + i * xStep;
+      const y = height - padding - ((point.overallScore - minScore) / scoreRange) * (height - padding * 2);
+      return `${x},${y}`;
+    });
+
+    return `M ${pathPoints.join(" L ")}`;
+  };
+
+  // Generate area fill path
+  const generateAreaPath = (points: ProgressDataPoint[]): string => {
+    if (points.length === 0) return "";
+
+    const width = 100;
+    const height = 100;
+    const padding = 5;
+
+    const xStep = (width - padding * 2) / Math.max(points.length - 1, 1);
+
+    const topPoints = points.map((point, i) => {
+      const x = padding + i * xStep;
+      const y = height - padding - ((point.overallScore - minScore) / scoreRange) * (height - padding * 2);
+      return `${x},${y}`;
+    });
+
+    const startX = padding;
+    const endX = padding + (points.length - 1) * xStep;
+
+    return `M ${startX},${height - padding} L ${topPoints.join(" L ")} L ${endX},${height - padding} Z`;
+  };
+
+  if (loading) {
+    return (
+      <div className="insight-island">
+        <div className="p-5">
+          <Skeleton className="h-8 w-48 mb-4" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="insight-island">
+      <div className="p-5">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <div>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                      Visibility Progress Tracker
+                      <Info className="h-4 w-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+                    </h3>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                    Tracks your AI visibility score improvements over time. Each data point represents an analysis run. Use this to measure the impact of your optimization efforts.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <p className="text-sm text-gray-500">Track your improvement journey</p>
+            </div>
+          </div>
+
+          {/* Period Selector */}
+          <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
+            {periods.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setPeriod(p.id)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                  period === p.id
+                    ? "bg-white text-indigo-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                {p.shortLabel}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {data.length === 0 ? (
+          /* Empty State */
+          <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+            <BarChart3 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <h4 className="text-sm font-semibold text-gray-700 mb-1">No Progress Data Yet</h4>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              Run your first analysis to start tracking your AI visibility progress. Each analysis creates a data point for comparison.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100">
+                <p className="text-xs text-gray-500 mb-1">Current Score</p>
+                <p className="text-2xl font-bold text-indigo-600">{summary?.currentScore || 0}</p>
+              </div>
+              <div className={`p-4 rounded-xl border ${
+                (summary?.change || 0) >= 0
+                  ? "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100"
+                  : "bg-gradient-to-br from-rose-50 to-red-50 border-rose-100"
+              }`}>
+                <p className="text-xs text-gray-500 mb-1">Change</p>
+                <div className="flex items-center gap-2">
+                  <p className={`text-2xl font-bold ${
+                    (summary?.change || 0) >= 0 ? "text-emerald-600" : "text-rose-600"
+                  }`}>
+                    {(summary?.change || 0) >= 0 ? "+" : ""}{summary?.change || 0}
+                  </p>
+                  {(summary?.change || 0) >= 0 ? (
+                    <ArrowUpRight className="h-5 w-5 text-emerald-500" />
+                  ) : (
+                    <ArrowDownRight className="h-5 w-5 text-rose-500" />
+                  )}
+                </div>
+              </div>
+              <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-100">
+                <p className="text-xs text-gray-500 mb-1">Avg Score</p>
+                <p className="text-2xl font-bold text-amber-600">{summary?.avgScore || 0}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-100">
+                <p className="text-xs text-gray-500 mb-1">Analysis Runs</p>
+                <p className="text-2xl font-bold text-violet-600">{summary?.totalSnapshots || 0}</p>
+              </div>
+            </div>
+
+            {/* Graph */}
+            <div className="relative h-48 bg-gradient-to-b from-gray-50 to-white rounded-xl border border-gray-200 overflow-hidden">
+              {/* Y-axis labels */}
+              <div className="absolute left-2 top-2 bottom-2 flex flex-col justify-between text-[10px] text-gray-400">
+                <span>{maxScore}</span>
+                <span>{Math.round((maxScore + minScore) / 2)}</span>
+                <span>{minScore}</span>
+              </div>
+
+              {/* Grid lines */}
+              <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="rgb(99, 102, 241)" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="rgb(99, 102, 241)" stopOpacity="0.05" />
+                  </linearGradient>
+                </defs>
+                {/* Horizontal grid lines */}
+                <line x1="10%" y1="25%" x2="98%" y2="25%" stroke="#e5e7eb" strokeWidth="1" strokeDasharray="4,4" />
+                <line x1="10%" y1="50%" x2="98%" y2="50%" stroke="#e5e7eb" strokeWidth="1" strokeDasharray="4,4" />
+                <line x1="10%" y1="75%" x2="98%" y2="75%" stroke="#e5e7eb" strokeWidth="1" strokeDasharray="4,4" />
+              </svg>
+
+              {/* Chart */}
+              <svg
+                className="absolute left-8 right-2 top-2 bottom-6 w-[calc(100%-40px)] h-[calc(100%-32px)]"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+              >
+                {/* Area fill */}
+                <path
+                  d={generateAreaPath(data)}
+                  fill="url(#areaGradient)"
+                />
+                {/* Line */}
+                <path
+                  d={generatePath(data)}
+                  fill="none"
+                  stroke="rgb(99, 102, 241)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+                {/* Data points */}
+                {data.map((point, i) => {
+                  const width = 100;
+                  const height = 100;
+                  const padding = 5;
+                  const xStep = (width - padding * 2) / Math.max(data.length - 1, 1);
+                  const x = padding + i * xStep;
+                  const y = height - padding - ((point.overallScore - minScore) / scoreRange) * (height - padding * 2);
+
+                  return (
+                    <TooltipProvider key={i} delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <circle
+                            cx={x}
+                            cy={y}
+                            r="3"
+                            fill="white"
+                            stroke="rgb(99, 102, 241)"
+                            strokeWidth="2"
+                            className="cursor-pointer hover:r-4 transition-all"
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent className="p-2 text-xs">
+                          <p className="font-semibold">{point.label}</p>
+                          <p className="text-indigo-600">Score: {point.overallScore}</p>
+                          {point.sentimentScore && <p className="text-gray-500">Sentiment: {point.sentimentScore}</p>}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })}
+              </svg>
+
+              {/* X-axis labels */}
+              <div className="absolute bottom-1 left-8 right-2 flex justify-between text-[10px] text-gray-400">
+                {data.slice(0, 6).map((point, i) => (
+                  <span key={i} className="truncate max-w-[60px]">{point.label}</span>
+                ))}
+                {data.length > 6 && <span>...</span>}
+              </div>
+            </div>
+
+            {/* Score range indicator */}
+            <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                <span>Highest: {summary?.highestScore || 0}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-amber-500" />
+                <span>Average: {summary?.avgScore || 0}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-rose-500" />
+                <span>Lowest: {summary?.lowestScore || 0}</span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
 // FULL-WIDTH DETAILED ISLANDS (Non-Expandable)
 // ============================================
 
@@ -2042,7 +2433,19 @@ function SentimentAnalysisIsland({
               <Activity className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Sentiment Analysis</h3>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                      Sentiment Analysis
+                      <Info className="h-4 w-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+                    </h3>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                    Analyzes the tone and attitude of AI-generated content about your brand. Derived from natural language processing of AI responses to classify mentions as positive, neutral, or negative.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <p className="text-sm text-gray-500">How AI platforms perceive your brand</p>
             </div>
           </div>
@@ -2055,7 +2458,19 @@ function SentimentAnalysisIsland({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
           {/* Overall Score */}
           <div className="p-5 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100">
-            <h4 className="text-sm font-semibold text-gray-700 mb-3">Overall AI Sentiment Score</h4>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5 cursor-help">
+                    Overall AI Sentiment Score
+                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                  </h4>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                  Calculated as: (Positive% × 100 + Neutral% × 50) / Total. Score ranges 0-100, where 100 means all mentions are positive. Based on sentiment classification of AI responses.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <div className="flex items-center gap-4">
               <div className="text-5xl font-bold text-indigo-600">{sentimentScore}</div>
               <div className="flex-1">
@@ -2078,7 +2493,19 @@ function SentimentAnalysisIsland({
 
           {/* Platform Breakdown */}
           <div className="lg:col-span-2 p-5 rounded-xl bg-gray-50 border border-gray-200">
-            <h4 className="text-sm font-semibold text-gray-700 mb-3">Sentiment by AI Platform</h4>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5 cursor-help">
+                    Sentiment by AI Platform
+                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                  </h4>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                  Breakdown of positive/neutral/negative sentiment for each AI platform. The percentage trend shows change from previous 30 days. Each bar represents the proportion of sentiment types.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <div className="space-y-3">
               {platformSentiment.map((platform, i) => (
                 <div key={i} className="flex items-center gap-4">
@@ -2265,12 +2692,12 @@ function CompetitorComparisonIsland({
   const yourRank = allBrands.findIndex(b => b.isYou) + 1;
   const leader = allBrands[0];
 
-  // Competitive metrics
+  // Competitive metrics with tooltips
   const metrics = [
-    { label: "Visibility", yours: brandScore, avg: Math.round(competitorDetails.reduce((a, c) => a + c.overallScore, 0) / competitorDetails.length) },
-    { label: "Content Freshness", yours: 85, avg: 62 },
-    { label: "Citation Coverage", yours: 72, avg: 58 },
-    { label: "Review Sentiment", yours: 78, avg: 71 },
+    { label: "Visibility", yours: brandScore, avg: Math.round(competitorDetails.reduce((a, c) => a + c.overallScore, 0) / competitorDetails.length), tooltip: "Overall AI visibility score based on mention frequency, position, and sentiment across all AI platforms." },
+    { label: "Content Freshness", yours: 85, avg: 62, tooltip: "Measures how recently your content has been updated and indexed by AI systems. Based on content publication dates and AI training data recency." },
+    { label: "Citation Coverage", yours: 72, avg: 58, tooltip: "Percentage of AI responses that include citations or references to your brand. Higher coverage indicates stronger source authority." },
+    { label: "Review Sentiment", yours: 78, avg: 71, tooltip: "Average sentiment score from customer reviews aggregated by AI platforms. Based on review platforms like G2, Capterra, and industry sites." },
   ];
 
   // Opportunities
@@ -2290,7 +2717,19 @@ function CompetitorComparisonIsland({
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Competitor Comparison</h3>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                      Competitor Comparison
+                      <Info className="h-4 w-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+                    </h3>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                    Compares your AI visibility metrics against identified competitors. Rankings are based on overall visibility scores derived from mention frequency, position, and sentiment across AI platforms.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <p className="text-sm text-gray-500">Your position in the competitive landscape</p>
             </div>
           </div>
@@ -2300,47 +2739,162 @@ function CompetitorComparisonIsland({
         </div>
 
         {/* Ranking & Metrics */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Ranking Visualization */}
-          <div className="p-5 rounded-xl bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-100">
-            <h4 className="text-sm font-semibold text-gray-700 mb-4">AI Visibility Ranking</h4>
-            <div className="space-y-3">
-              {allBrands.map((brand, i) => (
-                <div key={i} className={`flex items-center gap-3 p-2 rounded-lg ${brand.isYou ? "bg-indigo-100 border border-indigo-200" : ""}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                    i === 0 ? "bg-amber-400 text-white" :
-                    i === 1 ? "bg-gray-400 text-white" :
-                    i === 2 ? "bg-amber-600 text-white" :
-                    "bg-gray-200 text-gray-600"
-                  }`}>
-                    {i + 1}
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-50 via-violet-50 to-purple-50 border border-violet-200/50 shadow-sm">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="p-1.5 rounded-lg bg-violet-100">
+                <Trophy className="h-4 w-4 text-violet-600" />
+              </div>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 cursor-help">
+                      AI Visibility Ranking
+                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                    </h4>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                    Brands ranked by overall AI visibility score. Score combines mention frequency (40%), average position (30%), and sentiment (30%) across ChatGPT, Gemini, and Perplexity.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div className="space-y-2.5">
+              {allBrands.map((brand, i) => {
+                const isLeader = i === 0;
+                const isSecond = i === 1;
+                const isThird = i === 2;
+
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-4 p-3 rounded-xl transition-all ${
+                      brand.isYou
+                        ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-200"
+                        : "bg-white border border-gray-100 hover:border-violet-200 hover:shadow-sm"
+                    }`}
+                  >
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm ${
+                      brand.isYou ? "bg-white/20 text-white" :
+                      isLeader ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-white" :
+                      isSecond ? "bg-gradient-to-br from-slate-300 to-gray-400 text-white" :
+                      isThird ? "bg-gradient-to-br from-amber-600 to-orange-600 text-white" :
+                      "bg-gray-100 text-gray-500"
+                    }`}>
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold truncate ${brand.isYou ? "text-white" : "text-gray-800"}`}>
+                        {brand.name}
+                      </p>
+                      {brand.isYou && (
+                        <p className="text-xs text-white/80">Your Position</p>
+                      )}
+                    </div>
+                    <div className={`text-right ${brand.isYou ? "text-white" : ""}`}>
+                      <p className={`text-xl font-bold ${brand.isYou ? "text-white" : "text-gray-900"}`}>
+                        {brand.score}
+                      </p>
+                      <p className={`text-[10px] ${brand.isYou ? "text-white/70" : "text-gray-400"}`}>score</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${brand.isYou ? "text-indigo-700" : "text-gray-700"}`}>
-                      {brand.name} {brand.isYou && "(You)"}
-                    </p>
-                  </div>
-                  <div className={`text-lg font-bold ${brand.isYou ? "text-indigo-600" : "text-gray-600"}`}>
-                    {brand.score}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {/* Your Metrics vs Competitors */}
-          <div className="lg:col-span-2 p-5 rounded-xl bg-gray-50 border border-gray-200">
-            <h4 className="text-sm font-semibold text-gray-700 mb-4">Your Metrics vs Competitor Average</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {metrics.map((metric, i) => (
-                <div key={i} className="text-center p-3 bg-white rounded-lg border border-gray-100">
-                  <p className="text-2xl font-bold text-gray-900">{metric.yours}</p>
-                  <p className="text-xs text-gray-500 mt-1">{metric.label}</p>
-                  <div className={`text-xs font-medium mt-1 ${metric.yours > metric.avg ? "text-emerald-600" : "text-red-500"}`}>
-                    {metric.yours > metric.avg ? "↑" : "↓"} vs avg {metric.avg}
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50 border border-blue-200/50 shadow-sm">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="p-1.5 rounded-lg bg-blue-100">
+                <BarChart3 className="h-4 w-4 text-blue-600" />
+              </div>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 cursor-help">
+                      Your Metrics vs Competitor Average
+                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                    </h4>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                    Compares your key metrics against the average of all tracked competitors. Green indicates you're above average, red indicates below. The circular chart shows your score as a percentage.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {metrics.map((metric, i) => {
+                const isAboveAvg = metric.yours > metric.avg;
+                const diff = metric.yours - metric.avg;
+                const percentage = Math.round((metric.yours / 100) * 100);
+
+                return (
+                  <div
+                    key={i}
+                    className={`p-4 rounded-xl border-2 transition-all hover:shadow-md ${
+                      isAboveAvg
+                        ? "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200"
+                        : "bg-gradient-to-br from-rose-50 to-red-50 border-rose-200"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-xs font-medium text-gray-600 flex items-center gap-1 cursor-help">
+                              {metric.label}
+                              <Info className="h-3 w-3 text-gray-400 hover:text-indigo-500 transition-colors" />
+                            </p>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                            {metric.tooltip}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isAboveAvg
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-rose-100 text-rose-700"
+                      }`}>
+                        {isAboveAvg ? "+" : ""}{diff}
+                      </div>
+                    </div>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p className={`text-3xl font-bold ${isAboveAvg ? "text-emerald-600" : "text-rose-600"}`}>
+                          {metric.yours}
+                        </p>
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          Avg: <span className="font-semibold">{metric.avg}</span>
+                        </p>
+                      </div>
+                      <div className="w-16 h-16">
+                        <svg viewBox="0 0 36 36" className="w-full h-full">
+                          <path
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none"
+                            stroke={isAboveAvg ? "#d1fae5" : "#ffe4e6"}
+                            strokeWidth="3"
+                          />
+                          <path
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none"
+                            stroke={isAboveAvg ? "#10b981" : "#f43f5e"}
+                            strokeWidth="3"
+                            strokeDasharray={`${percentage}, 100`}
+                            strokeLinecap="round"
+                          />
+                          <text x="18" y="21" textAnchor="middle" className="text-[8px] font-bold" fill={isAboveAvg ? "#059669" : "#e11d48"}>
+                            {percentage}%
+                          </text>
+                        </svg>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -2540,54 +3094,287 @@ function ActionStepsModal({
   const downloadPDF = () => {
     if (!planData) return;
 
-    // Create PDF content as text
-    let content = `ACTION PLAN: ${planData.title}\n`;
-    content += `${"=".repeat(50)}\n\n`;
-    content += `Estimated Time: ${planData.estimatedTime}\n`;
-    content += `Difficulty: ${planData.difficulty.toUpperCase()}\n\n`;
-    content += `ORIGINAL ACTION:\n${action}\n\n`;
-    content += `${"=".repeat(50)}\n`;
-    content += `STEP-BY-STEP GUIDE\n`;
-    content += `${"=".repeat(50)}\n\n`;
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    const contentWidth = pageWidth - margin * 2;
+    let yPos = margin;
 
-    planData.steps.forEach((step) => {
-      content += `STEP ${step.step}: ${step.title}\n`;
-      content += `${"-".repeat(40)}\n`;
-      content += `${step.description}\n\n`;
-      if (step.tools.length > 0) {
-        content += `Tools: ${step.tools.join(", ")}\n`;
+    // Helper function to add new page if needed
+    const checkPageBreak = (requiredSpace: number) => {
+      if (yPos + requiredSpace > pageHeight - margin) {
+        pdf.addPage();
+        yPos = margin;
+        return true;
       }
-      content += `Pro Tip: ${step.tips}\n`;
-      content += `Success Metric: ${step.successMetric}\n\n`;
+      return false;
+    };
+
+    // Helper function to wrap text
+    const wrapText = (text: string, maxWidth: number, fontSize: number): string[] => {
+      pdf.setFontSize(fontSize);
+      return pdf.splitTextToSize(text, maxWidth);
+    };
+
+    // Colors
+    const colors = {
+      primary: [99, 102, 241] as [number, number, number],      // Indigo
+      secondary: [139, 92, 246] as [number, number, number],    // Violet
+      success: [16, 185, 129] as [number, number, number],      // Emerald
+      warning: [245, 158, 11] as [number, number, number],      // Amber
+      danger: [239, 68, 68] as [number, number, number],        // Red
+      dark: [31, 41, 55] as [number, number, number],           // Gray-800
+      gray: [107, 114, 128] as [number, number, number],        // Gray-500
+      lightBg: [249, 250, 251] as [number, number, number],     // Gray-50
+    };
+
+    // === HEADER SECTION ===
+    // Header background
+    pdf.setFillColor(...colors.primary);
+    pdf.rect(0, 0, pageWidth, 45, "F");
+
+    // Gradient overlay effect
+    pdf.setFillColor(...colors.secondary);
+    pdf.rect(pageWidth - 60, 0, 60, 45, "F");
+
+    // Title
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(18);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("ACTION PLAN", margin, 18);
+
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    const titleLines = wrapText(planData.title, contentWidth - 40, 11);
+    pdf.text(titleLines, margin, 28);
+
+    // Badges on header
+    const badgeY = 38;
+    pdf.setFontSize(8);
+
+    // Difficulty badge
+    const difficultyColor = planData.difficulty === "easy" ? colors.success :
+                            planData.difficulty === "medium" ? colors.warning : colors.danger;
+    pdf.setFillColor(...difficultyColor);
+    pdf.roundedRect(margin, badgeY - 5, 35, 8, 2, 2, "F");
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(planData.difficulty.toUpperCase(), margin + 4, badgeY);
+
+    // Time badge
+    pdf.setFillColor(255, 255, 255);
+    pdf.roundedRect(margin + 40, badgeY - 5, 45, 8, 2, 2, "F");
+    pdf.setTextColor(...colors.primary);
+    pdf.text(`⏱ ${planData.estimatedTime}`, margin + 44, badgeY);
+
+    yPos = 55;
+
+    // === ORIGINAL ACTION SECTION ===
+    pdf.setFillColor(...colors.lightBg);
+    pdf.roundedRect(margin, yPos, contentWidth, 25, 3, 3, "F");
+    pdf.setDrawColor(...colors.primary);
+    pdf.setLineWidth(0.5);
+    pdf.roundedRect(margin, yPos, contentWidth, 25, 3, 3, "S");
+
+    pdf.setTextColor(...colors.primary);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("ORIGINAL ACTION", margin + 5, yPos + 8);
+
+    pdf.setTextColor(...colors.dark);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    const actionLines = wrapText(action, contentWidth - 10, 10);
+    pdf.text(actionLines.slice(0, 2), margin + 5, yPos + 16);
+
+    yPos += 35;
+
+    // === STEPS SECTION ===
+    pdf.setTextColor(...colors.dark);
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Step-by-Step Guide", margin, yPos);
+    yPos += 10;
+
+    planData.steps.forEach((step, index) => {
+      checkPageBreak(60);
+
+      // Step card background
+      const stepColors = [
+        [238, 242, 255] as [number, number, number], // Indigo-50
+        [245, 243, 255] as [number, number, number], // Violet-50
+        [236, 253, 245] as [number, number, number], // Emerald-50
+        [255, 251, 235] as [number, number, number], // Amber-50
+      ];
+      const bgColor = stepColors[index % stepColors.length];
+      const borderColors = [colors.primary, colors.secondary, colors.success, colors.warning];
+      const borderColor = borderColors[index % borderColors.length];
+
+      // Calculate card height based on content
+      const descLines = wrapText(step.description, contentWidth - 25, 9);
+      const tipsLines = wrapText(step.tips, contentWidth - 45, 8);
+      const metricLines = wrapText(step.successMetric, contentWidth - 45, 8);
+      const cardHeight = 30 + (descLines.length * 4) + (step.tools.length > 0 ? 12 : 0) +
+                         (tipsLines.length * 4) + (metricLines.length * 4) + 15;
+
+      checkPageBreak(cardHeight + 10);
+
+      // Card background
+      pdf.setFillColor(...bgColor);
+      pdf.roundedRect(margin, yPos, contentWidth, cardHeight, 4, 4, "F");
+
+      // Left border accent
+      pdf.setFillColor(...borderColor);
+      pdf.roundedRect(margin, yPos, 4, cardHeight, 2, 2, "F");
+
+      // Step number circle
+      pdf.setFillColor(...borderColor);
+      pdf.circle(margin + 15, yPos + 12, 8, "F");
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(String(step.step), margin + 13, yPos + 15);
+
+      // Step title
+      pdf.setTextColor(...colors.dark);
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(step.title, margin + 28, yPos + 14);
+
+      // Step description
+      let innerY = yPos + 24;
+      pdf.setTextColor(...colors.gray);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(descLines, margin + 10, innerY);
+      innerY += descLines.length * 4 + 4;
+
+      // Tools
+      if (step.tools.length > 0) {
+        pdf.setFillColor(...colors.primary);
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(7);
+        let toolX = margin + 10;
+        step.tools.forEach((tool) => {
+          const toolWidth = pdf.getTextWidth(tool) + 8;
+          if (toolX + toolWidth > pageWidth - margin) {
+            toolX = margin + 10;
+            innerY += 8;
+          }
+          pdf.roundedRect(toolX, innerY - 4, toolWidth, 7, 2, 2, "F");
+          pdf.text(tool, toolX + 4, innerY);
+          toolX += toolWidth + 4;
+        });
+        innerY += 10;
+      }
+
+      // Pro Tip
+      pdf.setFillColor(254, 243, 199); // Amber-100
+      pdf.roundedRect(margin + 10, innerY, contentWidth - 20, tipsLines.length * 4 + 6, 2, 2, "F");
+      pdf.setTextColor(...colors.warning);
+      pdf.setFontSize(7);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("💡 PRO TIP", margin + 14, innerY + 5);
+      pdf.setTextColor(...colors.dark);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.text(tipsLines, margin + 14, innerY + 10);
+      innerY += tipsLines.length * 4 + 12;
+
+      // Success Metric
+      pdf.setFillColor(220, 252, 231); // Emerald-100
+      pdf.roundedRect(margin + 10, innerY, contentWidth - 20, metricLines.length * 4 + 6, 2, 2, "F");
+      pdf.setTextColor(...colors.success);
+      pdf.setFontSize(7);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("✓ SUCCESS METRIC", margin + 14, innerY + 5);
+      pdf.setTextColor(...colors.dark);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.text(metricLines, margin + 14, innerY + 10);
+
+      yPos += cardHeight + 8;
     });
 
+    // === RESOURCES SECTION ===
     if (planData.resources.length > 0) {
-      content += `${"=".repeat(50)}\n`;
-      content += `RECOMMENDED RESOURCES\n`;
-      content += `${"=".repeat(50)}\n\n`;
+      checkPageBreak(50);
+      yPos += 5;
+
+      pdf.setTextColor(...colors.dark);
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Recommended Resources", margin, yPos);
+      yPos += 10;
+
       planData.resources.forEach((resource) => {
-        content += `• ${resource.name} (${resource.type})\n`;
-        content += `  ${resource.description}\n\n`;
+        checkPageBreak(20);
+
+        const typeColors: Record<string, [number, number, number]> = {
+          tool: colors.primary,
+          article: colors.secondary,
+          template: colors.success,
+          service: colors.warning,
+        };
+        const typeColor = typeColors[resource.type] || colors.gray;
+
+        pdf.setFillColor(...colors.lightBg);
+        pdf.roundedRect(margin, yPos, contentWidth, 18, 3, 3, "F");
+
+        // Type badge
+        pdf.setFillColor(...typeColor);
+        pdf.roundedRect(margin + 5, yPos + 4, 30, 6, 2, 2, "F");
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(6);
+        pdf.text(resource.type.toUpperCase(), margin + 8, yPos + 8);
+
+        // Resource name
+        pdf.setTextColor(...colors.dark);
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(resource.name, margin + 40, yPos + 9);
+
+        // Description
+        pdf.setTextColor(...colors.gray);
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "normal");
+        const resourceDesc = wrapText(resource.description, contentWidth - 50, 8);
+        pdf.text(resourceDesc[0] || "", margin + 40, yPos + 14);
+
+        yPos += 22;
       });
     }
 
-    content += `${"=".repeat(50)}\n`;
-    content += `EXPECTED OUTCOME\n`;
-    content += `${"=".repeat(50)}\n\n`;
-    content += `${planData.expectedOutcome}\n\n`;
-    content += `\nGenerated by ZeekLabs AI Visibility Platform\n`;
-    content += `Date: ${new Date().toLocaleDateString()}\n`;
+    // === EXPECTED OUTCOME SECTION ===
+    checkPageBreak(40);
+    yPos += 5;
 
-    // Create and download file
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `action-plan-${planData.title.toLowerCase().replace(/\s+/g, "-")}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    pdf.setFillColor(...colors.success);
+    pdf.roundedRect(margin, yPos, contentWidth, 30, 4, 4, "F");
+
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("🎯 EXPECTED OUTCOME", margin + 10, yPos + 10);
+
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    const outcomeLines = wrapText(planData.expectedOutcome, contentWidth - 20, 9);
+    pdf.text(outcomeLines.slice(0, 3), margin + 10, yPos + 18);
+
+    // === FOOTER ===
+    const footerY = pageHeight - 15;
+    pdf.setFillColor(...colors.lightBg);
+    pdf.rect(0, footerY - 5, pageWidth, 20, "F");
+
+    pdf.setTextColor(...colors.gray);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`Generated by ZeekLabs AI Visibility Platform`, margin, footerY);
+    pdf.text(`${new Date().toLocaleDateString()} | ${brandName}`, pageWidth - margin - 50, footerY);
+
+    // Download the PDF
+    pdf.save(`action-plan-${planData.title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}.pdf`);
   };
 
   const difficultyColors = {
@@ -2661,50 +3448,85 @@ function ActionStepsModal({
                 Step-by-Step Guide ({planData.steps.length} steps)
               </h4>
 
-              {planData.steps.map((step, index) => (
-                <div
-                  key={step.step}
-                  className="p-4 rounded-xl border border-gray-200 bg-white hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
-                      {step.step}
-                    </div>
-                    <div className="flex-1">
-                      <h5 className="font-semibold text-gray-900 mb-2">{step.title}</h5>
-                      <p className="text-sm text-gray-600 leading-relaxed mb-3">{step.description}</p>
+              {planData.steps.map((step, index) => {
+                const stepColors = [
+                  { bg: "from-indigo-500 to-purple-500", border: "border-indigo-200", light: "bg-indigo-50" },
+                  { bg: "from-violet-500 to-fuchsia-500", border: "border-violet-200", light: "bg-violet-50" },
+                  { bg: "from-blue-500 to-cyan-500", border: "border-blue-200", light: "bg-blue-50" },
+                  { bg: "from-emerald-500 to-teal-500", border: "border-emerald-200", light: "bg-emerald-50" },
+                ];
+                const colorSet = stepColors[index % stepColors.length];
 
-                      {/* Tools */}
-                      {step.tools.length > 0 && (
-                        <div className="flex items-center gap-2 mb-2">
-                          <Wrench className="h-3.5 w-3.5 text-gray-400" />
-                          <div className="flex flex-wrap gap-1">
+                return (
+                  <div
+                    key={step.step}
+                    className={`p-5 rounded-2xl border-2 ${colorSet.border} ${colorSet.light} hover:shadow-lg transition-all`}
+                  >
+                    {/* Step Header */}
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${colorSet.bg} text-white flex items-center justify-center text-lg font-bold shadow-md`}>
+                        {step.step}
+                      </div>
+                      <h5 className="font-bold text-gray-900 text-base flex-1">{step.title}</h5>
+                    </div>
+
+                    {/* Description - with proper formatting */}
+                    <div className="mb-4 p-4 rounded-xl bg-white border border-gray-100">
+                      <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                        {step.description}
+                      </p>
+                    </div>
+
+                    {/* Tools */}
+                    {step.tools.length > 0 && (
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="p-1.5 rounded-lg bg-gray-100">
+                          <Wrench className="h-4 w-4 text-gray-500" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 mb-1.5">TOOLS & RESOURCES</p>
+                          <div className="flex flex-wrap gap-2">
                             {step.tools.map((tool, i) => (
-                              <Badge key={i} variant="secondary" className="text-xs bg-gray-100">
+                              <Badge key={i} className="text-xs bg-white border border-gray-200 text-gray-700 px-3 py-1">
                                 {tool}
                               </Badge>
                             ))}
                           </div>
                         </div>
-                      )}
+                      </div>
+                    )}
 
+                    {/* Tips & Success in a grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {/* Tips */}
-                      <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 mb-2">
+                      <div className="p-3 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200">
                         <div className="flex items-start gap-2">
-                          <Lightbulb className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                          <p className="text-xs text-amber-700">{step.tips}</p>
+                          <div className="p-1 rounded-lg bg-amber-100">
+                            <Lightbulb className="h-3.5 w-3.5 text-amber-600" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-amber-700 mb-1">PRO TIP</p>
+                            <p className="text-xs text-amber-800 leading-relaxed">{step.tips}</p>
+                          </div>
                         </div>
                       </div>
 
                       {/* Success Metric */}
-                      <div className="flex items-center gap-2 text-xs text-emerald-600">
-                        <CheckCircle className="h-3.5 w-3.5" />
-                        <span className="font-medium">Success: {step.successMetric}</span>
+                      <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200">
+                        <div className="flex items-start gap-2">
+                          <div className="p-1 rounded-lg bg-emerald-100">
+                            <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-emerald-700 mb-1">SUCCESS METRIC</p>
+                            <p className="text-xs text-emerald-800 leading-relaxed">{step.successMetric}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Resources */}
@@ -2877,48 +3699,161 @@ function ImprovementActionPlanIsland({
               <TrendingUp className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Improvement & Action Plan</h3>
-              <p className="text-sm text-gray-500">Click <HelpCircle className="h-3.5 w-3.5 inline text-indigo-500" /> on any action for step-by-step guidance</p>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                      Improvement & Action Plan
+                      <Info className="h-4 w-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+                    </h3>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                    Prioritized recommendations to improve your AI visibility score. Actions are categorized by timeframe and estimated impact. Potential points are calculated based on action complexity and historical improvement data.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <p className="text-sm text-gray-500">Prioritized actions to boost your AI visibility</p>
             </div>
           </div>
-          <Badge className="bg-emerald-100 text-emerald-700">
-            +{totalGain} pts potential
-          </Badge>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge className="bg-emerald-100 text-emerald-700 cursor-help">
+                  +{totalGain} pts potential
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                Total potential score increase if all recommended actions are completed. Calculated as sum of immediate (+{immediateGain}), short-term (+{shortTermGain}), and long-term (+{longTermGain}) gains.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
-        {/* Score Roadmap */}
-        <div className="p-5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 mb-6">
-          <h4 className="text-sm font-semibold text-gray-700 mb-4">Score Improvement Roadmap</h4>
-          <div className="flex items-center gap-4">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-gray-900">{currentScore}</p>
-              <p className="text-xs text-gray-500">Current</p>
-            </div>
-            <div className="flex-1 flex items-center gap-2">
-              <ArrowRight className="h-5 w-5 text-gray-400" />
-              <div className="flex-1 h-4 bg-gray-200 rounded-full overflow-hidden relative">
-                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${currentScore}%` }} />
-                <div className="absolute top-0 h-full bg-emerald-400 rounded-full animate-pulse" style={{ left: `${currentScore}%`, width: `${totalGain}%` }} />
-              </div>
-              <ArrowRight className="h-5 w-5 text-gray-400" />
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-emerald-600">{totalPotential}</p>
-              <p className="text-xs text-gray-500">Potential</p>
-            </div>
+        {/* Score Improvement Heatmap */}
+        <div className="p-5 rounded-xl bg-white border border-gray-200 mb-6">
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5 cursor-help">
+                  Score Improvement Heatmap
+                  <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                </h4>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                Heatmap visualization showing score progression. Darker colors indicate higher scores. Each cell represents a 10-point range with your current position and potential improvement highlighted.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* Heatmap Grid */}
+          <div className="flex items-stretch gap-1 mb-4">
+            {Array.from({ length: 10 }, (_, i) => {
+              const rangeStart = i * 10;
+              const rangeEnd = rangeStart + 10;
+              const isCurrentRange = currentScore >= rangeStart && currentScore < rangeEnd;
+              const isPotentialRange = totalPotential >= rangeStart && totalPotential < rangeEnd;
+              const isInProgress = currentScore < rangeStart && totalPotential > rangeStart;
+              const isPassed = currentScore >= rangeEnd;
+              const isFuture = totalPotential < rangeStart;
+
+              // Color intensity based on score range
+              const getHeatColor = () => {
+                if (isPassed) return "bg-indigo-500";
+                if (isCurrentRange) return "bg-gradient-to-t from-indigo-600 to-indigo-400";
+                if (isInProgress) return "bg-gradient-to-t from-emerald-400 to-emerald-300 animate-pulse";
+                if (isPotentialRange) return "bg-gradient-to-t from-emerald-500 to-emerald-400";
+                if (isFuture) return "bg-gray-100";
+                return "bg-gray-200";
+              };
+
+              return (
+                <TooltipProvider key={i} delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={`flex-1 h-16 rounded-lg ${getHeatColor()} flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-105 hover:shadow-md relative overflow-hidden`}
+                      >
+                        {isCurrentRange && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-white font-bold text-lg drop-shadow-md">{currentScore}</div>
+                          </div>
+                        )}
+                        {isPotentialRange && !isCurrentRange && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-white font-bold text-lg drop-shadow-md">{totalPotential}</div>
+                          </div>
+                        )}
+                        {!isCurrentRange && !isPotentialRange && (
+                          <span className={`text-xs font-medium ${isPassed || isInProgress ? "text-white/70" : "text-gray-400"}`}>
+                            {rangeStart}-{rangeEnd}
+                          </span>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="p-2 text-xs">
+                      <p className="font-semibold">Score Range: {rangeStart}-{rangeEnd}</p>
+                      {isCurrentRange && <p className="text-indigo-600">Current: {currentScore}</p>}
+                      {isPotentialRange && <p className="text-emerald-600">Potential: {totalPotential}</p>}
+                      {isInProgress && <p className="text-emerald-600">Improvement zone</p>}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })}
           </div>
-          <div className="flex justify-center gap-6 mt-4">
-            <div className="text-center p-2 px-4 rounded-lg bg-emerald-100">
-              <p className="text-lg font-bold text-emerald-600">+{immediateGain}</p>
-              <p className="text-[10px] text-emerald-700">Immediate</p>
+
+          {/* Legend and Summary */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-indigo-500" />
+                <span className="text-xs text-gray-600">Current ({currentScore})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-emerald-400" />
+                <span className="text-xs text-gray-600">Potential gain (+{totalGain})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-gray-100 border border-gray-200" />
+                <span className="text-xs text-gray-600">Target ({totalPotential})</span>
+              </div>
             </div>
-            <div className="text-center p-2 px-4 rounded-lg bg-blue-100">
-              <p className="text-lg font-bold text-blue-600">+{shortTermGain}</p>
-              <p className="text-[10px] text-blue-700">Short-term</p>
-            </div>
-            <div className="text-center p-2 px-4 rounded-lg bg-violet-100">
-              <p className="text-lg font-bold text-violet-600">+{longTermGain}</p>
-              <p className="text-[10px] text-violet-700">Long-term</p>
+
+            {/* Gain Breakdown */}
+            <div className="flex items-center gap-3">
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 cursor-help">
+                      <Zap className="h-3.5 w-3.5 text-emerald-600" />
+                      <span className="text-xs font-bold text-emerald-700">+{immediateGain}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="p-2 text-xs">Immediate actions impact</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 cursor-help">
+                      <Target className="h-3.5 w-3.5 text-blue-600" />
+                      <span className="text-xs font-bold text-blue-700">+{shortTermGain}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="p-2 text-xs">Short-term actions impact</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-100 cursor-help">
+                      <TrendingUp className="h-3.5 w-3.5 text-violet-600" />
+                      <span className="text-xs font-bold text-violet-700">+{longTermGain}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="p-2 text-xs">Long-term actions impact</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>
@@ -3056,73 +3991,286 @@ function ImprovementActionPlanIsland({
 }
 
 // Citation Opportunities Full Island
-function CitationOpportunitiesIsland() {
-  const citations = [
-    {
-      id: "1",
-      source: "G2 Reviews",
-      url: "https://g2.com",
-      status: "cited" as const,
-      priority: "high" as const,
-      effort: "Low",
-      aiRecommendation: "Your G2 profile is well-optimized. Consider adding more recent customer reviews to maintain visibility.",
-    },
-    {
-      id: "2",
-      source: "Capterra",
-      url: "https://capterra.com",
-      status: "weak" as const,
-      priority: "high" as const,
-      effort: "Medium",
-      aiRecommendation: "Update your Capterra listing with latest features and pricing. Add comparison content vs top competitors.",
-    },
-    {
-      id: "3",
-      source: "TechCrunch",
-      url: "https://techcrunch.com",
-      status: "missing" as const,
-      priority: "high" as const,
-      effort: "High",
-      aiRecommendation: "Pitch newsworthy stories to TechCrunch. Consider funding announcements, major partnerships, or unique industry insights.",
-    },
-    {
-      id: "4",
-      source: "Forbes Technology",
-      url: "https://forbes.com",
-      status: "missing" as const,
-      priority: "medium" as const,
-      effort: "High",
-      aiRecommendation: "Submit thought leadership articles through Forbes Councils or pitch executive interviews.",
-    },
-    {
-      id: "5",
-      source: "ProductHunt",
-      url: "https://producthunt.com",
-      status: "weak" as const,
-      priority: "medium" as const,
-      effort: "Low",
-      aiRecommendation: "Re-launch with major updates. Engage with community comments and build hunter relationships.",
-    },
-    {
-      id: "6",
-      source: "Industry Blog Network",
-      url: "https://example.com",
-      status: "missing" as const,
-      priority: "low" as const,
-      effort: "Medium",
-      aiRecommendation: "Contribute guest posts to relevant industry blogs. Focus on actionable insights and case studies.",
-    },
-  ];
+interface CitationData {
+  source: string;
+  type?: string;
+  category?: string;
+  status?: "cited" | "weak" | "missing";
+  priority?: "high" | "medium" | "low";
+  effort?: "low" | "medium" | "high";
+  relevance?: string;
+  url?: string;
+  aiRecommendation?: string;
+}
+
+function CitationOpportunitiesIsland({
+  citations: analysisCitations,
+  brandName,
+  industry,
+}: {
+  citations?: CitationData[];
+  brandName: string;
+  industry?: string;
+}) {
+  // Generate comprehensive citation opportunities based on brand and industry
+  const generateCitationOpportunities = (): CitationData[] => {
+    const industryContext = industry || "technology";
+
+    // Comprehensive list of citation sources across categories
+    const allCitationSources: CitationData[] = [
+      // Review Platforms - High Priority
+      {
+        source: "G2",
+        type: "review_site",
+        category: "Review Platform",
+        status: "missing",
+        priority: "high",
+        effort: "medium",
+        url: "https://g2.com",
+        aiRecommendation: `Create or claim your ${brandName} profile on G2. Encourage customers to leave reviews - G2 is heavily cited by AI models for software recommendations.`,
+      },
+      {
+        source: "Capterra",
+        type: "review_site",
+        category: "Review Platform",
+        status: "missing",
+        priority: "high",
+        effort: "medium",
+        url: "https://capterra.com",
+        aiRecommendation: `List ${brandName} on Capterra with detailed feature descriptions. This improves discoverability in AI-powered software searches.`,
+      },
+      {
+        source: "Trustpilot",
+        type: "review_site",
+        category: "Review Platform",
+        status: "missing",
+        priority: "high",
+        effort: "low",
+        url: "https://trustpilot.com",
+        aiRecommendation: `Claim your Trustpilot business profile. Actively respond to reviews - AI models use Trustpilot as a primary trust signal.`,
+      },
+      {
+        source: "Google Business Profile",
+        type: "directory",
+        category: "Local Directory",
+        status: "missing",
+        priority: "high",
+        effort: "low",
+        url: "https://business.google.com",
+        aiRecommendation: `Optimize your Google Business Profile with complete information, photos, and regular posts. Critical for local AI search visibility.`,
+      },
+      // Tech News - High Priority
+      {
+        source: "TechCrunch",
+        type: "news",
+        category: "Tech News",
+        status: "missing",
+        priority: "high",
+        effort: "high",
+        url: "https://techcrunch.com",
+        aiRecommendation: `Pitch newsworthy stories about ${brandName} - funding rounds, major partnerships, or industry-disrupting features. AI heavily cites TechCrunch.`,
+      },
+      {
+        source: "Forbes",
+        type: "news",
+        category: "Business News",
+        status: "missing",
+        priority: "high",
+        effort: "high",
+        url: "https://forbes.com",
+        aiRecommendation: `Submit thought leadership to Forbes Councils or pitch executive interviews. Forbes citations significantly boost AI authority.`,
+      },
+      {
+        source: "Business Insider",
+        type: "news",
+        category: "Business News",
+        status: "missing",
+        priority: "medium",
+        effort: "high",
+        url: "https://businessinsider.com",
+        aiRecommendation: `Target Business Insider for industry analysis pieces mentioning ${brandName}. Great for B2B visibility.`,
+      },
+      // Social & Community - Medium-High Priority
+      {
+        source: "Reddit",
+        type: "social",
+        category: "Social Community",
+        status: "missing",
+        priority: "high",
+        effort: "medium",
+        url: "https://reddit.com",
+        aiRecommendation: `Build authentic presence in relevant subreddits. AI models frequently cite Reddit discussions for recommendations.`,
+      },
+      {
+        source: "Quora",
+        type: "social",
+        category: "Q&A Platform",
+        status: "missing",
+        priority: "high",
+        effort: "low",
+        url: "https://quora.com",
+        aiRecommendation: `Answer questions related to ${industryContext} and mention ${brandName} where relevant. Quora is a major AI training source.`,
+      },
+      {
+        source: "LinkedIn",
+        type: "social",
+        category: "Professional Network",
+        status: "missing",
+        priority: "high",
+        effort: "low",
+        url: "https://linkedin.com",
+        aiRecommendation: `Maintain active company page with regular posts. LinkedIn content feeds into AI knowledge bases.`,
+      },
+      {
+        source: "Twitter/X",
+        type: "social",
+        category: "Social Media",
+        status: "missing",
+        priority: "medium",
+        effort: "low",
+        url: "https://twitter.com",
+        aiRecommendation: `Share industry insights and engage with ${industryContext} conversations. Active Twitter presence improves real-time AI visibility.`,
+      },
+      // Content Platforms - Medium Priority
+      {
+        source: "ProductHunt",
+        type: "content",
+        category: "Product Discovery",
+        status: "missing",
+        priority: "high",
+        effort: "medium",
+        url: "https://producthunt.com",
+        aiRecommendation: `Launch ${brandName} on ProductHunt for new features. ProductHunt is frequently cited for product recommendations.`,
+      },
+      {
+        source: "YouTube",
+        type: "content",
+        category: "Video Platform",
+        status: "missing",
+        priority: "medium",
+        effort: "high",
+        url: "https://youtube.com",
+        aiRecommendation: `Create educational content about ${industryContext}. YouTube videos and transcripts are indexed by AI.`,
+      },
+      {
+        source: "Medium",
+        type: "content",
+        category: "Blog Platform",
+        status: "missing",
+        priority: "medium",
+        effort: "low",
+        url: "https://medium.com",
+        aiRecommendation: `Publish thought leadership on Medium. High-quality articles improve AI's understanding of your expertise.`,
+      },
+      // Directories & Databases - Medium Priority
+      {
+        source: "Crunchbase",
+        type: "directory",
+        category: "Business Database",
+        status: "missing",
+        priority: "high",
+        effort: "low",
+        url: "https://crunchbase.com",
+        aiRecommendation: `Complete your Crunchbase profile with funding, team, and company details. AI uses this for company research queries.`,
+      },
+      {
+        source: "Wikipedia",
+        type: "directory",
+        category: "Encyclopedia",
+        status: "missing",
+        priority: "high",
+        effort: "high",
+        url: "https://wikipedia.org",
+        aiRecommendation: `If notable, create a Wikipedia article for ${brandName}. Wikipedia is the #1 source AI models cite for factual information.`,
+      },
+      {
+        source: "AngelList",
+        type: "directory",
+        category: "Startup Directory",
+        status: "missing",
+        priority: "medium",
+        effort: "low",
+        url: "https://angel.co",
+        aiRecommendation: `List ${brandName} on AngelList with complete company profile. Important for startup-focused AI queries.`,
+      },
+      // Industry-Specific
+      {
+        source: "Industry Publications",
+        type: "industry_report",
+        category: "Trade Publications",
+        status: "missing",
+        priority: "medium",
+        effort: "medium",
+        url: "",
+        aiRecommendation: `Get featured in ${industryContext} trade publications and journals. Industry-specific sources boost niche AI visibility.`,
+      },
+      {
+        source: "Gartner/Forrester",
+        type: "industry_report",
+        category: "Analyst Reports",
+        status: "missing",
+        priority: "high",
+        effort: "high",
+        url: "https://gartner.com",
+        aiRecommendation: `Work toward inclusion in Gartner or Forrester reports. Analyst citations carry heavy weight in AI recommendations.`,
+      },
+      // Academic & Research
+      {
+        source: "Google Scholar",
+        type: "academic",
+        category: "Academic Research",
+        status: "missing",
+        priority: "medium",
+        effort: "high",
+        url: "https://scholar.google.com",
+        aiRecommendation: `Publish research papers or case studies. Academic citations significantly improve AI's trust in your expertise.`,
+      },
+    ];
+
+    return allCitationSources;
+  };
+
+  // Use analysis citations if available, otherwise generate comprehensive list
+  const baseCitations = (analysisCitations && analysisCitations.length > 0)
+    ? analysisCitations
+    : generateCitationOpportunities();
+
+  // Merge and deduplicate - prefer analysis data when available
+  const citations = baseCitations.map((c, index) => ({
+    id: String(index + 1),
+    source: c.source,
+    url: c.url || "",
+    status: (c.status || "missing") as "cited" | "weak" | "missing",
+    priority: (c.priority || "medium") as "high" | "medium" | "low",
+    effort: c.effort === "low" ? "Low" : c.effort === "high" ? "High" : "Medium",
+    aiRecommendation: c.aiRecommendation || c.relevance || `Improve your presence on ${c.source} to boost AI visibility.`,
+    category: c.category || c.type || "General",
+  }));
 
   const citedCount = citations.filter((c) => c.status === "cited").length;
   const weakCount = citations.filter((c) => c.status === "weak").length;
   const missingCount = citations.filter((c) => c.status === "missing").length;
+  const highPriorityMissing = citations.filter((c) => c.status === "missing" && c.priority === "high").length;
+  const lowEffortMissing = citations.filter((c) => c.status !== "cited" && c.effort === "Low").length;
+
+  // Get unique categories
+  const categories = Array.from(new Set(citations.map(c => c.category)));
 
   const statusConfig = {
     cited: { icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", label: "Cited" },
     missing: { icon: XCircle, color: "text-red-500", bg: "bg-red-50", border: "border-red-200", label: "Missing" },
     weak: { icon: AlertCircle, color: "text-amber-500", bg: "bg-amber-50", border: "border-amber-200", label: "Weak" },
   };
+
+  // Sort citations: high priority first, then by status (missing > weak > cited)
+  const sortedCitations = [...citations].sort((a, b) => {
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    const statusOrder = { missing: 0, weak: 1, cited: 2 };
+    if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    }
+    return statusOrder[a.status] - statusOrder[b.status];
+  });
 
   return (
     <div className="insight-island">
@@ -3135,7 +4283,7 @@ function CitationOpportunitiesIsland() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Citation Opportunities</h3>
-              <p className="text-sm text-gray-500">Track and claim citations to boost your AI visibility</p>
+              <p className="text-sm text-gray-500">{citations.length} sources tracked to boost your AI visibility</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -3154,74 +4302,96 @@ function CitationOpportunitiesIsland() {
           </div>
         </div>
 
-        {/* Citation Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {citations.map((citation) => {
-            const status = statusConfig[citation.status];
-            const StatusIcon = status.icon;
+        {/* Category Pills */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {categories.slice(0, 8).map((category) => (
+            <span
+              key={category}
+              className="px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600"
+            >
+              {category}
+            </span>
+          ))}
+          {categories.length > 8 && (
+            <span className="px-3 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-600">
+              +{categories.length - 8} more
+            </span>
+          )}
+        </div>
 
-            return (
-              <div
-                key={citation.id}
-                className={`p-4 rounded-xl ${status.bg} border ${status.border}`}
-              >
-                {/* Header */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <StatusIcon className={`h-5 w-5 ${status.color}`} />
-                    <span className="font-semibold text-gray-900">{citation.source}</span>
+        {/* Citation Cards Grid - Scrollable */}
+        <div className="max-h-[600px] overflow-y-auto pr-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sortedCitations.map((citation) => {
+              const status = statusConfig[citation.status];
+              const StatusIcon = status.icon;
+
+              return (
+                <div
+                  key={citation.id}
+                  className={`p-4 rounded-xl ${status.bg} border ${status.border}`}
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <StatusIcon className={`h-5 w-5 ${status.color}`} />
+                      <span className="font-semibold text-gray-900">{citation.source}</span>
+                    </div>
+                    <Badge className={`text-xs ${
+                      citation.priority === "high" ? "bg-red-100 text-red-700" :
+                      citation.priority === "medium" ? "bg-amber-100 text-amber-700" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>
+                      {citation.priority}
+                    </Badge>
                   </div>
-                  <Badge className={`text-xs ${
-                    citation.priority === "high" ? "bg-red-100 text-red-700" :
-                    citation.priority === "medium" ? "bg-amber-100 text-amber-700" :
-                    "bg-gray-100 text-gray-600"
-                  }`}>
-                    {citation.priority}
-                  </Badge>
-                </div>
 
-                {/* Status & Effort */}
-                <div className="flex items-center gap-3 mb-3 text-sm">
-                  <span className={`px-2 py-0.5 rounded ${status.bg} ${status.color} font-medium`}>
-                    {status.label}
-                  </span>
-                  <span className="text-gray-500">
-                    Effort: <span className={`font-medium ${
-                      citation.effort === "Low" ? "text-emerald-600" :
-                      citation.effort === "Medium" ? "text-amber-600" :
-                      "text-red-500"
-                    }`}>{citation.effort}</span>
-                  </span>
-                </div>
+                  {/* Category */}
+                  <p className="text-xs text-gray-500 mb-2">{citation.category}</p>
 
-                {/* AI Recommendation */}
-                <div className="p-3 rounded-lg bg-white/60 border border-white">
-                  <div className="flex items-start gap-2">
-                    <Sparkles className="h-4 w-4 text-indigo-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-gray-700">{citation.aiRecommendation}</p>
+                  {/* Status & Effort */}
+                  <div className="flex items-center gap-3 mb-3 text-sm">
+                    <span className={`px-2 py-0.5 rounded ${status.bg} ${status.color} font-medium text-xs`}>
+                      {status.label}
+                    </span>
+                    <span className="text-gray-500 text-xs">
+                      Effort: <span className={`font-medium ${
+                        citation.effort === "Low" ? "text-emerald-600" :
+                        citation.effort === "Medium" ? "text-amber-600" :
+                        "text-red-500"
+                      }`}>{citation.effort}</span>
+                    </span>
                   </div>
-                </div>
 
-                {/* Action Button */}
-                {citation.status !== "cited" && (
-                  <Button
-                    size="sm"
-                    className="w-full mt-3"
-                    variant="outline"
-                    onClick={() => window.open(citation.url, "_blank")}
-                  >
-                    <Link2 className="h-3.5 w-3.5 mr-1.5" />
-                    Claim Citation
-                  </Button>
-                )}
-                {citation.status === "cited" && (
-                  <div className="mt-3 text-center text-sm text-emerald-600 font-medium">
-                    ✓ Already Cited
+                  {/* AI Recommendation */}
+                  <div className="p-3 rounded-lg bg-white/60 border border-white">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="h-4 w-4 text-indigo-500 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-gray-700 line-clamp-3">{citation.aiRecommendation}</p>
+                    </div>
                   </div>
-                )}
-              </div>
-            );
-          })}
+
+                  {/* Action Button */}
+                  {citation.status !== "cited" && citation.url && (
+                    <Button
+                      size="sm"
+                      className="w-full mt-3"
+                      variant="outline"
+                      onClick={() => window.open(citation.url, "_blank")}
+                    >
+                      <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                      Claim Citation
+                    </Button>
+                  )}
+                  {citation.status === "cited" && (
+                    <div className="mt-3 text-center text-sm text-emerald-600 font-medium">
+                      ✓ Already Cited
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Summary Insight */}
@@ -3229,10 +4399,11 @@ function CitationOpportunitiesIsland() {
           <div className="flex items-start gap-3">
             <Lightbulb className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-blue-800">Citation Strategy</p>
+              <p className="text-sm font-semibold text-blue-800">Citation Strategy for {brandName}</p>
               <p className="text-sm text-blue-700 mt-1">
-                Focus on high-priority missing citations first. Getting cited by TechCrunch and Forbes could increase your AI visibility score by 15-20%.
-                Start with low-effort opportunities like ProductHunt for quick wins.
+                {highPriorityMissing > 0 && `Focus on ${highPriorityMissing} high-priority missing citations first. `}
+                {lowEffortMissing > 0 && `${lowEffortMissing} opportunities require low effort - start there for quick wins. `}
+                Getting cited across these {citations.length} sources could increase your AI visibility score by 20-40%.
               </p>
             </div>
           </div>
@@ -3276,7 +4447,19 @@ function CompetitivePositionIsland({
               <Target className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Competitive Position & Key Focus Areas</h3>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                      Competitive Position & Key Focus Areas
+                      <Info className="h-4 w-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+                    </h3>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                    Analysis of how your brand is positioned relative to competitors in AI-generated responses. Includes strategic recommendations based on competitive gaps and opportunities.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <p className="text-sm text-gray-500">Strategic insights for {brandName}</p>
             </div>
           </div>
@@ -3290,7 +4473,19 @@ function CompetitivePositionIsland({
                 <Trophy className="h-5 w-5 text-indigo-600" />
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-gray-900">Your Competitive Position</h4>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                        Your Competitive Position
+                        <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                      </h4>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                      Summary of how AI platforms position your brand compared to competitors. Based on analysis of mention context, co-occurrence patterns, and recommendation ordering.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <p className="text-xs text-gray-500">How you compare to competitors in AI responses</p>
               </div>
             </div>
@@ -3316,7 +4511,19 @@ function CompetitivePositionIsland({
                 <Lightbulb className="h-5 w-5 text-amber-600" />
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-gray-900">Key Focus Areas</h4>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                        Key Focus Areas
+                        <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                      </h4>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                      Prioritized list of improvement areas identified from AI response analysis. Items are ranked by potential impact on your visibility score.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <p className="text-xs text-gray-500">Priority areas to improve your AI visibility</p>
               </div>
             </div>
@@ -3345,67 +4552,29 @@ function CompetitivePositionIsland({
 }
 
 // ============================================
-// ANALYSIS PROMPTS - ENHANCED
+// ANALYSIS PROMPTS USED
 // ============================================
 
-function AnalysisPromptsIslandEnhanced({ brandName }: { brandName: string }) {
-  const prompts = [
-    {
-      id: "visibility",
-      category: "AI Visibility Check",
-      icon: Eye,
-      gradient: "from-blue-500 to-cyan-500",
-      bgGradient: "from-blue-50 to-cyan-50",
-      borderColor: "border-blue-200",
-      textColor: "text-blue-700",
-      prompt: `"When recommending ${brandName} services in India, how often do you mention them compared to alternatives? What factors influence your recommendation?"`,
-      purpose: "Measures mention frequency and recommendation triggers"
-    },
-    {
-      id: "positioning",
-      category: "Position Analysis",
-      icon: Target,
-      gradient: "from-violet-500 to-purple-500",
-      bgGradient: "from-violet-50 to-purple-50",
-      borderColor: "border-violet-200",
-      textColor: "text-violet-700",
-      prompt: `"List the top providers in ${brandName}'s industry. Where does ${brandName} typically appear in your rankings and why?"`,
-      purpose: "Determines ranking position and competitive placement"
-    },
-    {
-      id: "sentiment",
-      category: "Sentiment Evaluation",
-      icon: Activity,
-      gradient: "from-amber-500 to-orange-500",
-      bgGradient: "from-amber-50 to-orange-50",
-      borderColor: "border-amber-200",
-      textColor: "text-amber-700",
-      prompt: `"What is your overall impression of ${brandName}? What are their strengths and areas for improvement?"`,
-      purpose: "Gauges AI perception and reputation"
-    },
-    {
-      id: "competitive",
-      category: "Competitive Analysis",
-      icon: Users,
-      gradient: "from-emerald-500 to-teal-500",
-      bgGradient: "from-emerald-50 to-teal-50",
-      borderColor: "border-emerald-200",
-      textColor: "text-emerald-700",
-      prompt: `"Compare ${brandName} with their top 3 competitors. What makes each unique?"`,
-      purpose: "Maps competitive landscape"
-    },
-    {
-      id: "citation",
-      category: "Citation Discovery",
-      icon: Link2,
-      gradient: "from-rose-500 to-pink-500",
-      bgGradient: "from-rose-50 to-pink-50",
-      borderColor: "border-rose-200",
-      textColor: "text-rose-700",
-      prompt: `"What sources do you reference when discussing ${brandName}?"`,
-      purpose: "Identifies citation sources"
-    }
-  ];
+interface AnalysisPromptsUsedIslandProps {
+  brandName: string;
+  domain?: string;
+  competitors: Array<{ id: string; name: string; domain?: string }>;
+  visibilityScore?: number;
+}
+
+function AnalysisPromptsUsedIsland({ brandName, domain, competitors, visibilityScore }: AnalysisPromptsUsedIslandProps) {
+  // Determine brand scale dynamically
+  const brandScale = determineBrandScale(competitors, domain, visibilityScore);
+  const promptCount = getPromptCount(brandScale);
+
+  // Get industry context from domain
+  const industryContext = getIndustryContext(domain || "");
+
+  // Get competitor names
+  const competitorNames = competitors.map(c => c.name);
+
+  // Generate prompts based on brand scale
+  const prompts = generateBrandPrompts(brandName, industryContext, competitorNames, brandScale);
 
   return (
     <div className="insight-island">
@@ -3421,11 +4590,11 @@ function AnalysisPromptsIslandEnhanced({ brandName }: { brandName: string }) {
               <p className="text-sm text-gray-500">Prompts sent to AI platforms to derive visibility insights</p>
             </div>
           </div>
-          <Badge className="bg-gray-100 text-gray-700">{prompts.length} Prompts</Badge>
+          <Badge className="bg-indigo-100 text-indigo-700">{prompts.length} Prompts</Badge>
         </div>
 
         {/* Prompts Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[500px] overflow-y-auto pr-2">
           {prompts.map((item) => {
             const IconComponent = item.icon;
             return (
@@ -3464,9 +4633,14 @@ function AnalysisPromptsIslandEnhanced({ brandName }: { brandName: string }) {
             <div className="p-2 rounded-lg bg-gray-100">
               <Info className="h-4 w-4 text-gray-600" />
             </div>
-            <p className="text-sm text-gray-600">
-              These prompts are dynamically customized with your brand name and sent to <span className="font-semibold">ChatGPT</span>, <span className="font-semibold">Gemini</span>, and <span className="font-semibold">Perplexity</span> to gather comprehensive visibility data.
-            </p>
+            <div>
+              <p className="text-sm text-gray-600">
+                <span className="font-semibold">{prompts.length} prompts</span> dynamically generated and sent to <span className="font-semibold">ChatGPT</span>, <span className="font-semibold">Gemini</span>, and <span className="font-semibold">Perplexity</span> to gather comprehensive visibility data.
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Prompt count scales based on competitors ({competitors.length}), domain presence, and visibility score.
+              </p>
+            </div>
           </div>
         </div>
       </div>

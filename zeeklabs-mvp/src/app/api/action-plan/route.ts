@@ -111,9 +111,18 @@ Respond with a JSON object in this exact format:
   "expectedOutcome": "Specific, measurable results ${brandName || "the brand"} should expect (include realistic metrics)"
 }
 
+## CRITICAL FORMATTING RULES
+- DO NOT use any markdown formatting like **bold**, *italics*, or ### headers in text content
+- DO NOT use numbered lists like "1. " "2. " inside description text - write in natural flowing paragraphs
+- Use plain text only - the UI will handle all formatting and styling
+- Keep descriptions as clear flowing paragraphs, not bulleted or numbered lists
+- Use commas and semicolons to separate items instead of bullet points
+- Example of WRONG format: "**Step 1:** Do this. **Step 2:** Do that."
+- Example of CORRECT format: "First, do this specific action. Then, proceed to do that next action."
+
 Remember: Generic advice is NOT helpful. Every step must be customized for ${brandName || "this specific brand"}'s situation.
 
-Respond ONLY with valid JSON. No markdown code blocks.`;
+Respond ONLY with valid JSON. No markdown code blocks. No markdown formatting in any text fields.`;
 
     let response: string;
 
@@ -134,6 +143,55 @@ Respond ONLY with valid JSON. No markdown code blocks.`;
       throw new Error("No AI providers configured");
     }
 
+    // Helper function to clean markdown from text
+    const cleanMarkdown = (text: string): string => {
+      if (!text) return text;
+      return text
+        // Remove bold markdown **text** or __text__
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1')
+        // Remove italic markdown *text* or _text_
+        .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '$1')
+        .replace(/(?<!_)_([^_]+)_(?!_)/g, '$1')
+        // Remove headers
+        .replace(/^#{1,6}\s+/gm, '')
+        // Remove inline code backticks
+        .replace(/`([^`]+)`/g, '$1')
+        // Clean up numbered list patterns at start "1. **Title:**" -> "Title:"
+        .replace(/^\d+\.\s*\*\*([^*]+)\*\*:?\s*/gm, '$1: ')
+        // Clean up bullet points
+        .replace(/^[\-\*]\s+/gm, '')
+        // Clean up multiple spaces
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    };
+
+    // Clean all text fields in the plan
+    const cleanPlanText = (plan: Record<string, unknown>): Record<string, unknown> => {
+      if (plan.title) plan.title = cleanMarkdown(plan.title as string);
+      if (plan.expectedOutcome) plan.expectedOutcome = cleanMarkdown(plan.expectedOutcome as string);
+
+      if (Array.isArray(plan.steps)) {
+        plan.steps = plan.steps.map((step: Record<string, unknown>) => ({
+          ...step,
+          title: cleanMarkdown(step.title as string || ''),
+          description: cleanMarkdown(step.description as string || ''),
+          tips: cleanMarkdown(step.tips as string || ''),
+          successMetric: cleanMarkdown(step.successMetric as string || ''),
+        }));
+      }
+
+      if (Array.isArray(plan.resources)) {
+        plan.resources = plan.resources.map((resource: Record<string, unknown>) => ({
+          ...resource,
+          name: cleanMarkdown(resource.name as string || ''),
+          description: cleanMarkdown(resource.description as string || ''),
+        }));
+      }
+
+      return plan;
+    };
+
     // Parse the response
     let plan;
     try {
@@ -153,6 +211,9 @@ Respond ONLY with valid JSON. No markdown code blocks.`;
       }
 
       plan = JSON.parse(jsonStr);
+
+      // Clean any markdown formatting from the plan
+      plan = cleanPlanText(plan);
     } catch {
       // Return a basic structure if parsing fails
       plan = {

@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,20 +25,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   LogOut,
   Settings,
   User,
   Download,
-  RefreshCw,
   Loader2,
   Bell,
   HelpCircle,
   ChevronDown,
+  Search,
+  Sparkles,
+  Copy,
+  Check,
+  ArrowRight,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useBrand } from "@/contexts/brand-context";
 import { generatePDFReport } from "@/lib/pdf-generator";
+import { determineBrandScale, generateBrandPrompts, getIndustryContext, getPromptCount } from "@/lib/prompts/prompt-generator";
 
 export function Header() {
   const { data: session } = useSession();
@@ -43,12 +56,72 @@ export function Header() {
     setSelectedBrandId,
     visibilityData,
     analysisData,
-    refreshVisibilityData,
-    visibilityLoading,
   } = useBrand();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const hasReportData = analysisData !== null || (visibilityData?.simulations && visibilityData.simulations > 0);
+  const [promptSimulatorOpen, setPromptSimulatorOpen] = useState(false);
+  const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+
+  // Generate dynamic prompts based on brand scale
+  const brandName = selectedBrand?.name || "Your Brand";
+  const domain = selectedBrand?.domain || "";
+  const competitors = selectedBrand?.competitors || [];
+  const visibilityScore = visibilityData?.score?.overall;
+
+  // Determine brand scale and generate prompts
+  const brandScale = determineBrandScale(competitors, domain, visibilityScore);
+  const industryContext = getIndustryContext(domain);
+  const competitorNames = competitors.map(c => typeof c === 'string' ? c : c.name);
+
+  // Generate prompts using the centralized prompt generator
+  const generatedPrompts = generateBrandPrompts(brandName, industryContext, competitorNames, brandScale);
+
+  // Map to the format expected by the UI (with insight instead of purpose)
+  const prompts = generatedPrompts.map(p => ({
+    id: p.id,
+    category: p.category,
+    icon: p.icon,
+    gradient: p.gradient,
+    prompt: p.prompt,
+    insight: p.purpose
+  }));
+
+  // Scale label for display
+  const scaleLabel = brandScale === "large" ? "Enterprise" : brandScale === "mid" ? "Mid-sized" : "Small";
+  const promptCount = getPromptCount(brandScale);
+
+  // Get unique categories
+  const categories = useMemo(() => {
+    const cats = Array.from(new Set(prompts.map(p => p.category)));
+    return ["all", ...cats];
+  }, [prompts]);
+
+  // Filter prompts based on search and category
+  const filteredPrompts = useMemo(() => {
+    return prompts.filter(prompt => {
+      const matchesSearch = searchQuery === "" ||
+        prompt.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prompt.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prompt.insight.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesCategory = selectedCategory === "all" || prompt.category === selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [prompts, searchQuery, selectedCategory]);
+
+  const handleCopyPrompt = async (promptId: string, promptText: string) => {
+    try {
+      await navigator.clipboard.writeText(promptText);
+      setCopiedPromptId(promptId);
+      setTimeout(() => setCopiedPromptId(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
 
   const initials = session?.user?.name
     ?.split(" ")
@@ -104,21 +177,19 @@ export function Header() {
             ))}
           </SelectContent>
         </Select>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => refreshVisibilityData(true)}
-          disabled={visibilityLoading}
-          title="Refresh data"
-          className="rounded-xl hover:bg-gray-100"
-        >
-          <RefreshCw className={`h-4 w-4 ${visibilityLoading ? "animate-spin" : ""}`} />
-        </Button>
       </div>
 
       {/* Right side actions */}
       <div className="flex items-center gap-3">
+        {/* Prompt Simulator Button */}
+        <Button
+          onClick={() => setPromptSimulatorOpen(true)}
+          className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-full shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 px-5"
+        >
+          <Search className="h-4 w-4 mr-2" />
+          Prompt
+        </Button>
+
         {/* Download PDF - Floating Primary Button */}
         <Button
           onClick={handleDownloadPDF}
@@ -187,6 +258,171 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Prompt Simulator Modal */}
+      <Dialog open={promptSimulatorOpen} onOpenChange={setPromptSimulatorOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden p-0 rounded-2xl">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 p-6">
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-bold text-white">
+                    Prompt Simulator
+                  </DialogTitle>
+                  <p className="text-sm text-white/80 mt-1">
+                    Test how AI platforms respond to queries about{" "}
+                    <span className="font-semibold text-white">{selectedBrand?.name || "your brand"}</span>
+                  </p>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {/* Search Bar */}
+            <div className="mt-4 relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
+              <input
+                type="text"
+                placeholder="Search prompts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-10 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded-full"
+                >
+                  <X className="h-4 w-4 text-white/70" />
+                </button>
+              )}
+            </div>
+
+            {/* Stats & Category Filter */}
+            <div className="mt-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm">
+                  <div className="h-2 w-2 rounded-full bg-green-400 mr-2 animate-pulse" />
+                  {selectedBrand?.name || "No brand selected"}
+                </Badge>
+                <Badge variant="outline" className="text-white/90 border-white/30">
+                  {scaleLabel} • {filteredPrompts.length} of {prompts.length} prompts
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Category Filters */}
+          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex gap-2 overflow-x-auto">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedCategory === cat
+                    ? "bg-indigo-600 text-white"
+                    : "bg-white text-gray-600 border border-gray-200 hover:border-indigo-300 hover:text-indigo-600"
+                }`}
+              >
+                {cat === "all" ? "All Prompts" : cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Prompts Grid */}
+          <div className="p-6 overflow-y-auto max-h-[50vh] bg-gradient-to-b from-white to-gray-50">
+            {filteredPrompts.length === 0 ? (
+              <div className="text-center py-12">
+                <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No prompts found matching your search</p>
+                <button
+                  onClick={() => { setSearchQuery(""); setSelectedCategory("all"); }}
+                  className="mt-2 text-indigo-600 hover:underline text-sm"
+                >
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredPrompts.map((item) => {
+                  const IconComponent = item.icon;
+                  const isCopied = copiedPromptId === item.id;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="group relative bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all duration-200 overflow-hidden"
+                    >
+                      {/* Gradient Top Border */}
+                      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${item.gradient}`} />
+
+                      <div className="p-4">
+                        {/* Category Header */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg bg-gradient-to-br ${item.gradient}`}>
+                              <IconComponent className="h-3.5 w-3.5 text-white" />
+                            </div>
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                              {item.category}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleCopyPrompt(item.id, item.prompt)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                            title="Copy prompt"
+                          >
+                            {isCopied ? (
+                              <Check className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4 text-gray-400 group-hover:text-indigo-500" />
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Prompt Text */}
+                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg p-3 mb-3 border border-gray-100">
+                          <p className="text-sm font-medium text-gray-800 leading-relaxed">
+                            "{item.prompt}"
+                          </p>
+                        </div>
+
+                        {/* Insight */}
+                        <div className="flex items-start gap-2">
+                          <ArrowRight className="h-3.5 w-3.5 text-indigo-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-xs text-gray-500 leading-relaxed">
+                            {item.insight}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Footer Tip */}
+            <div className="mt-6 p-4 rounded-xl bg-gradient-to-r from-indigo-50 via-violet-50 to-purple-50 border border-indigo-100">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-indigo-100">
+                  <Sparkles className="h-4 w-4 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">
+                    {prompts.length} prompts generated for your {scaleLabel.toLowerCase()} brand
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Copy these prompts and test them on ChatGPT, Gemini, and Perplexity. Prompt count scales based on competitors ({competitors.length}) and visibility score.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

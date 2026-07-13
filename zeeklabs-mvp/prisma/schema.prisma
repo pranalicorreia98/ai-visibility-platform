@@ -85,6 +85,8 @@ model Brand {
   backreferenceStatus  BackreferenceStatus[]
   reportGenerations    ReportGeneration[]
   monitoringConfig     MonitoringConfig?
+  analysisSnapshots    AnalysisSnapshot[]
+  analysisCaches       AnalysisCache[]
 }
 
 model Competitor {
@@ -280,6 +282,45 @@ model PromptCache {
 }
 
 // ─────────────────────────────────────────────────────────────
+// ANALYSIS PROGRESS TRACKING
+// ─────────────────────────────────────────────────────────────
+
+model AnalysisSnapshot {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  // Core visibility scores
+  overallScore     Int   // 0-100
+  chatgptScore     Int?  // 0-100
+  geminiScore      Int?  // 0-100
+  perplexityScore  Int?  // 0-100
+
+  // Mention metrics
+  totalMentions    Int   @default(0)
+  mentionFrequency Int   @default(0) // per week
+
+  // Sentiment scores
+  sentimentScore   Int?  // 0-100
+  positivePercent  Int?  // 0-100
+  neutralPercent   Int?  // 0-100
+  negativePercent  Int?  // 0-100
+
+  // Position metrics
+  avgPosition      Float? // Average ranking position
+
+  // Competitor metrics
+  competitorRank   Int?   // Your rank among competitors
+
+  // Full analysis data (JSON)
+  analysisData     String? // Full AnalysisResult JSON for reference
+
+  createdAt DateTime @default(now())
+
+  @@index([brandId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
 // BRAND MONITORING CONFIGURATION
 // ─────────────────────────────────────────────────────────────
 
@@ -297,4 +338,40 @@ model MonitoringConfig {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// ANALYSIS CACHE (24-hour caching for analysis runs)
+// ─────────────────────────────────────────────────────────────
+
+model AnalysisCache {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  // Cache key components
+  provider       String   // 'gemini' | 'chatgpt' | 'perplexity'
+  competitorIds  String   // JSON array of competitor IDs used (sorted for consistency)
+
+  // Status tracking
+  status         String   // 'pending' | 'success' | 'failed'
+  errorMessage   String?  // Error message if status is 'failed'
+
+  // Cached data
+  analysisData   String?  // Full AnalysisResult JSON (only set when status = 'success')
+  rawResponse    String?  // Raw LLM response for debugging
+
+  // Metadata
+  actualProvider String?  // The actual provider used (may differ due to fallback)
+  durationMs     Int?     // How long the analysis took
+
+  // Timestamps
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime // When this cache entry expires (createdAt + 24 hours)
+  completedAt    DateTime? // When the analysis completed (null if pending/failed)
+
+  // Ensure one active cache per brand+provider+competitors combination
+  @@unique([brandId, provider, competitorIds])
+  @@index([brandId, expiresAt])
+  @@index([status])
 }
