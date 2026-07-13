@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getReportPromptSuggestions, type PromptSuggestion } from "@/lib/prompt-generator";
+import { determineBrandScale, generateBrandPrompts, getIndustryContext, getPromptCount } from "@/lib/prompts/prompt-generator";
 
 // Helper: Check if a prompt is a "biased" branded prompt that shouldn't count for organic mentions
 function isBiasedPrompt(prompt: string, brandName: string): boolean {
@@ -659,6 +660,50 @@ export async function POST(req: NextRequest) {
       aiVisibility: fullAnalysisData?.aiVisibility || null,
       // Timestamp of when analysis was run
       analysisTimestamp: latestAnalysis?.generatedAt?.toISOString() || null,
+      // =============================================
+      // ANALYSIS PROMPTS USED - Dynamic prompts based on brand scale
+      // =============================================
+      analysisPrompts: (() => {
+        const mappedCompetitors = brand.competitors.map(c => ({ id: c.id, name: c.name, domain: c.domain || undefined }));
+        const brandScale = determineBrandScale(mappedCompetitors, brand.domain || undefined, overallScore);
+        const industryContext = getIndustryContext(brand.domain || "");
+        const competitorNames = brand.competitors.map(c => c.name);
+        const prompts = generateBrandPrompts(brand.name, industryContext, competitorNames, brandScale);
+        return prompts.map(p => ({
+          id: p.id,
+          category: p.category,
+          prompt: p.prompt,
+          purpose: p.purpose,
+        }));
+      })(),
+      // =============================================
+      // CITATION OPPORTUNITIES - Comprehensive list
+      // =============================================
+      citationOpportunities: (() => {
+        const industryContext = getIndustryContext(brand.domain || "");
+        return [
+          { source: "G2", type: "review_site", category: "Review Platform", status: "missing", priority: "high", effort: "medium", url: "https://g2.com", aiRecommendation: `Create or claim your ${brand.name} profile on G2. Encourage customers to leave reviews.` },
+          { source: "Capterra", type: "review_site", category: "Review Platform", status: "missing", priority: "high", effort: "medium", url: "https://capterra.com", aiRecommendation: `List ${brand.name} on Capterra with detailed feature descriptions.` },
+          { source: "Trustpilot", type: "review_site", category: "Review Platform", status: "missing", priority: "high", effort: "low", url: "https://trustpilot.com", aiRecommendation: `Claim your Trustpilot business profile and respond to reviews.` },
+          { source: "Google Business", type: "directory", category: "Local Directory", status: "missing", priority: "high", effort: "low", url: "https://business.google.com", aiRecommendation: `Optimize Google Business Profile for local AI visibility.` },
+          { source: "TechCrunch", type: "news", category: "Tech News", status: "missing", priority: "high", effort: "high", url: "https://techcrunch.com", aiRecommendation: `Pitch newsworthy stories to TechCrunch for AI citation.` },
+          { source: "Forbes", type: "news", category: "Business News", status: "missing", priority: "high", effort: "high", url: "https://forbes.com", aiRecommendation: `Submit thought leadership to Forbes Councils.` },
+          { source: "Reddit", type: "social", category: "Social Community", status: "missing", priority: "high", effort: "medium", url: "https://reddit.com", aiRecommendation: `Build authentic presence in relevant subreddits.` },
+          { source: "Quora", type: "social", category: "Q&A Platform", status: "missing", priority: "high", effort: "low", url: "https://quora.com", aiRecommendation: `Answer questions related to ${industryContext} and mention ${brand.name}.` },
+          { source: "LinkedIn", type: "social", category: "Professional Network", status: "missing", priority: "high", effort: "low", url: "https://linkedin.com", aiRecommendation: `Maintain active company page with regular posts.` },
+          { source: "ProductHunt", type: "content", category: "Product Discovery", status: "missing", priority: "high", effort: "medium", url: "https://producthunt.com", aiRecommendation: `Launch ${brand.name} on ProductHunt for new features.` },
+          { source: "Crunchbase", type: "directory", category: "Business Database", status: "missing", priority: "high", effort: "low", url: "https://crunchbase.com", aiRecommendation: `Complete Crunchbase profile with funding and team details.` },
+          { source: "Wikipedia", type: "directory", category: "Encyclopedia", status: "missing", priority: "high", effort: "high", url: "https://wikipedia.org", aiRecommendation: `Create Wikipedia article if notable - #1 AI citation source.` },
+          { source: "YouTube", type: "content", category: "Video Platform", status: "missing", priority: "medium", effort: "high", url: "https://youtube.com", aiRecommendation: `Create educational content about ${industryContext}.` },
+          { source: "Medium", type: "content", category: "Blog Platform", status: "missing", priority: "medium", effort: "low", url: "https://medium.com", aiRecommendation: `Publish thought leadership on Medium.` },
+          { source: "Twitter/X", type: "social", category: "Social Media", status: "missing", priority: "medium", effort: "low", url: "https://twitter.com", aiRecommendation: `Share industry insights and engage with ${industryContext} conversations.` },
+          { source: "AngelList", type: "directory", category: "Startup Directory", status: "missing", priority: "medium", effort: "low", url: "https://angel.co", aiRecommendation: `List ${brand.name} on AngelList with complete profile.` },
+          { source: "Business Insider", type: "news", category: "Business News", status: "missing", priority: "medium", effort: "high", url: "https://businessinsider.com", aiRecommendation: `Target Business Insider for industry analysis pieces.` },
+          { source: "Industry Publications", type: "industry_report", category: "Trade Publications", status: "missing", priority: "medium", effort: "medium", url: "", aiRecommendation: `Get featured in ${industryContext} trade publications.` },
+          { source: "Gartner", type: "industry_report", category: "Analyst Report", status: "missing", priority: "medium", effort: "high", url: "https://gartner.com", aiRecommendation: `Get listed in relevant Gartner reports and Magic Quadrants.` },
+          { source: "HackerNews", type: "social", category: "Tech Community", status: "missing", priority: "medium", effort: "medium", url: "https://news.ycombinator.com", aiRecommendation: `Share technical content on HackerNews for tech visibility.` },
+        ];
+      })(),
       // =============================================
       // Improvement plan summary
       improvementPlan: {
