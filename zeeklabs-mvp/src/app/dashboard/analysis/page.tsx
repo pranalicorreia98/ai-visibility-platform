@@ -505,9 +505,9 @@ export default function AnalysisPage() {
         </InsightIsland>
 
         <InsightIsland
-          title="Typical Position"
+          title="AI Response Position"
           icon={<Hash className="h-5 w-5" />}
-          tooltip="Your average ranking position when mentioned in AI responses. Position #1 means you're mentioned first. Lower numbers indicate higher prominence in AI recommendations."
+          tooltip="Your average position when mentioned in AI responses. Position #1 means you're mentioned first in lists/recommendations. This is different from competitor rank - it shows where AI places you in its responses."
         >
           <div className="flex items-baseline gap-1">
             <span className="text-4xl font-bold text-gray-900">#</span>
@@ -523,7 +523,7 @@ export default function AnalysisPage() {
             <div className="text-xs text-gray-400 mt-1">No trend data yet</div>
           )}
           <div className="mt-2 text-xs text-gray-500">
-            Average ranking across AI platforms
+            Where AI places you in recommendations
           </div>
         </InsightIsland>
       </div>
@@ -764,12 +764,14 @@ function ScoreTooltip({ content, children }: { content: string; children: React.
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="cursor-help inline-flex items-center gap-1">
+          <span className="cursor-help inline-flex items-center gap-2">
             {children}
-            <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+              <Info className="h-3 w-3 text-slate-500" />
+            </span>
           </span>
         </TooltipTrigger>
-        <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+        <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
           {content}
         </TooltipContent>
       </Tooltip>
@@ -827,12 +829,14 @@ function InsightIsland({
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 cursor-help">
+                    <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2 cursor-help">
                       {title}
-                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                        <Info className="h-3 w-3 text-slate-500 hover:text-indigo-600" />
+                      </span>
                     </h3>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0">
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                     {tooltip}
                   </TooltipContent>
                 </Tooltip>
@@ -2294,10 +2298,12 @@ function AnalysisPromptsExpanded({ brandName }: { brandName: string }) {
         );
       })}
 
-      <div className="p-3 rounded-lg bg-gray-50 border border-gray-200">
-        <div className="flex items-start gap-2">
-          <Info className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-gray-600">
+      <div className="p-3 rounded-lg bg-gradient-to-r from-slate-50 to-gray-50 border border-gray-200">
+        <div className="flex items-start gap-3">
+          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm flex-shrink-0">
+            <Info className="h-3.5 w-3.5 text-slate-500" />
+          </span>
+          <p className="text-xs text-gray-600 leading-relaxed">
             These prompts are dynamically customized with your brand name and sent to ChatGPT, Gemini, and Perplexity to gather comprehensive visibility data.
           </p>
         </div>
@@ -2532,12 +2538,14 @@ function ProgressTrackingGraph({ brandId }: { brandId: string }) {
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 cursor-help">
                       Visibility Progress Tracker
-                      <Info className="h-4 w-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                        <Info className="h-3 w-3 text-slate-500" />
+                      </span>
                     </h3>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                     Tracks your AI visibility score improvements over time. Each data point represents an analysis run. Use this to measure the impact of your optimization efforts.
                   </TooltipContent>
                 </Tooltip>
@@ -2806,12 +2814,14 @@ function SentimentAnalysisIsland({
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 cursor-help">
                       Sentiment Analysis
-                      <Info className="h-4 w-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                        <Info className="h-3 w-3 text-slate-500" />
+                      </span>
                     </h3>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                     Analyzes the tone and attitude of AI-generated content about your brand. Derived from natural language processing of AI responses to classify mentions as positive, neutral, or negative.
                   </TooltipContent>
                 </Tooltip>
@@ -2831,12 +2841,14 @@ function SentimentAnalysisIsland({
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5 cursor-help">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2 cursor-help">
                     Overall AI Sentiment Score
-                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                      <Info className="h-3 w-3 text-slate-500" />
+                    </span>
                   </h4>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                   Calculated as: (Positive% × 100 + Neutral% × 50) / Total. Score ranges 0-100, where 100 means all mentions are positive. Based on sentiment classification of AI responses.
                 </TooltipContent>
               </Tooltip>
@@ -2872,12 +2884,14 @@ function SentimentAnalysisIsland({
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5 cursor-help">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2 cursor-help">
                     Sentiment by AI Platform
-                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                      <Info className="h-3 w-3 text-slate-500" />
+                    </span>
                   </h4>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                   Breakdown of positive/neutral/negative sentiment for each AI platform. Each bar represents the proportion of sentiment types.
                 </TooltipContent>
               </Tooltip>
@@ -3112,12 +3126,14 @@ function CompetitorComparisonIsland({
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 cursor-help">
                       Competitor Comparison
-                      <Info className="h-4 w-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                        <Info className="h-3 w-3 text-slate-500" />
+                      </span>
                     </h3>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                     Compares your AI visibility metrics against identified competitors. Rankings are based on overall visibility scores derived from mention frequency, position, and sentiment across AI platforms.
                   </TooltipContent>
                 </Tooltip>
@@ -3156,12 +3172,14 @@ function CompetitorComparisonIsland({
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 cursor-help">
+                    <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2 cursor-help">
                       AI Visibility Ranking
-                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                        <Info className="h-3 w-3 text-slate-500" />
+                      </span>
                     </h4>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                     Brands ranked by overall AI visibility score. Score combines mention frequency (40%), average position (30%), and sentiment (30%) across ChatGPT, Gemini, and Perplexity.
                   </TooltipContent>
                 </Tooltip>
@@ -3220,12 +3238,14 @@ function CompetitorComparisonIsland({
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 cursor-help">
+                    <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2 cursor-help">
                       Your Metrics vs Competitor Average
-                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                        <Info className="h-3 w-3 text-slate-500" />
+                      </span>
                     </h4>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                     Compares your key metrics against the average of all tracked competitors. Green indicates you're above average, red indicates below. The circular chart shows your score as a percentage.
                   </TooltipContent>
                 </Tooltip>
@@ -3253,12 +3273,14 @@ function CompetitorComparisonIsland({
                         <TooltipProvider delayDuration={200}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <p className="text-xs font-medium text-gray-600 flex items-center gap-1 cursor-help">
+                              <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5 cursor-help">
                                 {metric.label}
-                                <Info className="h-3 w-3 text-gray-400 hover:text-indigo-500 transition-colors" />
+                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 hover:from-indigo-100 hover:to-violet-100 transition-all duration-200">
+                                  <Info className="h-2.5 w-2.5 text-slate-500" />
+                                </span>
                               </p>
                             </TooltipTrigger>
-                            <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                            <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                               {metric.tooltip}
                             </TooltipContent>
                           </Tooltip>
@@ -3358,40 +3380,69 @@ function CompetitorComparisonIsland({
         {/* Detailed Competitor Cards - Only show if we have competitors */}
         {competitorDetails.length > 0 && (
         <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-4">Detailed Competitor Analysis</h4>
-          <div className="grid grid-cols-1 gap-4">
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">Detailed Competitor Analysis</h4>
+          <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
             {competitorDetails.map((comp, i) => (
-              <div key={i} className="p-4 rounded-xl bg-gray-50 border border-gray-200">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                      comp.overallScore >= 70 ? "bg-emerald-500" :
-                      comp.overallScore >= 50 ? "bg-amber-500" : "bg-gray-400"
-                    }`}>
-                      {comp.overallScore}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">{comp.name}</p>
-                      <p className="text-[10px] text-gray-500">Market share: {comp.marketShare}</p>
-                    </div>
+              <div key={i} className="p-4 bg-white hover:bg-gray-50/50 transition-colors">
+                <div className="flex items-start gap-4">
+                  {/* Score Badge */}
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm flex-shrink-0 ${
+                    comp.overallScore >= 70 ? "bg-gradient-to-br from-emerald-500 to-emerald-600" :
+                    comp.overallScore >= 50 ? "bg-gradient-to-br from-amber-500 to-amber-600" : "bg-gradient-to-br from-gray-400 to-gray-500"
+                  }`}>
+                    {comp.overallScore}
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-[10px] text-gray-500 mb-1">Strengths</p>
-                    {comp.strengths.slice(0, 2).map((s, j) => (
-                      <p key={j} className="text-xs text-gray-700 flex items-center gap-1">
-                        <span className="w-1 h-1 rounded-full bg-red-400" /> {s}
-                      </p>
-                    ))}
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-500 mb-1">Weaknesses (Your Opportunity)</p>
-                    {comp.weaknesses.slice(0, 2).map((w, j) => (
-                      <p key={j} className="text-xs text-gray-700 flex items-center gap-1">
-                        <span className="w-1 h-1 rounded-full bg-emerald-400" /> {w}
-                      </p>
-                    ))}
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    {/* Header Row */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h5 className="text-base font-semibold text-gray-900">{comp.name}</h5>
+                        <p className="text-xs text-gray-500">{comp.marketShare}</p>
+                      </div>
+                      <Badge className={`text-[10px] ${
+                        comp.sentiment === "positive" ? "bg-emerald-100 text-emerald-700" :
+                        comp.sentiment === "negative" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"
+                      }`}>
+                        {comp.sentiment} sentiment
+                      </Badge>
+                    </div>
+
+                    {/* Strengths & Weaknesses in Grid */}
+                    <div className="grid grid-cols-2 gap-4 mt-3">
+                      {/* Strengths */}
+                      <div className="bg-red-50/50 rounded-lg p-3 border border-red-100">
+                        <p className="text-[11px] font-semibold text-red-700 mb-2 flex items-center gap-1.5">
+                          <AlertCircle className="h-3 w-3" />
+                          Their Strengths
+                        </p>
+                        <ul className="space-y-1.5">
+                          {comp.strengths.slice(0, 2).map((s, j) => (
+                            <li key={j} className="text-xs text-gray-700 flex items-start gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
+                              <span className="leading-relaxed">{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Weaknesses */}
+                      <div className="bg-emerald-50/50 rounded-lg p-3 border border-emerald-100">
+                        <p className="text-[11px] font-semibold text-emerald-700 mb-2 flex items-center gap-1.5">
+                          <Target className="h-3 w-3" />
+                          Your Opportunity
+                        </p>
+                        <ul className="space-y-1.5">
+                          {comp.weaknesses.slice(0, 2).map((w, j) => (
+                            <li key={j} className="text-xs text-gray-700 flex items-start gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0" />
+                              <span className="leading-relaxed">{w}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -4245,12 +4296,14 @@ function ImprovementActionPlanIsland({
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 cursor-help">
                       Improvement & Action Plan
-                      <Info className="h-4 w-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                        <Info className="h-3 w-3 text-slate-500" />
+                      </span>
                     </h3>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                     Prioritized recommendations to improve your AI visibility score. Actions are categorized by timeframe and estimated impact. Potential points are calculated based on action complexity and historical improvement data.
                   </TooltipContent>
                 </Tooltip>
@@ -4277,12 +4330,14 @@ function ImprovementActionPlanIsland({
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5 cursor-help">
+                <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2 cursor-help">
                   Score Improvement Heatmap
-                  <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                    <Info className="h-3 w-3 text-slate-500" />
+                  </span>
                 </h4>
               </TooltipTrigger>
-              <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+              <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                 Heatmap visualization showing score progression. Darker colors indicate higher scores. Each cell represents a 10-point range with your current position and potential improvement highlighted.
               </TooltipContent>
             </Tooltip>
@@ -5142,12 +5197,14 @@ function CompetitivePositionIsland({
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 cursor-help">
                       Competitive Position & Key Focus Areas
-                      <Info className="h-4 w-4 text-gray-400 hover:text-indigo-500 transition-colors" />
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                        <Info className="h-3 w-3 text-slate-500" />
+                      </span>
                     </h3>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                     Analysis of how your brand is positioned relative to competitors in AI-generated responses. Includes strategic recommendations based on competitive gaps and opportunities.
                   </TooltipContent>
                 </Tooltip>
@@ -5169,12 +5226,14 @@ function CompetitivePositionIsland({
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                      <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2 cursor-help">
                         Your Competitive Position
-                        <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                          <Info className="h-3 w-3 text-slate-500" />
+                        </span>
                       </h4>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                    <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                       Summary of how AI platforms position your brand compared to competitors. Based on analysis of mention context, co-occurrence patterns, and recommendation ordering.
                     </TooltipContent>
                   </Tooltip>
@@ -5199,7 +5258,7 @@ function CompetitivePositionIsland({
                     )}
                     {aiVisibility?.typicalPosition !== null && aiVisibility?.typicalPosition !== undefined && (
                       <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-100 rounded-lg">
-                        <span className="text-xs text-violet-600 font-medium">Typical Position:</span>
+                        <span className="text-xs text-violet-600 font-medium">AI Response Position:</span>
                         <span className="text-xs font-semibold text-violet-700">#{aiVisibility.typicalPosition}</span>
                       </div>
                     )}
@@ -5230,12 +5289,14 @@ function CompetitivePositionIsland({
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5 cursor-help">
+                      <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2 cursor-help">
                         Key Focus Areas
-                        <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-200/50 transition-all duration-200">
+                          <Info className="h-3 w-3 text-slate-500" />
+                        </span>
                       </h4>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                    <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0 shadow-xl">
                       Prioritized list of improvement areas identified from AI response analysis. Items are ranked by potential impact on your visibility score.
                     </TooltipContent>
                   </Tooltip>
@@ -5356,9 +5417,9 @@ function AnalysisPromptsUsedIsland({ brandName, domain, competitors, visibilityS
         {/* Info Footer */}
         <div className="mt-5 p-4 rounded-xl bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gray-100">
-              <Info className="h-4 w-4 text-gray-600" />
-            </div>
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 shadow-sm flex-shrink-0">
+              <Info className="h-4 w-4 text-slate-500" />
+            </span>
             <div>
               <p className="text-sm text-gray-600">
                 <span className="font-semibold">{prompts.length} prompts</span> dynamically generated and sent to <span className="font-semibold">ChatGPT</span>, <span className="font-semibold">Gemini</span>, and <span className="font-semibold">Perplexity</span> to gather comprehensive visibility data.

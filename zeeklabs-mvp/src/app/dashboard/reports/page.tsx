@@ -854,7 +854,7 @@ export default function ReportsPage() {
 
     <!-- COVER PAGE -->
     <div class="cover-page">
-      <div class="cover-logo">ZeekLabs.ai</div>
+      <div class="cover-logo">zeeklabs.ai</div>
       <div class="cover-tagline">AI Visibility Intelligence Platform</div>
       <div class="cover-title">AI Visibility Report</div>
       <div class="cover-brand">${reportData.brand.name}</div>
@@ -1279,10 +1279,10 @@ export default function ReportsPage() {
 
     <!-- FOOTER -->
     <div style="text-align: center; padding: 40px 0; border-top: 2px solid #e5e7eb; margin-top: 40px;">
-      <div style="font-size: 20px; font-weight: 800; color: #6366f1; margin-bottom: 8px;">ZeekLabs.ai</div>
+      <div style="font-size: 20px; font-weight: 800; color: #6366f1; margin-bottom: 8px;">zeeklabs.ai</div>
       <div style="color: #6b7280; font-size: 12px;">AI Visibility Intelligence Platform</div>
       <div style="color: #9ca3af; font-size: 11px; margin-top: 12px;">
-        Generated on ${reportData.reportDate} | © ${new Date().getFullYear()} ZeekLabs.ai. All rights reserved.
+        Generated on ${reportData.reportDate} | © ${new Date().getFullYear()} zeeklabs.ai. All rights reserved.
       </div>
       <div style="margin-top: 16px; padding: 12px 24px; background: #f8fafc; border-radius: 8px; display: inline-block;">
         <span style="font-size: 10px; color: #6b7280;">Need help improving your AI visibility? Contact us at </span>
@@ -1780,7 +1780,7 @@ export default function ReportsPage() {
                 <div className="text-lg font-semibold capitalize">{reportData.aiVisibility.mentionFrequency}</div>
               </div>
               <div className="p-4 rounded-lg bg-muted/30 border border-border">
-                <div className="text-sm text-muted-foreground">Typical Position</div>
+                <div className="text-sm text-muted-foreground">AI Response Position</div>
                 <div className="text-lg font-semibold">
                   {reportData.aiVisibility.typicalPosition ? `#${reportData.aiVisibility.typicalPosition}` : "Not ranked"}
                 </div>
