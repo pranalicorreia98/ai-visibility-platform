@@ -14,6 +14,12 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -94,23 +100,67 @@ export default function AnalysisPage() {
     loading,
     visibilityLoading,
     invalidateVisibilityCache,
+    refreshVisibilityData,
   } = useBrand();
 
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+
+  // Rotating loading messages - similar to Claude's loading states
+  const loadingMessages = [
+    "Analyzing brand presence across AI platforms...",
+    "Gathering visibility data from ChatGPT...",
+    "Scanning Gemini responses...",
+    "Querying Perplexity for mentions...",
+    "Calculating sentiment scores...",
+    "Evaluating competitive positioning...",
+    "Identifying citation opportunities...",
+    "Processing market intelligence...",
+    "Generating actionable recommendations...",
+    "Compiling comprehensive insights...",
+    "Finalizing your AI visibility report...",
+  ];
+
+  // Effect to rotate loading messages
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (analysisLoading) {
+      setLoadingMessage(loadingMessages[0]);
+      setLoadingMessageIndex(0);
+      interval = setInterval(() => {
+        setLoadingMessageIndex((prev) => {
+          const nextIndex = (prev + 1) % loadingMessages.length;
+          setLoadingMessage(loadingMessages[nextIndex]);
+          return nextIndex;
+        });
+      }, 3000); // Change message every 3 seconds
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [analysisLoading]);
 
   // Run analysis for the selected brand
-  const runAnalysis = async () => {
+  // forceRefresh: true will bypass the 24-hour server cache and call AI again
+  const runAnalysis = async (forceRefresh = false) => {
     if (!selectedBrandId) return;
 
     setAnalysisLoading(true);
     setError(null);
 
+    // Clear client-side cache first
+    invalidateVisibilityCache();
+
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId: selectedBrandId }),
+        body: JSON.stringify({
+          brandId: selectedBrandId,
+          forceRefresh, // Pass to server to bypass DB cache
+        }),
       });
 
       const data = await response.json();
@@ -123,11 +173,20 @@ export default function AnalysisPage() {
       // We need to extract the analysis object
       if (data.analysis) {
         setAnalysisData(data.analysis);
+
+        // IMPORTANT: Refresh visibility data after analysis completes
+        // This ensures the visibility API reads the fresh cached analysis data
+        await refreshVisibilityData(true);
       } else {
         throw new Error("No analysis data in response");
       }
-      // Invalidate visibility cache so Overview shows fresh data
-      invalidateVisibilityCache();
+
+      // Log cache status for debugging
+      if (data.cached) {
+        console.log(`Analysis returned from cache (expires: ${data.cacheExpiry})`);
+      } else {
+        console.log(`Fresh analysis completed via ${data.meta?.provider}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -175,41 +234,226 @@ export default function AnalysisPage() {
   const result = analysisData;
   const vis = visibilityData;
 
+  // Generate favicon URL from brand domain
+  const getBrandLogoUrl = (domain?: string) => {
+    if (!domain) return null;
+    // Clean domain (remove protocol if present)
+    const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    return `https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=64`;
+  };
+
+  const brandLogoUrl = getBrandLogoUrl(selectedBrand?.domain);
+
   return (
     <div className="p-6 space-y-6 fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">AI Visibility Analysis</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Comprehensive analysis for {selectedBrand?.name || "your brand"}
-          </p>
+      {/* Premium Header with Brand Identity */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-950 p-6 shadow-xl">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-400 to-transparent rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-violet-400 to-transparent rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
         </div>
-        <Button
-          onClick={runAnalysis}
-          disabled={analysisLoading || !selectedBrandId}
-          className="gap-2"
-        >
-          {analysisLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Analyzing...
-            </>
-          ) : (
-            <>
-              <Play className="h-4 w-4" />
-              Run Analysis
-            </>
-          )}
-        </Button>
+
+        <div className="relative flex items-center justify-between">
+          {/* Left: Brand Identity */}
+          <div className="flex items-center gap-4">
+            {/* Brand Logo */}
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center overflow-hidden shadow-lg">
+                {brandLogoUrl ? (
+                  <img
+                    src={brandLogoUrl}
+                    alt={`${selectedBrand?.name} logo`}
+                    className="w-10 h-10 object-contain"
+                    onError={(e) => {
+                      // Fallback to first letter if favicon fails
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <span className={`text-2xl font-bold text-white ${brandLogoUrl ? 'hidden' : ''}`}>
+                  {selectedBrand?.name?.charAt(0).toUpperCase() || 'B'}
+                </span>
+              </div>
+              {/* Status indicator */}
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center">
+                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              </div>
+            </div>
+
+            {/* Brand Name and Title */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-2xl font-bold text-white tracking-tight">
+                  {selectedBrand?.name || "Your Brand"}&apos;s AI Visibility
+                </h1>
+                <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-xs">
+                  Live Analysis
+                </Badge>
+              </div>
+              <p className="text-slate-400 text-sm flex items-center gap-2">
+                <Globe className="h-3.5 w-3.5" />
+                {selectedBrand?.domain || "No domain set"}
+                <span className="text-slate-600">•</span>
+                <span className="text-slate-400">
+                  Last updated: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Action Buttons */}
+          <div className="flex items-center gap-3">
+            {/* Quick Stats Badge */}
+            {vis?.score?.overall !== undefined && vis.score.overall > 0 && (
+              <div className="hidden lg:flex items-center gap-3 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-white">{vis.score.overall}</p>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Score</p>
+                </div>
+                <div className="w-px h-8 bg-white/10" />
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-emerald-400">{vis.mentions?.total || 0}</p>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Mentions</p>
+                </div>
+              </div>
+            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  disabled={analysisLoading || !selectedBrandId}
+                  className="gap-2 bg-white text-slate-900 hover:bg-slate-100 shadow-lg"
+                  size="lg"
+                >
+                  {analysisLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Run Analysis
+                      <ChevronDown className="h-3 w-3 ml-1" />
+                    </>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem
+                  onClick={() => runAnalysis(false)}
+                  className="cursor-pointer"
+                >
+                  <Play className="h-4 w-4 mr-2 text-indigo-500" />
+                  <div>
+                    <p className="font-medium text-sm">Run Analysis</p>
+                    <p className="text-xs text-gray-500">Uses cached data if available (24h)</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => runAnalysis(true)}
+                  className="cursor-pointer"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2 text-amber-500" />
+                  <div>
+                    <p className="font-medium text-sm">Force Refresh</p>
+                    <p className="text-xs text-gray-500">Get fresh AI analysis</p>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
       </div>
 
       {/* Error message */}
       {error && (
-        <Card className="border-destructive/50 bg-destructive/10">
+        <Card className="border-red-200 bg-red-50 shadow-sm">
           <CardContent className="flex items-center gap-3 py-4">
-            <AlertCircle className="h-5 w-5 text-destructive" />
-            <p className="text-sm text-destructive">{error}</p>
+            <div className="p-2 rounded-full bg-red-100">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-red-800">Analysis Error</p>
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Premium Loading State */}
+      {analysisLoading && (
+        <Card className="border-0 bg-gradient-to-br from-slate-50 via-indigo-50/50 to-violet-50/50 shadow-xl overflow-hidden">
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center justify-center text-center">
+              {/* Animated Brand Logo */}
+              <div className="relative mb-8">
+                {/* Outer ring */}
+                <div className="absolute inset-0 w-24 h-24 rounded-full border-4 border-indigo-100 animate-pulse" />
+                {/* Spinning ring */}
+                <div className="w-24 h-24 rounded-full border-4 border-transparent border-t-indigo-600 border-r-violet-500 animate-spin" />
+                {/* Center content */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-white shadow-lg flex items-center justify-center">
+                    {brandLogoUrl ? (
+                      <img
+                        src={brandLogoUrl}
+                        alt={`${selectedBrand?.name} logo`}
+                        className="w-8 h-8 object-contain"
+                      />
+                    ) : (
+                      <Sparkles className="h-8 w-8 text-indigo-600 animate-pulse" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Brand-specific loading message */}
+              <p className="text-xl font-semibold text-gray-900 mb-2">
+                Analyzing {selectedBrand?.name || "Your Brand"}
+              </p>
+              <p className="text-base text-indigo-600 font-medium mb-4 transition-all duration-500">
+                {loadingMessage}
+              </p>
+
+              {/* Progress bar */}
+              <div className="w-full max-w-md mb-4">
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-full transition-all duration-500"
+                    style={{ width: `${((loadingMessageIndex + 1) / loadingMessages.length) * 100}%` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-2 text-xs text-gray-400">
+                  <span>Querying AI platforms...</span>
+                  <span>{Math.round(((loadingMessageIndex + 1) / loadingMessages.length) * 100)}%</span>
+                </div>
+              </div>
+
+              {/* Platform indicators */}
+              <div className="flex items-center justify-center gap-6 mt-4">
+                <div className={`flex items-center gap-2 transition-opacity ${loadingMessageIndex >= 1 ? 'opacity-100' : 'opacity-30'}`}>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                    <ChatGPTLogo size={18} />
+                  </div>
+                  <span className="text-xs font-medium text-gray-600">ChatGPT</span>
+                </div>
+                <div className={`flex items-center gap-2 transition-opacity ${loadingMessageIndex >= 3 ? 'opacity-100' : 'opacity-30'}`}>
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <GeminiLogo size={18} />
+                  </div>
+                  <span className="text-xs font-medium text-gray-600">Gemini</span>
+                </div>
+                <div className={`flex items-center gap-2 transition-opacity ${loadingMessageIndex >= 5 ? 'opacity-100' : 'opacity-30'}`}>
+                  <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                    <PerplexityLogo size={18} />
+                  </div>
+                  <span className="text-xs font-medium text-gray-600">Perplexity</span>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -239,10 +483,10 @@ export default function AnalysisPage() {
           <MetricDisplay
             value={vis?.mentions?.total || 0}
             loading={visibilityLoading}
-            trend={12}
+            trend={vis?.trends?.mentions ?? null}
             trendLabel="vs last week"
           />
-          <Sparkline data={[20, 35, 28, 45, 38, 52, 48]} className="mt-3" />
+          <Sparkline data={vis?.trend?.map((d: { total: number }) => d.total) || []} className="mt-3" />
         </InsightIsland>
 
         <InsightIsland
@@ -254,7 +498,7 @@ export default function AnalysisPage() {
             value={vis?.simulations || 0}
             suffix="/week"
             loading={visibilityLoading}
-            trend={8}
+            trend={vis?.trends?.frequency ?? null}
             trendLabel="increase"
           />
           <WeeklyMentionChart data={vis?.trend || []} loading={visibilityLoading} />
@@ -268,12 +512,16 @@ export default function AnalysisPage() {
           <div className="flex items-baseline gap-1">
             <span className="text-4xl font-bold text-gray-900">#</span>
             <AnimatedNumber
-              value={result?.aiVisibility?.typicalPosition || 2.3}
+              value={vis?.position?.average ?? result?.aiVisibility?.typicalPosition ?? 0}
               decimals={1}
               loading={visibilityLoading}
             />
           </div>
-          <TrendBadge value={-0.5} label="improved" inverted />
+          {vis?.position?.trend !== null && vis?.position?.trend !== undefined ? (
+            <TrendBadge value={vis.position.trend} label="improved" inverted />
+          ) : (
+            <div className="text-xs text-gray-400 mt-1">No trend data yet</div>
+          )}
           <div className="mt-2 text-xs text-gray-500">
             Average ranking across AI platforms
           </div>
@@ -340,6 +588,26 @@ export default function AnalysisPage() {
           <CompetitivePositionIsland
             aiVisibility={result.aiVisibility}
             brandName={selectedBrand?.name || "Your Brand"}
+            brandScore={result?.scores?.overall || vis?.score?.overall || 0}
+            competitorComparison={result?.competitorComparison}
+            recommendations={result?.recommendations}
+            brandContext={{
+              domain: selectedBrand?.domain,
+              industry: result?.marketIntelligence?.industryTrends?.[0]?.split(" ")[0],
+              competitors: selectedBrand?.competitors,
+              currentScore: vis?.score?.overall,
+              platformScores: vis?.score ? {
+                chatgpt: vis.score.chatgpt,
+                gemini: vis.score.gemini,
+                perplexity: vis.score.perplexity,
+              } : undefined,
+              sentiment: vis?.sentiment ? {
+                positive: vis.sentiment.positive,
+                neutral: vis.sentiment.neutral,
+                negative: vis.sentiment.negative,
+              } : undefined,
+              weaknesses: result?.aiVisibility?.improvementAreas,
+            }}
           />
 
           {/* Analysis Prompts Used */}
@@ -368,19 +636,12 @@ export default function AnalysisPage() {
             <p className="text-muted-foreground text-sm text-center max-w-md mb-6">
               Click &quot;Run Analysis&quot; to generate a comprehensive AI visibility report for {selectedBrand?.name}.
             </p>
-            <Button onClick={runAnalysis} disabled={analysisLoading}>
-              {analysisLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" />
-                  Run Analysis
-                </>
-              )}
-            </Button>
+            {!analysisLoading && (
+              <Button onClick={() => runAnalysis(false)}>
+                <Play className="mr-2 h-4 w-4" />
+                Run Analysis
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -516,7 +777,7 @@ function ScoreTooltip({ content, children }: { content: string; children: React.
   );
 }
 
-// Insight Island Component
+// Insight Island Component - Premium Design
 function InsightIsland({
   title,
   icon,
@@ -538,51 +799,62 @@ function InsightIsland({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const variantStyles = {
+    default: "bg-white border-gray-200 hover:border-gray-300",
+    primary: "bg-gradient-to-br from-indigo-50 to-violet-50 border-indigo-200 hover:border-indigo-300",
+    success: "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 hover:border-emerald-300",
+    warning: "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200 hover:border-amber-300",
+  };
+
+  const iconStyles = {
+    default: "bg-gray-100 text-gray-600",
+    primary: "bg-indigo-100 text-indigo-600",
+    success: "bg-emerald-100 text-emerald-600",
+    warning: "bg-amber-100 text-amber-600",
+  };
+
   return (
     <div
-      className={`insight-island ${
-        variant === "primary" ? "insight-island-primary" :
-        variant === "success" ? "insight-island-success" :
-        variant === "warning" ? "insight-island-warning" : ""
-      } ${className}`}
+      className={`rounded-2xl border shadow-sm hover:shadow-md transition-all duration-300 ${variantStyles[variant]} ${className}`}
     >
       <div className="p-5">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gray-100 text-gray-600">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl ${iconStyles[variant]} shadow-sm`}>
               {icon}
             </div>
             {tooltip ? (
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 cursor-help">
+                    <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 cursor-help">
                       {title}
                       <Info className="h-3.5 w-3.5 text-gray-400 hover:text-indigo-500 transition-colors" />
                     </h3>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                  <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed bg-gray-900 text-white border-0">
                     {tooltip}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : (
-              <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+              <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
             )}
           </div>
           {expandable && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+              className="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
             >
               {isExpanded ? "Collapse" : "Expand"}
+              {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </button>
           )}
         </div>
         {children}
       </div>
       {expandable && isExpanded && expandedContent && (
-        <div className="border-t border-gray-100 p-5 bg-gray-50/50">
+        <div className="border-t border-gray-100 p-5 bg-gray-50/30 rounded-b-2xl">
           {expandedContent}
         </div>
       )}
@@ -601,7 +873,7 @@ function MetricDisplay({
   value: number;
   suffix?: string;
   loading?: boolean;
-  trend?: number;
+  trend?: number | null;
   trendLabel?: string;
 }) {
   const animatedValue = useAnimatedCounter(value);
@@ -616,7 +888,11 @@ function MetricDisplay({
         <span className="text-4xl font-bold text-gray-900">{animatedValue}</span>
         {suffix && <span className="text-lg text-gray-500">{suffix}</span>}
       </div>
-      {trend !== undefined && <TrendBadge value={trend} label={trendLabel} />}
+      {trend !== undefined && trend !== null ? (
+        <TrendBadge value={trend} label={trendLabel} />
+      ) : (
+        <div className="text-xs text-gray-400 mt-1">No trend data yet</div>
+      )}
     </div>
   );
 }
@@ -681,6 +957,21 @@ function Sparkline({
   className?: string;
   color?: "indigo" | "emerald" | "violet";
 }) {
+  // Handle empty or all-zero data
+  if (!data || data.length === 0 || data.every(v => v === 0)) {
+    return (
+      <div className={`flex items-end gap-1 h-8 ${className}`}>
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div
+            key={i}
+            className="w-full rounded-sm bg-gray-200"
+            style={{ height: "4px" }}
+          />
+        ))}
+      </div>
+    );
+  }
+
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
@@ -774,10 +1065,25 @@ function WeeklyMentionChart({
     return <Skeleton className="h-8 w-full mt-3" />;
   }
 
-  const chartData = data.length > 0 ? data.slice(-7) : [
-    { total: 3 }, { total: 5 }, { total: 4 }, { total: 7 }, { total: 6 }, { total: 8 }, { total: 7 }
-  ];
-  const max = Math.max(...chartData.map(d => d.total)) || 1;
+  // Use actual data or show empty state (no hardcoded fallback data)
+  const chartData = data.length > 0 ? data.slice(-7) : [];
+  const hasData = chartData.length > 0 && chartData.some(d => d.total > 0);
+  const max = hasData ? Math.max(...chartData.map(d => d.total)) : 1;
+
+  // Show empty state if no data
+  if (!hasData) {
+    return (
+      <div className="flex items-end gap-1 h-8 mt-3">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-sm bg-gray-200"
+            style={{ height: "4px" }}
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-end gap-1 h-8 mt-3">
@@ -861,43 +1167,44 @@ function DetailedSentimentAnalysis({
   const sentimentData = result?.sentimentAnalysis;
   const vis = visibilityData;
 
-  // Calculate overall sentiment score
-  const positive = vis?.sentiment?.positive || 65;
-  const neutral = vis?.sentiment?.neutral || 25;
-  const negative = vis?.sentiment?.negative || 10;
+  // Use real sentiment percentages from API, fallback to 0 (not hardcoded values)
+  const positive = vis?.sentiment?.percentages?.positive ?? 0;
+  const neutral = vis?.sentiment?.percentages?.neutral ?? 0;
+  const negative = vis?.sentiment?.percentages?.negative ?? 0;
   const total = positive + neutral + negative;
   const sentimentScore = total > 0 ? Math.round((positive * 100 + neutral * 50) / total) : 0;
+  const hasAnalysisData = total > 0;
 
-  // AI platform sentiment breakdown
-  const platformSentiment = [
-    { platform: "ChatGPT", positive: 72, neutral: 20, negative: 8, trend: "+5%" },
-    { platform: "Gemini", positive: 68, neutral: 22, negative: 10, trend: "+3%" },
-    { platform: "Perplexity", positive: 61, neutral: 28, negative: 11, trend: "+8%" },
-  ];
+  // Use real platform sentiment from API
+  const platformSentimentData = vis?.platformSentiment;
+  const platformSentiment = platformSentimentData ? [
+    {
+      platform: "ChatGPT",
+      positive: platformSentimentData.chatgpt?.positive ?? 0,
+      neutral: platformSentimentData.chatgpt?.neutral ?? 0,
+      negative: platformSentimentData.chatgpt?.negative ?? 0,
+    },
+    {
+      platform: "Gemini",
+      positive: platformSentimentData.gemini?.positive ?? 0,
+      neutral: platformSentimentData.gemini?.neutral ?? 0,
+      negative: platformSentimentData.gemini?.negative ?? 0,
+    },
+    {
+      platform: "Perplexity",
+      positive: platformSentimentData.perplexity?.positive ?? 0,
+      neutral: platformSentimentData.perplexity?.neutral ?? 0,
+      negative: platformSentimentData.perplexity?.negative ?? 0,
+    },
+  ] : [];
 
-  // Detailed positive themes with impact
-  const positiveThemes = sentimentData?.brandSentiment?.positiveThemes || [
-    "Product quality and reliability mentioned in 78% of responses",
-    "Customer service praised in comparative discussions",
-    "Innovation leadership recognized in industry queries",
-    "Value for money highlighted in recommendation contexts"
-  ];
+  // Use real themes from analysis data, no hardcoded fallbacks
+  const positiveThemes = sentimentData?.brandSentiment?.positiveThemes || [];
+  const negativeThemes = sentimentData?.brandSentiment?.negativeThemes || [];
 
-  // Detailed negative themes with remediation suggestions
-  const negativeThemes = sentimentData?.brandSentiment?.negativeThemes || [
-    "Pricing concerns in 23% of comparison queries",
-    "Limited regional availability mentioned",
-    "Documentation could be more comprehensive"
-  ];
-
-  // Sentiment drivers
-  const sentimentDrivers = [
-    { factor: "Product Reviews", impact: 35, sentiment: "positive" },
-    { factor: "News Coverage", impact: 25, sentiment: "positive" },
-    { factor: "Social Media", impact: 20, sentiment: "neutral" },
-    { factor: "Forum Discussions", impact: 15, sentiment: "positive" },
-    { factor: "Complaint Sites", impact: 5, sentiment: "negative" },
-  ];
+  // Sentiment drivers - currently not provided by API, placeholder for future enhancement
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sentimentDrivers: Array<{ factor: string; impact: number; sentiment: string }> = (sentimentData as any)?.sentimentDrivers || [];
 
   return (
     <div className="space-y-5">
@@ -905,9 +1212,13 @@ function DetailedSentimentAnalysis({
       <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100">
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-sm font-semibold text-gray-800">Overall AI Sentiment Score</h4>
-          <Badge className={`${sentimentScore >= 70 ? "bg-emerald-100 text-emerald-700" : sentimentScore >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
-            {sentimentScore >= 70 ? "Excellent" : sentimentScore >= 50 ? "Good" : "Needs Attention"}
-          </Badge>
+          {hasAnalysisData ? (
+            <Badge className={`${sentimentScore >= 70 ? "bg-emerald-100 text-emerald-700" : sentimentScore >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
+              {sentimentScore >= 70 ? "Excellent" : sentimentScore >= 50 ? "Good" : "Needs Attention"}
+            </Badge>
+          ) : (
+            <Badge className="bg-gray-100 text-gray-500">No data</Badge>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <div className="text-4xl font-bold text-indigo-600">{sentimentScore}</div>
@@ -924,34 +1235,49 @@ function DetailedSentimentAnalysis({
             </div>
           </div>
         </div>
-        <p className="text-xs text-gray-600 mt-3">
-          Your brand receives predominantly positive mentions across AI platforms, with sentiment improving 6% over the last 30 days.
-        </p>
+        {hasAnalysisData ? (
+          <p className="text-xs text-gray-600 mt-3">
+            {positive >= 50
+              ? "Your brand receives predominantly positive mentions across AI platforms."
+              : positive >= 30
+              ? "Your brand receives mixed sentiment across AI platforms."
+              : "Your brand sentiment needs improvement across AI platforms."}
+          </p>
+        ) : (
+          <p className="text-xs text-gray-400 mt-3">
+            Run analysis to see sentiment data for your brand.
+          </p>
+        )}
       </div>
 
       {/* Sentiment Breakdown by Platform */}
       <div>
         <h4 className="text-sm font-semibold text-gray-700 mb-3">Sentiment by AI Platform</h4>
-        <div className="space-y-3">
-          {platformSentiment.map((platform, i) => (
-            <div key={i} className="p-3 rounded-lg bg-gray-50 border border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-800">{platform.platform}</span>
-                <span className="text-xs text-emerald-600 font-medium">{platform.trend}</span>
+        {platformSentiment.length > 0 ? (
+          <div className="space-y-3">
+            {platformSentiment.map((platform, i) => (
+              <div key={i} className="p-3 rounded-lg bg-gray-50 border border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-800">{platform.platform}</span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden flex">
+                  <div className="bg-emerald-500 h-full transition-all" style={{ width: `${platform.positive}%` }} />
+                  <div className="bg-gray-400 h-full transition-all" style={{ width: `${platform.neutral}%` }} />
+                  <div className="bg-red-400 h-full transition-all" style={{ width: `${platform.negative}%` }} />
+                </div>
+                <div className="flex justify-between mt-1.5 text-[10px] text-gray-500">
+                  <span className="text-emerald-600">+{platform.positive}%</span>
+                  <span>~{platform.neutral}%</span>
+                  <span className="text-red-500">-{platform.negative}%</span>
+                </div>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden flex">
-                <div className="bg-emerald-500 h-full transition-all" style={{ width: `${platform.positive}%` }} />
-                <div className="bg-gray-400 h-full transition-all" style={{ width: `${platform.neutral}%` }} />
-                <div className="bg-red-400 h-full transition-all" style={{ width: `${platform.negative}%` }} />
-              </div>
-              <div className="flex justify-between mt-1.5 text-[10px] text-gray-500">
-                <span className="text-emerald-600">+{platform.positive}%</span>
-                <span>~{platform.neutral}%</span>
-                <span className="text-red-500">-{platform.negative}%</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 rounded-lg bg-gray-50 border border-gray-100 text-center">
+            <p className="text-xs text-gray-400">Run analysis to see platform-specific sentiment</p>
+          </div>
+        )}
       </div>
 
       {/* Sentiment Themes - Enhanced */}
@@ -960,105 +1286,142 @@ function DetailedSentimentAnalysis({
           <h5 className="text-xs font-semibold text-emerald-800 mb-2 flex items-center gap-1.5">
             <ThumbsUp className="h-3.5 w-3.5" /> What AI Platforms Praise
           </h5>
-          <ul className="space-y-2">
-            {positiveThemes.slice(0, 4).map((theme, i) => (
-              <li key={i} className="text-xs text-gray-700 flex items-start gap-2">
-                <CheckCircle className="h-3 w-3 text-emerald-500 mt-0.5 flex-shrink-0" />
-                <span>{theme}</span>
-              </li>
-            ))}
-          </ul>
+          {positiveThemes.length > 0 ? (
+            <ul className="space-y-2">
+              {positiveThemes.slice(0, 4).map((theme, i) => (
+                <li key={i} className="text-xs text-gray-700 flex items-start gap-2">
+                  <CheckCircle className="h-3 w-3 text-emerald-500 mt-0.5 flex-shrink-0" />
+                  <span>{theme}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-gray-400">Run analysis to see positive themes</p>
+          )}
         </div>
         <div className="p-3 rounded-lg bg-red-50 border border-red-100">
           <h5 className="text-xs font-semibold text-red-800 mb-2 flex items-center gap-1.5">
             <AlertCircle className="h-3.5 w-3.5" /> Areas Mentioned Negatively
           </h5>
-          <ul className="space-y-2">
-            {negativeThemes.slice(0, 3).map((theme, i) => (
-              <li key={i} className="text-xs text-gray-700 flex items-start gap-2">
-                <XCircle className="h-3 w-3 text-red-500 mt-0.5 flex-shrink-0" />
-                <span>{theme}</span>
-              </li>
-            ))}
-          </ul>
+          {negativeThemes.length > 0 ? (
+            <ul className="space-y-2">
+              {negativeThemes.slice(0, 3).map((theme, i) => (
+                <li key={i} className="text-xs text-gray-700 flex items-start gap-2">
+                  <XCircle className="h-3 w-3 text-red-500 mt-0.5 flex-shrink-0" />
+                  <span>{theme}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-gray-400">Run analysis to see improvement areas</p>
+          )}
         </div>
       </div>
 
-      {/* Sentiment Drivers Analysis */}
-      <div>
-        <h4 className="text-sm font-semibold text-gray-700 mb-3">What Drives Your AI Sentiment</h4>
-        <div className="space-y-2">
-          {sentimentDrivers.map((driver, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <span className="w-28 text-xs text-gray-600">{driver.factor}</span>
-              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${
-                    driver.sentiment === "positive" ? "bg-emerald-500" :
-                    driver.sentiment === "negative" ? "bg-red-400" : "bg-gray-400"
-                  }`}
-                  style={{ width: `${driver.impact}%` }}
-                />
+      {/* Sentiment Drivers Analysis - Only show if data exists */}
+      {sentimentDrivers.length > 0 && (
+        <div>
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">What Drives Your AI Sentiment</h4>
+          <div className="space-y-2">
+            {sentimentDrivers.map((driver: { factor: string; impact: number; sentiment: string }, i: number) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="w-28 text-xs text-gray-600">{driver.factor}</span>
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${
+                      driver.sentiment === "positive" ? "bg-emerald-500" :
+                      driver.sentiment === "negative" ? "bg-red-400" : "bg-gray-400"
+                    }`}
+                    style={{ width: `${driver.impact}%` }}
+                  />
+                </div>
+                <span className="text-xs font-medium text-gray-700 w-10">{driver.impact}%</span>
               </div>
-              <span className="text-xs font-medium text-gray-700 w-10">{driver.impact}%</span>
-            </div>
-          ))}
+            ))}
+          </div>
+          <p className="text-[10px] text-gray-500 mt-2">
+            Impact percentage shows how much each source influences AI perception of your brand.
+          </p>
         </div>
-        <p className="text-[10px] text-gray-500 mt-2">
-          Impact percentage shows how much each source influences AI perception of your brand.
-        </p>
-      </div>
+      )}
 
-      {/* Customer Satisfaction - Enhanced */}
-      <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
-        <div className="flex items-center justify-between mb-3">
-          <h5 className="text-sm font-semibold text-blue-800">Customer Satisfaction Index</h5>
-          <Badge className="bg-blue-100 text-blue-700 text-xs">
-            NPS: {sentimentData?.customerSentiment?.nps || "Promoter"}
-          </Badge>
+      {/* Customer Satisfaction - Only show if data exists */}
+      {sentimentData?.customerSentiment && (
+        <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+          <div className="flex items-center justify-between mb-3">
+            <h5 className="text-sm font-semibold text-blue-800">Customer Satisfaction Index</h5>
+            {sentimentData.customerSentiment.nps && (
+              <Badge className="bg-blue-100 text-blue-700 text-xs">
+                NPS: {sentimentData.customerSentiment.nps}
+              </Badge>
+            )}
+          </div>
+          {sentimentData.customerSentiment.satisfaction !== undefined && (
+            <div className="flex items-center gap-4 mb-3">
+              <div className="flex-1">
+                <div className="h-3 bg-blue-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all"
+                    style={{ width: `${sentimentData.customerSentiment.satisfaction}%` }}
+                  />
+                </div>
+              </div>
+              <span className="text-lg font-bold text-blue-700">
+                {sentimentData.customerSentiment.satisfaction}%
+              </span>
+            </div>
+          )}
+          {/* Additional metrics if available - these may be added in future API versions */}
+          {(() => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const cs = sentimentData.customerSentiment as any;
+            const hasExtraMetrics = cs.avgRating !== undefined || cs.reviewCount !== undefined || cs.trend !== undefined;
+            if (!hasExtraMetrics) return null;
+            return (
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {cs.avgRating !== undefined && (
+                  <div className="p-2 rounded bg-blue-100/50">
+                    <p className="text-lg font-bold text-blue-700">{cs.avgRating}/5</p>
+                    <p className="text-[10px] text-blue-600">Avg Rating</p>
+                  </div>
+                )}
+                {cs.reviewCount !== undefined && (
+                  <div className="p-2 rounded bg-blue-100/50">
+                    <p className="text-lg font-bold text-blue-700">
+                      {cs.reviewCount >= 1000 ? `${(cs.reviewCount / 1000).toFixed(1)}K` : cs.reviewCount}
+                    </p>
+                    <p className="text-[10px] text-blue-600">Reviews</p>
+                  </div>
+                )}
+                {cs.trend !== undefined && (
+                  <div className="p-2 rounded bg-blue-100/50">
+                    <p className="text-lg font-bold text-blue-700">
+                      {cs.trend >= 0 ? '+' : ''}{cs.trend}%
+                    </p>
+                    <p className="text-[10px] text-blue-600">vs Last Month</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
-        <div className="flex items-center gap-4 mb-3">
-          <div className="flex-1">
-            <div className="h-3 bg-blue-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full transition-all"
-                style={{ width: `${sentimentData?.customerSentiment?.satisfaction || 78}%` }}
-              />
+      )}
+
+      {/* Actionable Insight - Only show if there are negative themes to address */}
+      {negativeThemes.length > 0 && (
+        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+          <div className="flex items-start gap-2">
+            <Lightbulb className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-amber-800">Sentiment Improvement Opportunity</p>
+              <p className="text-xs text-amber-700 mt-1">
+                Addressing the areas mentioned negatively above could help improve your sentiment scores.
+                Focus on creating content that directly addresses these concerns.
+              </p>
             </div>
           </div>
-          <span className="text-lg font-bold text-blue-700">
-            {sentimentData?.customerSentiment?.satisfaction || 78}%
-          </span>
         </div>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="p-2 rounded bg-blue-100/50">
-            <p className="text-lg font-bold text-blue-700">4.2/5</p>
-            <p className="text-[10px] text-blue-600">Avg Rating</p>
-          </div>
-          <div className="p-2 rounded bg-blue-100/50">
-            <p className="text-lg font-bold text-blue-700">1.2K</p>
-            <p className="text-[10px] text-blue-600">Reviews</p>
-          </div>
-          <div className="p-2 rounded bg-blue-100/50">
-            <p className="text-lg font-bold text-blue-700">+12%</p>
-            <p className="text-[10px] text-blue-600">vs Last Month</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Actionable Insight */}
-      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-        <div className="flex items-start gap-2">
-          <Lightbulb className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-xs font-semibold text-amber-800">Sentiment Improvement Opportunity</p>
-            <p className="text-xs text-amber-700 mt-1">
-              Addressing pricing transparency in your content could improve sentiment scores by an estimated 8-12%.
-              Consider publishing detailed pricing guides that AI platforms can reference.
-            </p>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -2385,43 +2748,50 @@ function SentimentAnalysisIsland({
   const sentimentData = result?.sentimentAnalysis;
   const vis = visibilityData;
 
-  // Calculate overall sentiment score
-  const positive = vis?.sentiment?.positive || 65;
-  const neutral = vis?.sentiment?.neutral || 25;
-  const negative = vis?.sentiment?.negative || 10;
+  // Check if we have real data - use 0 as default, not hardcoded values
+  const hasData = vis?.sentiment && (vis.sentiment.positive > 0 || vis.sentiment.neutral > 0 || vis.sentiment.negative > 0);
+
+  // Calculate overall sentiment score - use 0 defaults
+  const positive = vis?.sentiment?.positive || 0;
+  const neutral = vis?.sentiment?.neutral || 0;
+  const negative = vis?.sentiment?.negative || 0;
   const total = positive + neutral + negative;
   const sentimentScore = total > 0 ? Math.round((positive * 100 + neutral * 50) / total) : 0;
 
-  // AI platform sentiment breakdown
-  const platformSentiment = [
-    { platform: "ChatGPT", positive: 72, neutral: 20, negative: 8, trend: "+5%" },
-    { platform: "Gemini", positive: 68, neutral: 22, negative: 10, trend: "+3%" },
-    { platform: "Perplexity", positive: 61, neutral: 28, negative: 11, trend: "+8%" },
-  ];
+  // AI platform sentiment breakdown - use real data from API or show zeros
+  const platformSentimentData = vis?.platformSentiment;
+  const platformSentiment = platformSentimentData ? [
+    {
+      platform: "ChatGPT",
+      positive: platformSentimentData.chatgpt?.positive || 0,
+      neutral: platformSentimentData.chatgpt?.neutral || 0,
+      negative: platformSentimentData.chatgpt?.negative || 0,
+      trend: null as string | null
+    },
+    {
+      platform: "Gemini",
+      positive: platformSentimentData.gemini?.positive || 0,
+      neutral: platformSentimentData.gemini?.neutral || 0,
+      negative: platformSentimentData.gemini?.negative || 0,
+      trend: null as string | null
+    },
+    {
+      platform: "Perplexity",
+      positive: platformSentimentData.perplexity?.positive || 0,
+      neutral: platformSentimentData.perplexity?.neutral || 0,
+      negative: platformSentimentData.perplexity?.negative || 0,
+      trend: null as string | null
+    },
+  ] : [];
 
-  // Detailed positive themes with impact
-  const positiveThemes = sentimentData?.brandSentiment?.positiveThemes || [
-    "Product quality and reliability mentioned in 78% of responses",
-    "Customer service praised in comparative discussions",
-    "Innovation leadership recognized in industry queries",
-    "Value for money highlighted in recommendation contexts"
-  ];
+  // Detailed positive themes - only from analysis, no hardcoded fallbacks
+  const positiveThemes = sentimentData?.brandSentiment?.positiveThemes || [];
 
-  // Detailed negative themes
-  const negativeThemes = sentimentData?.brandSentiment?.negativeThemes || [
-    "Pricing concerns in 23% of comparison queries",
-    "Limited regional availability mentioned",
-    "Documentation could be more comprehensive"
-  ];
+  // Detailed negative themes - only from analysis, no hardcoded fallbacks
+  const negativeThemes = sentimentData?.brandSentiment?.negativeThemes || [];
 
-  // Sentiment drivers
-  const sentimentDrivers = [
-    { factor: "Product Reviews", impact: 35, sentiment: "positive" },
-    { factor: "News Coverage", impact: 25, sentiment: "positive" },
-    { factor: "Social Media", impact: 20, sentiment: "neutral" },
-    { factor: "Forum Discussions", impact: 15, sentiment: "positive" },
-    { factor: "Complaint Sites", impact: 5, sentiment: "negative" },
-  ];
+  // Sentiment drivers - only show if we have analysis results
+  const sentimentDrivers: Array<{ factor: string; impact: number; sentiment: string }> = [];
 
   return (
     <div className="insight-island">
@@ -2454,8 +2824,8 @@ function SentimentAnalysisIsland({
           </Badge>
         </div>
 
-        {/* Overall Score Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+        {/* Overall Score Section - Vertical Layout */}
+        <div className="grid grid-cols-1 gap-5 mb-6">
           {/* Overall Score */}
           <div className="p-5 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100">
             <TooltipProvider delayDuration={200}>
@@ -2486,13 +2856,19 @@ function SentimentAnalysisIsland({
                 </div>
               </div>
             </div>
-            <p className="text-xs text-gray-600 mt-3">
-              Your brand receives predominantly positive mentions across AI platforms, with sentiment improving 6% over the last 30 days.
-            </p>
+            {hasData ? (
+              <p className="text-xs text-gray-600 mt-3">
+                Sentiment breakdown based on {total} analyzed mentions across AI platforms.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-3">
+                Run analysis to see sentiment distribution across AI platforms.
+              </p>
+            )}
           </div>
 
           {/* Platform Breakdown */}
-          <div className="lg:col-span-2 p-5 rounded-xl bg-gray-50 border border-gray-200">
+          <div className="p-5 rounded-xl bg-gray-50 border border-gray-200">
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -2502,137 +2878,150 @@ function SentimentAnalysisIsland({
                   </h4>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
-                  Breakdown of positive/neutral/negative sentiment for each AI platform. The percentage trend shows change from previous 30 days. Each bar represents the proportion of sentiment types.
+                  Breakdown of positive/neutral/negative sentiment for each AI platform. Each bar represents the proportion of sentiment types.
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <div className="space-y-3">
-              {platformSentiment.map((platform, i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <span className="w-24 text-sm font-medium text-gray-700">{platform.platform}</span>
-                  <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden flex">
-                    <div className="bg-emerald-500 h-full transition-all" style={{ width: `${platform.positive}%` }} />
-                    <div className="bg-gray-400 h-full transition-all" style={{ width: `${platform.neutral}%` }} />
-                    <div className="bg-red-400 h-full transition-all" style={{ width: `${platform.negative}%` }} />
+            {platformSentiment.length > 0 ? (
+              <div className="space-y-3">
+                {platformSentiment.map((platform, i) => (
+                  <div key={i} className="flex items-center gap-4">
+                    <span className="w-24 text-sm font-medium text-gray-700">{platform.platform}</span>
+                    <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden flex">
+                      <div className="bg-emerald-500 h-full transition-all" style={{ width: `${platform.positive}%` }} />
+                      <div className="bg-gray-400 h-full transition-all" style={{ width: `${platform.neutral}%` }} />
+                      <div className="bg-red-400 h-full transition-all" style={{ width: `${platform.negative}%` }} />
+                    </div>
+                    <span className="text-xs text-gray-500 font-medium w-16 text-right">
+                      {platform.positive + platform.neutral + platform.negative > 0 ? `${platform.positive}% pos` : "No data"}
+                    </span>
                   </div>
-                  <span className="text-xs text-emerald-600 font-medium w-12">{platform.trend}</span>
-                </div>
-              ))}
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 py-4 text-center">
+                No platform sentiment data available. Run analysis to see breakdown.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Themes Section - Only show if we have themes data - Vertical Layout */}
+        {(positiveThemes.length > 0 || negativeThemes.length > 0) && (
+          <div className="grid grid-cols-1 gap-5 mb-6">
+            {/* Positive Themes */}
+            <div className="p-5 rounded-xl bg-emerald-50 border border-emerald-200">
+              <h4 className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-2">
+                <ThumbsUp className="h-4 w-4" /> What AI Platforms Praise
+              </h4>
+              {positiveThemes.length > 0 ? (
+                <ul className="space-y-2">
+                  {positiveThemes.map((theme, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                      <span>{theme}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500">No positive themes identified yet.</p>
+              )}
+            </div>
+
+            {/* Negative Themes */}
+            <div className="p-5 rounded-xl bg-red-50 border border-red-200">
+              <h4 className="text-sm font-semibold text-red-800 mb-3 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" /> Areas Mentioned Negatively
+              </h4>
+              {negativeThemes.length > 0 ? (
+                <ul className="space-y-2">
+                  {negativeThemes.map((theme, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                      <span>{theme}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500">No negative themes identified yet.</p>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Themes Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
-          {/* Positive Themes */}
-          <div className="p-5 rounded-xl bg-emerald-50 border border-emerald-200">
-            <h4 className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-2">
-              <ThumbsUp className="h-4 w-4" /> What AI Platforms Praise
-            </h4>
-            <ul className="space-y-2">
-              {positiveThemes.map((theme, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                  <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                  <span>{theme}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+        {/* Drivers & Customer Satisfaction - Only show if we have sentiment data - Vertical Layout */}
+        {sentimentData?.customerSentiment && (
+          <div className="grid grid-cols-1 gap-5">
+            {/* Sentiment Drivers - Only show if we have driver data */}
+            {sentimentDrivers.length > 0 && (
+              <div className="p-5 rounded-xl bg-gray-50 border border-gray-200">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">What Drives Your AI Sentiment</h4>
+                <div className="space-y-3">
+                  {sentimentDrivers.map((driver, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="w-32 text-sm text-gray-600">{driver.factor}</span>
+                      <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            driver.sentiment === "positive" ? "bg-emerald-500" :
+                            driver.sentiment === "negative" ? "bg-red-400" : "bg-gray-400"
+                          }`}
+                          style={{ width: `${driver.impact}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-gray-700 w-10">{driver.impact}%</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-500 mt-3">
+                  Impact percentage shows how much each source influences AI perception of your brand.
+                </p>
+              </div>
+            )}
 
-          {/* Negative Themes */}
-          <div className="p-5 rounded-xl bg-red-50 border border-red-200">
-            <h4 className="text-sm font-semibold text-red-800 mb-3 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" /> Areas Mentioned Negatively
-            </h4>
-            <ul className="space-y-2">
-              {negativeThemes.map((theme, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                  <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span>{theme}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Drivers & Customer Satisfaction */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Sentiment Drivers */}
-          <div className="p-5 rounded-xl bg-gray-50 border border-gray-200">
-            <h4 className="text-sm font-semibold text-gray-700 mb-3">What Drives Your AI Sentiment</h4>
-            <div className="space-y-3">
-              {sentimentDrivers.map((driver, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <span className="w-32 text-sm text-gray-600">{driver.factor}</span>
-                  <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+            {/* Customer Satisfaction */}
+            <div className="p-5 rounded-xl bg-blue-50 border border-blue-200">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold text-blue-800">Customer Satisfaction Index</h4>
+                {sentimentData.customerSentiment.nps && (
+                  <Badge className="bg-blue-100 text-blue-700">
+                    NPS: {sentimentData.customerSentiment.nps}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex-1">
+                  <div className="h-4 bg-blue-100 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${
-                        driver.sentiment === "positive" ? "bg-emerald-500" :
-                        driver.sentiment === "negative" ? "bg-red-400" : "bg-gray-400"
-                      }`}
-                      style={{ width: `${driver.impact}%` }}
+                      className="h-full bg-blue-500 rounded-full transition-all"
+                      style={{ width: `${sentimentData.customerSentiment.satisfaction || 0}%` }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-gray-700 w-10">{driver.impact}%</span>
                 </div>
-              ))}
+                <span className="text-2xl font-bold text-blue-700">
+                  {sentimentData.customerSentiment.satisfaction || 0}%
+                </span>
+              </div>
             </div>
-            <p className="text-[11px] text-gray-500 mt-3">
-              Impact percentage shows how much each source influences AI perception of your brand.
-            </p>
           </div>
+        )}
 
-          {/* Customer Satisfaction */}
-          <div className="p-5 rounded-xl bg-blue-50 border border-blue-200">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-blue-800">Customer Satisfaction Index</h4>
-              <Badge className="bg-blue-100 text-blue-700">
-                NPS: {sentimentData?.customerSentiment?.nps || "Promoter"}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-4 mb-4">
-              <div className="flex-1">
-                <div className="h-4 bg-blue-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 rounded-full transition-all"
-                    style={{ width: `${sentimentData?.customerSentiment?.satisfaction || 78}%` }}
-                  />
-                </div>
-              </div>
-              <span className="text-2xl font-bold text-blue-700">
-                {sentimentData?.customerSentiment?.satisfaction || 78}%
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="p-3 rounded-lg bg-blue-100/50">
-                <p className="text-xl font-bold text-blue-700">4.2/5</p>
-                <p className="text-[11px] text-blue-600">Avg Rating</p>
-              </div>
-              <div className="p-3 rounded-lg bg-blue-100/50">
-                <p className="text-xl font-bold text-blue-700">1.2K</p>
-                <p className="text-[11px] text-blue-600">Reviews</p>
-              </div>
-              <div className="p-3 rounded-lg bg-blue-100/50">
-                <p className="text-xl font-bold text-blue-700">+12%</p>
-                <p className="text-[11px] text-blue-600">vs Last Month</p>
+        {/* Actionable Insight - Only show when we have analysis data */}
+        {sentimentData && (
+          <div className="mt-5 p-4 rounded-xl bg-amber-50 border border-amber-200">
+            <div className="flex items-start gap-3">
+              <Lightbulb className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Sentiment Improvement Opportunity</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  {negativeThemes.length > 0
+                    ? `Focus on addressing: ${negativeThemes[0]}. This could help improve your overall sentiment score.`
+                    : "Continue monitoring AI sentiment and respond to any negative themes that emerge."}
+                </p>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Actionable Insight */}
-        <div className="mt-5 p-4 rounded-xl bg-amber-50 border border-amber-200">
-          <div className="flex items-start gap-3">
-            <Lightbulb className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-amber-800">Sentiment Improvement Opportunity</p>
-              <p className="text-sm text-amber-700 mt-1">
-                Addressing pricing transparency in your content could improve sentiment scores by an estimated 8-12%.
-                Consider publishing detailed pricing guides that AI platforms can reference.
-              </p>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -2655,57 +3044,60 @@ function CompetitorComparisonIsland({
   brandName: string;
   brandScore: number;
 }) {
-  // Enhanced competitor data
-  const competitorDetails = competitors.length > 0 ? competitors : [
-    {
-      name: "Competitor A",
-      overallScore: 78,
-      strengths: ["Strong content marketing", "High domain authority", "Active social presence"],
-      weaknesses: ["Limited local SEO", "Fewer citations", "Slower content updates"],
-      marketShare: "32%",
-      sentiment: "positive"
-    },
-    {
-      name: "Competitor B",
-      overallScore: 65,
-      strengths: ["Good pricing", "Strong reviews", "Fast support"],
-      weaknesses: ["Outdated content", "Poor backlinks", "Limited AI presence"],
-      marketShare: "24%",
-      sentiment: "neutral"
-    },
-    {
-      name: "Competitor C",
-      overallScore: 52,
-      strengths: ["Niche expertise", "Loyal customer base"],
-      weaknesses: ["Low visibility", "Few mentions", "Weak authority"],
-      marketShare: "15%",
-      sentiment: "neutral"
-    }
-  ];
+  // Check if we have competitor data - no hardcoded fallbacks
+  const hasCompetitorData = competitors.length > 0;
+  const competitorDetails = competitors;
 
-  // Build comparison data
-  const allBrands = [
-    { name: brandName || "Your Brand", score: brandScore || 72, isYou: true },
+  // Only build comparison data if we have competitors
+  const allBrands = hasCompetitorData ? [
+    { name: brandName || "Your Brand", score: brandScore || 0, isYou: true },
     ...competitorDetails.map(c => ({ name: c.name, score: c.overallScore, isYou: false }))
-  ].sort((a, b) => b.score - a.score);
+  ].sort((a, b) => b.score - a.score) : [
+    { name: brandName || "Your Brand", score: brandScore || 0, isYou: true }
+  ];
 
   const yourRank = allBrands.findIndex(b => b.isYou) + 1;
   const leader = allBrands[0];
 
-  // Competitive metrics with tooltips
-  const metrics = [
-    { label: "Visibility", yours: brandScore, avg: Math.round(competitorDetails.reduce((a, c) => a + c.overallScore, 0) / competitorDetails.length), tooltip: "Overall AI visibility score based on mention frequency, position, and sentiment across all AI platforms." },
-    { label: "Content Freshness", yours: 85, avg: 62, tooltip: "Measures how recently your content has been updated and indexed by AI systems. Based on content publication dates and AI training data recency." },
-    { label: "Citation Coverage", yours: 72, avg: 58, tooltip: "Percentage of AI responses that include citations or references to your brand. Higher coverage indicates stronger source authority." },
-    { label: "Review Sentiment", yours: 78, avg: 71, tooltip: "Average sentiment score from customer reviews aggregated by AI platforms. Based on review platforms like G2, Capterra, and industry sites." },
-  ];
+  // Competitive metrics - only use real data, no hardcoded values
+  const competitorAvgScore = hasCompetitorData
+    ? Math.round(competitorDetails.reduce((a, c) => a + c.overallScore, 0) / competitorDetails.length)
+    : 0;
 
-  // Opportunities
-  const opportunities = [
-    { area: "Content Gap", description: "Competitors lack in-depth guides on trending topics", potential: "+15% visibility" },
-    { area: "Citation Sources", description: "3 high-authority sites citing competitors but not you", potential: "+8% authority" },
-    { area: "Query Coverage", description: "Missing from 12 comparison queries where competitors appear", potential: "+20% mentions" },
-  ];
+  // Calculate average competitor sentiment score (convert sentiment string to numeric)
+  const getSentimentScore = (sentiment: string): number => {
+    const normalized = sentiment?.toLowerCase() || "";
+    if (normalized.includes("positive") || normalized.includes("favorable")) return 75;
+    if (normalized.includes("negative") || normalized.includes("unfavorable")) return 25;
+    return 50; // neutral
+  };
+
+  const competitorAvgSentiment = hasCompetitorData
+    ? Math.round(competitorDetails.reduce((a, c) => a + getSentimentScore(c.sentiment), 0) / competitorDetails.length)
+    : 0;
+
+  // Your brand's sentiment - estimate based on your visibility score (higher visibility often correlates with positive sentiment)
+  // This is an approximation; ideally this would come from actual sentiment data
+  const yourSentimentScore = brandScore >= 70 ? 75 : brandScore >= 40 ? 55 : 35;
+
+  // Show metrics with real data - Visibility and Sentiment comparison
+  const metrics = hasCompetitorData ? [
+    {
+      label: "Visibility",
+      yours: brandScore || 0,
+      avg: competitorAvgScore,
+      tooltip: "Overall AI visibility score based on mention frequency, position, and sentiment across all AI platforms."
+    },
+    {
+      label: "Sentiment",
+      yours: yourSentimentScore,
+      avg: competitorAvgSentiment,
+      tooltip: "Sentiment score indicating how positively AI platforms perceive your brand compared to competitors."
+    },
+  ] : [];
+
+  // No hardcoded opportunities - these should come from analysis
+  const opportunities: Array<{ area: string; description: string; potential: string }> = [];
 
   return (
     <div className="insight-island">
@@ -2733,13 +3125,28 @@ function CompetitorComparisonIsland({
               <p className="text-sm text-gray-500">Your position in the competitive landscape</p>
             </div>
           </div>
-          <Badge className={`${yourRank === 1 ? "bg-emerald-100 text-emerald-700" : yourRank <= 2 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
-            Rank #{yourRank} of {allBrands.length}
-          </Badge>
+          {hasCompetitorData ? (
+            <Badge className={`${yourRank === 1 ? "bg-emerald-100 text-emerald-700" : yourRank <= 2 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
+              Rank #{yourRank} of {allBrands.length}
+            </Badge>
+          ) : (
+            <Badge className="bg-gray-100 text-gray-600">No competitor data</Badge>
+          )}
         </div>
 
-        {/* Ranking & Metrics */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Empty State when no competitor data */}
+        {!hasCompetitorData ? (
+          <div className="p-8 rounded-xl bg-gray-50 border border-gray-200 text-center">
+            <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <h4 className="text-lg font-semibold text-gray-700 mb-2">No Competitor Data Available</h4>
+            <p className="text-sm text-gray-500 max-w-md mx-auto">
+              Run an analysis to compare your brand against competitors. Add competitors in Settings to enable competitive analysis.
+            </p>
+          </div>
+        ) : (
+        <>
+        {/* Ranking & Metrics - Vertical Layout */}
+        <div className="grid grid-cols-1 gap-6 mb-6">
           {/* Ranking Visualization */}
           <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-50 via-violet-50 to-purple-50 border border-violet-200/50 shadow-sm">
             <div className="flex items-center gap-2 mb-5">
@@ -2824,121 +3231,135 @@ function CompetitorComparisonIsland({
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              {metrics.map((metric, i) => {
-                const isAboveAvg = metric.yours > metric.avg;
-                const diff = metric.yours - metric.avg;
-                const percentage = Math.round((metric.yours / 100) * 100);
+            {metrics.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {metrics.map((metric, i) => {
+                  const isAboveAvg = metric.yours > metric.avg;
+                  const diff = metric.yours - metric.avg;
+                  // Calculate percentage relative to max possible (100) for the circular chart
+                  // This shows your actual visibility score as a percentage
+                  const percentage = metric.yours;
 
-                return (
-                  <div
-                    key={i}
-                    className={`p-4 rounded-xl border-2 transition-all hover:shadow-md ${
-                      isAboveAvg
-                        ? "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200"
-                        : "bg-gradient-to-br from-rose-50 to-red-50 border-rose-200"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <p className="text-xs font-medium text-gray-600 flex items-center gap-1 cursor-help">
-                              {metric.label}
-                              <Info className="h-3 w-3 text-gray-400 hover:text-indigo-500 transition-colors" />
-                            </p>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
-                            {metric.tooltip}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  return (
+                    <div
+                      key={i}
+                      className={`p-4 rounded-xl border-2 transition-all hover:shadow-md ${
                         isAboveAvg
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-rose-100 text-rose-700"
-                      }`}>
-                        {isAboveAvg ? "+" : ""}{diff}
+                          ? "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200"
+                          : "bg-gradient-to-br from-rose-50 to-red-50 border-rose-200"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className="text-xs font-medium text-gray-600 flex items-center gap-1 cursor-help">
+                                {metric.label}
+                                <Info className="h-3 w-3 text-gray-400 hover:text-indigo-500 transition-colors" />
+                              </p>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs p-3 text-xs leading-relaxed">
+                              {metric.tooltip}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          isAboveAvg
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-rose-100 text-rose-700"
+                        }`}>
+                          {isAboveAvg ? "+" : ""}{diff}
+                        </div>
+                      </div>
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <p className={`text-3xl font-bold ${isAboveAvg ? "text-emerald-600" : "text-rose-600"}`}>
+                            {metric.yours}
+                          </p>
+                          <p className="text-[10px] text-gray-500 mt-1">
+                            Avg: <span className="font-semibold">{metric.avg}</span>
+                          </p>
+                        </div>
+                        <div className="w-16 h-16">
+                          <svg viewBox="0 0 36 36" className="w-full h-full">
+                            <path
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              fill="none"
+                              stroke={isAboveAvg ? "#d1fae5" : "#ffe4e6"}
+                              strokeWidth="3"
+                            />
+                            <path
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              fill="none"
+                              stroke={isAboveAvg ? "#10b981" : "#f43f5e"}
+                              strokeWidth="3"
+                              strokeDasharray={`${percentage}, 100`}
+                              strokeLinecap="round"
+                            />
+                            <text x="18" y="21" textAnchor="middle" className="text-[8px] font-bold" fill={isAboveAvg ? "#059669" : "#e11d48"}>
+                              {percentage}%
+                            </text>
+                          </svg>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-end justify-between">
-                      <div>
-                        <p className={`text-3xl font-bold ${isAboveAvg ? "text-emerald-600" : "text-rose-600"}`}>
-                          {metric.yours}
-                        </p>
-                        <p className="text-[10px] text-gray-500 mt-1">
-                          Avg: <span className="font-semibold">{metric.avg}</span>
-                        </p>
-                      </div>
-                      <div className="w-16 h-16">
-                        <svg viewBox="0 0 36 36" className="w-full h-full">
-                          <path
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            fill="none"
-                            stroke={isAboveAvg ? "#d1fae5" : "#ffe4e6"}
-                            strokeWidth="3"
-                          />
-                          <path
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            fill="none"
-                            stroke={isAboveAvg ? "#10b981" : "#f43f5e"}
-                            strokeWidth="3"
-                            strokeDasharray={`${percentage}, 100`}
-                            strokeLinecap="round"
-                          />
-                          <text x="18" y="21" textAnchor="middle" className="text-[8px] font-bold" fill={isAboveAvg ? "#059669" : "#e11d48"}>
-                            {percentage}%
-                          </text>
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-sm">No comparison data available.</p>
+                <p className="text-xs mt-1">Run analysis to see metrics comparison.</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Opportunities & Threats */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
-          {/* Opportunities */}
-          <div className="p-5 rounded-xl bg-emerald-50 border border-emerald-200">
-            <h4 className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" /> Opportunities to Capture
-            </h4>
-            <div className="space-y-3">
-              {opportunities.map((opp, i) => (
-                <div key={i} className="p-3 bg-white rounded-lg border border-emerald-100">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-gray-800">{opp.area}</span>
-                    <Badge className="bg-emerald-100 text-emerald-700 text-xs">{opp.potential}</Badge>
+        {/* Opportunities & Threats - Only show if we have competitor data - Vertical Layout */}
+        {competitorDetails.length > 0 && (
+          <div className="grid grid-cols-1 gap-5 mb-6">
+            {/* Opportunities - derived from competitor weaknesses */}
+            <div className="p-5 rounded-xl bg-emerald-50 border border-emerald-200">
+              <h4 className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" /> Opportunities to Capture
+              </h4>
+              <div className="space-y-3">
+                {competitorDetails.slice(0, 3).flatMap(comp =>
+                  comp.weaknesses.slice(0, 1).map((weakness, j) => (
+                    <div key={`${comp.name}-${j}`} className="p-3 bg-white rounded-lg border border-emerald-100">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-800">{comp.name} Gap</span>
+                        <Badge className="bg-emerald-100 text-emerald-700 text-xs">Opportunity</Badge>
+                      </div>
+                      <p className="text-xs text-gray-600">{weakness}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Competitor Strengths (Threats) */}
+            <div className="p-5 rounded-xl bg-red-50 border border-red-200">
+              <h4 className="text-sm font-semibold text-red-800 mb-3 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" /> Competitor Advantages to Counter
+              </h4>
+              <div className="space-y-3">
+                {competitorDetails.slice(0, 3).map((comp, i) => (
+                  <div key={i} className="p-3 bg-white rounded-lg border border-red-100">
+                    <span className="text-xs text-red-600 font-medium">{comp.name}</span>
+                    <p className="text-sm text-gray-700 mt-1">{comp.strengths[0]}</p>
                   </div>
-                  <p className="text-xs text-gray-600">{opp.description}</p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Competitor Strengths (Threats) */}
-          <div className="p-5 rounded-xl bg-red-50 border border-red-200">
-            <h4 className="text-sm font-semibold text-red-800 mb-3 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" /> Competitor Advantages to Counter
-            </h4>
-            <div className="space-y-3">
-              {competitorDetails.slice(0, 3).map((comp, i) => (
-                <div key={i} className="p-3 bg-white rounded-lg border border-red-100">
-                  <span className="text-xs text-red-600 font-medium">{comp.name}</span>
-                  <p className="text-sm text-gray-700 mt-1">{comp.strengths[0]}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Detailed Competitor Cards */}
+        {/* Detailed Competitor Cards - Only show if we have competitors */}
+        {competitorDetails.length > 0 && (
         <div>
           <h4 className="text-sm font-semibold text-gray-700 mb-4">Detailed Competitor Analysis</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             {competitorDetails.map((comp, i) => (
               <div key={i} className="p-4 rounded-xl bg-gray-50 border border-gray-200">
                 <div className="flex items-center justify-between mb-3">
@@ -2977,6 +3398,7 @@ function CompetitorComparisonIsland({
             ))}
           </div>
         </div>
+        )}
 
         {/* Strategy Recommendation */}
         <div className="mt-5 p-4 rounded-xl bg-blue-50 border border-blue-200">
@@ -2985,12 +3407,15 @@ function CompetitorComparisonIsland({
             <div>
               <p className="text-sm font-semibold text-blue-800">Competitive Strategy Recommendation</p>
               <p className="text-sm text-blue-700 mt-1">
-                Focus on the 3 content gaps identified above. Creating targeted content for these areas could help you
-                overtake {leader.isYou ? "maintain your lead" : `${leader.name}`} in AI visibility within 30-60 days.
+                {competitorDetails.length > 0
+                  ? `Focus on outperforming ${competitorDetails[0]?.name || "competitors"} by addressing their strengths and exploiting their weaknesses.`
+                  : "Add competitors in Settings to get personalized competitive strategy recommendations."}
               </p>
             </div>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
@@ -3370,7 +3795,7 @@ function ActionStepsModal({
     pdf.setTextColor(...colors.gray);
     pdf.setFontSize(8);
     pdf.setFont("helvetica", "normal");
-    pdf.text(`Generated by ZeekLabs AI Visibility Platform`, margin, footerY);
+    pdf.text(`Generated by zeeklabs.ai AI Visibility Platform`, margin, footerY);
     pdf.text(`${new Date().toLocaleDateString()} | ${brandName}`, pageWidth - margin - 50, footerY);
 
     // Download the PDF
@@ -3420,7 +3845,7 @@ function ActionStepsModal({
             </Button>
           </div>
         ) : planData ? (
-          <div className="space-y-5">
+          <div className="space-y-5" data-action-plan-content>
             {/* Plan Overview */}
             <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-200">
               <div>
@@ -3435,7 +3860,7 @@ function ActionStepsModal({
                   </Badge>
                 </div>
               </div>
-              <Button onClick={downloadPDF} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={downloadPDF}>
                 <FileDown className="h-4 w-4 mr-2" />
                 Download PDF
               </Button>
@@ -3666,22 +4091,140 @@ function ImprovementActionPlanIsland({
     );
   }
 
-  const immediateActions = recommendations?.immediate || [
-    "Update Google Business Profile with latest information and photos",
-    "Add structured data markup to key landing pages",
-    "Respond to recent customer reviews on G2 and Capterra"
-  ];
-  const shortTermActions = recommendations?.shortTerm || [
-    "Create comparison content vs top 3 competitors",
-    "Publish comprehensive FAQ page for common queries",
-    "Build relationships with industry publications for coverage"
-  ];
-  const longTermActions = recommendations?.longTerm || [
-    "Develop thought leadership content strategy",
-    "Build authoritative backlink profile from trusted sources",
-    "Create comprehensive resource center for industry topics"
-  ];
-  const competitiveActions = recommendations?.competitiveActions || [];
+  // Check if we have analysis results - only show recommendations after analysis
+  const hasAnalysisData = recommendations && (
+    (recommendations.immediate && recommendations.immediate.length > 0) ||
+    (recommendations.shortTerm && recommendations.shortTerm.length > 0) ||
+    (recommendations.longTerm && recommendations.longTerm.length > 0)
+  );
+
+  // If no analysis data, show empty state
+  if (!hasAnalysisData) {
+    return (
+      <div className="insight-island">
+        <div className="p-5">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Improvement & Action Plan</h3>
+                <p className="text-sm text-gray-500">Prioritized actions to boost your AI visibility</p>
+              </div>
+            </div>
+            <Badge className="bg-gray-100 text-gray-600">No data yet</Badge>
+          </div>
+
+          {/* Empty State */}
+          <div className="p-8 rounded-xl bg-gray-50 border border-gray-200 text-center">
+            <TrendingUp className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <h4 className="text-lg font-semibold text-gray-700 mb-2">No Action Plan Available</h4>
+            <p className="text-sm text-gray-500 max-w-md mx-auto">
+              Run an analysis to get personalized recommendations for improving your AI visibility score.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Generate brand-specific fallback recommendations based on context
+  const generateFallbackRecommendations = () => {
+    const industry = brandContext?.industry || "your industry";
+    const competitors = brandContext?.competitors || [];
+    const competitorNames = competitors.slice(0, 3).map(c => typeof c === 'string' ? c : c.name);
+    const score = currentScore || 0;
+    const domain = brandContext?.domain || "";
+    const platformScores = brandContext?.platformScores;
+    const weaknesses = brandContext?.weaknesses || [];
+
+    // Determine focus areas based on score and context
+    const needsBasicPresence = score < 30;
+    const needsAuthority = score < 50;
+    const needsOptimization = score >= 50 && score < 70;
+    const needsAdvanced = score >= 70;
+
+    // Platform-specific recommendations
+    const weakestPlatform = platformScores
+      ? Object.entries(platformScores).reduce((min, [key, val]) =>
+          (val || 0) < (min.score || 100) ? { platform: key, score: val || 0 } : min,
+          { platform: 'chatgpt', score: 100 }
+        ).platform
+      : null;
+
+    // Build immediate actions based on current state
+    const immediateActions: string[] = [];
+    if (needsBasicPresence) {
+      immediateActions.push(`Claim and verify ${brandName}'s Google Business Profile with complete information`);
+      immediateActions.push(`Create or update ${brandName}'s Wikipedia entry draft with verifiable citations`);
+      immediateActions.push(`Set up ${brandName}'s presence on Crunchbase with company details and funding info`);
+    } else if (needsAuthority) {
+      immediateActions.push(`Respond to all pending customer reviews mentioning ${brandName} on G2 and Capterra`);
+      immediateActions.push(`Add structured data markup (Organization, Product schemas) to ${domain || brandName + "'s website"}`);
+      immediateActions.push(`Publish a press release about ${brandName}'s latest feature or milestone`);
+    } else {
+      immediateActions.push(`Optimize ${brandName}'s meta descriptions with AI-friendly, descriptive content`);
+      immediateActions.push(`Update ${brandName}'s FAQ section with conversational Q&A format for AI assistants`);
+      immediateActions.push(`Submit ${brandName} to 3 industry-specific directories this week`);
+    }
+
+    // Add weakness-based action if available
+    if (weaknesses.length > 0) {
+      immediateActions.push(`Address identified weakness: ${weaknesses[0]}`);
+    }
+
+    // Build short-term actions based on competitors and platform scores
+    const shortTermActions: string[] = [];
+    if (competitorNames.length > 0) {
+      shortTermActions.push(`Create a detailed comparison page: "${brandName} vs ${competitorNames[0]}" with feature tables`);
+      shortTermActions.push(`Analyze ${competitorNames.slice(0, 2).join(" and ")}'s content strategy and identify gaps to fill`);
+    } else {
+      shortTermActions.push(`Create comparison content positioning ${brandName} against industry alternatives`);
+      shortTermActions.push(`Research top competitors in ${industry} and track their AI visibility`);
+    }
+
+    if (weakestPlatform) {
+      const platformName = weakestPlatform === 'chatgpt' ? 'ChatGPT' : weakestPlatform === 'gemini' ? 'Gemini' : 'Perplexity';
+      shortTermActions.push(`Focus content optimization for ${platformName} - currently ${brandName}'s weakest platform`);
+    }
+
+    shortTermActions.push(`Publish 4 educational blog posts about ${industry} topics that mention ${brandName} naturally`);
+    shortTermActions.push(`Build relationships with 3 ${industry} publications for potential coverage`);
+
+    // Build long-term actions
+    const longTermActions: string[] = [];
+    if (needsAdvanced) {
+      longTermActions.push(`Establish ${brandName} as a thought leader with a quarterly industry report series`);
+      longTermActions.push(`Build a ${brandName} resource center with comprehensive guides that AI systems will cite`);
+      longTermActions.push(`Develop a podcast or video series featuring ${brandName}'s expertise in ${industry}`);
+    } else {
+      longTermActions.push(`Develop a comprehensive content strategy to position ${brandName} as an authority in ${industry}`);
+      longTermActions.push(`Build high-quality backlinks from 10+ authoritative ${industry} websites`);
+      longTermActions.push(`Create a ${brandName} academy or learning center with certifications`);
+    }
+
+    longTermActions.push(`Implement systematic customer review collection for ${brandName} across all major platforms`);
+
+    // Competitive actions
+    const competitiveActions: string[] = [];
+    if (competitorNames.length > 0) {
+      competitiveActions.push(`Monitor ${competitorNames[0]}'s AI mentions weekly and identify winning content patterns`);
+      competitiveActions.push(`Target keywords and topics where ${competitorNames.slice(0, 2).join(" and ")} rank but ${brandName} doesn't`);
+      competitiveActions.push(`Differentiate ${brandName} by highlighting unique features competitors lack`);
+    }
+
+    return { immediateActions, shortTermActions, longTermActions, competitiveActions };
+  };
+
+  // Use recommendations from analysis if available, otherwise generate brand-specific fallbacks
+  const fallbackRecs = !recommendations ? generateFallbackRecommendations() : null;
+
+  const immediateActions = recommendations?.immediate || fallbackRecs?.immediateActions || [];
+  const shortTermActions = recommendations?.shortTerm || fallbackRecs?.shortTermActions || [];
+  const longTermActions = recommendations?.longTerm || fallbackRecs?.longTermActions || [];
+  const competitiveActions = recommendations?.competitiveActions || fallbackRecs?.competitiveActions || [];
 
   const immediateGain = Math.min(immediateActions.length * 5, 15);
   const shortTermGain = Math.min(shortTermActions.length * 4, 12);
@@ -4012,6 +4555,41 @@ function CitationOpportunitiesIsland({
   brandName: string;
   industry?: string;
 }) {
+  // Check if we have analysis data - only show citations after analysis runs
+  const hasAnalysisData = analysisCitations && analysisCitations.length > 0;
+
+  // If no analysis data, show empty state
+  if (!hasAnalysisData) {
+    return (
+      <div className="insight-island">
+        <div className="p-5">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
+                <Link2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Citation Opportunities</h3>
+                <p className="text-sm text-gray-500">Sources to boost your AI visibility</p>
+              </div>
+            </div>
+            <Badge className="bg-gray-100 text-gray-600">No data yet</Badge>
+          </div>
+
+          {/* Empty State */}
+          <div className="p-8 rounded-xl bg-gray-50 border border-gray-200 text-center">
+            <Link2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <h4 className="text-lg font-semibold text-gray-700 mb-2">No Citation Data Available</h4>
+            <p className="text-sm text-gray-500 max-w-md mx-auto">
+              Run an analysis to discover citation opportunities that can improve your AI visibility.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Generate comprehensive citation opportunities based on brand and industry
   const generateCitationOpportunities = (): CitationData[] => {
     const industryContext = industry || "technology";
@@ -4420,6 +4998,10 @@ function CitationOpportunitiesIsland({
 function CompetitivePositionIsland({
   aiVisibility,
   brandName,
+  brandScore,
+  competitorComparison,
+  recommendations,
+  brandContext,
 }: {
   aiVisibility?: {
     mentionFrequency: string;
@@ -4429,13 +5011,123 @@ function CompetitivePositionIsland({
     improvementAreas: string[];
   };
   brandName: string;
+  brandScore?: number;
+  competitorComparison?: Array<{
+    name: string;
+    overallScore: number;
+    strengths: string[];
+    weaknesses: string[];
+    marketShare: string;
+    sentiment: string;
+  }>;
+  recommendations?: {
+    immediate: string[];
+    shortTerm: string[];
+    longTerm: string[];
+    competitiveActions?: string[];
+  };
+  brandContext?: BrandContext;
 }) {
-  const improvementAreas = aiVisibility?.improvementAreas || [
-    "Increase presence on high-authority review platforms",
-    "Create more comparison content vs competitors",
-    "Improve structured data markup for rich snippets",
-    "Build more authoritative backlinks from industry publications"
-  ];
+  const [selectedAction, setSelectedAction] = useState<string | null>(null);
+  const [showActionModal, setShowActionModal] = useState(false);
+
+  // Derive competitive position from available data
+  const deriveCompetitivePosition = (): string | null => {
+    // If we have explicit competitorMentionGap that isn't a default fallback, use it
+    if (aiVisibility?.competitorMentionGap &&
+        aiVisibility.competitorMentionGap !== "Insufficient data" &&
+        aiVisibility.competitorMentionGap !== "Run simulations to gather comparison data") {
+      return aiVisibility.competitorMentionGap;
+    }
+
+    // Derive from competitor comparison data
+    if (competitorComparison && competitorComparison.length > 0 && brandScore !== undefined) {
+      const avgCompetitorScore = Math.round(
+        competitorComparison.reduce((sum, c) => sum + c.overallScore, 0) / competitorComparison.length
+      );
+      const scoreDiff = brandScore - avgCompetitorScore;
+      const topCompetitor = [...competitorComparison].sort((a, b) => b.overallScore - a.overallScore)[0];
+
+      if (scoreDiff > 15) {
+        return `${brandName} leads the competitive landscape with a visibility score of ${brandScore}, outperforming the industry average of ${avgCompetitorScore}. You're ahead of ${topCompetitor.name} by ${brandScore - topCompetitor.overallScore} points.`;
+      } else if (scoreDiff > 0) {
+        return `${brandName} holds a competitive position with a score of ${brandScore}, slightly above the competitor average of ${avgCompetitorScore}. Focus on widening the gap with ${topCompetitor.name}.`;
+      } else if (scoreDiff > -15) {
+        return `${brandName} has room for improvement with a score of ${brandScore}, ${Math.abs(scoreDiff)} points below the competitor average. ${topCompetitor.name} leads the category at ${topCompetitor.overallScore}.`;
+      } else {
+        return `${brandName} is trailing competitors with a visibility score of ${brandScore}. The category leader ${topCompetitor.name} scores ${topCompetitor.overallScore}. Immediate action recommended to close the ${Math.abs(scoreDiff)}-point gap.`;
+      }
+    }
+
+    // If we have any visibility metrics, provide basic positioning
+    if (aiVisibility?.mentionFrequency && aiVisibility.mentionFrequency !== "none") {
+      const position = aiVisibility.typicalPosition
+        ? `typically appearing at position #${aiVisibility.typicalPosition}`
+        : "";
+      return `${brandName} has ${aiVisibility.mentionFrequency} mention frequency in AI responses${position ? `, ${position}` : ""}. AI recommendation likelihood is ${aiVisibility.recommendationLikelihood || "moderate"}.`;
+    }
+
+    return null;
+  };
+
+  // Derive improvement areas from multiple sources
+  const deriveImprovementAreas = (): string[] => {
+    const areas: string[] = [];
+
+    // Use AI visibility improvement areas if they're not defaults
+    if (aiVisibility?.improvementAreas &&
+        aiVisibility.improvementAreas.length > 0 &&
+        aiVisibility.improvementAreas[0] !== "Run more simulations to gather data") {
+      areas.push(...aiVisibility.improvementAreas);
+    }
+
+    // Add from immediate recommendations if available
+    if (recommendations?.immediate && recommendations.immediate.length > 0 && areas.length < 4) {
+      const additionalAreas = recommendations.immediate
+        .filter(r => !areas.some(a => a.toLowerCase().includes(r.toLowerCase().split(' ')[0])))
+        .slice(0, 4 - areas.length);
+      areas.push(...additionalAreas);
+    }
+
+    // Add from competitive actions
+    if (recommendations?.competitiveActions && recommendations.competitiveActions.length > 0 && areas.length < 4) {
+      const additionalAreas = recommendations.competitiveActions
+        .filter(r => !areas.some(a => a.toLowerCase().includes(r.toLowerCase().split(' ')[0])))
+        .slice(0, 4 - areas.length);
+      areas.push(...additionalAreas);
+    }
+
+    // Fallback defaults if nothing available
+    if (areas.length === 0) {
+      return [
+        "Increase presence on high-authority review platforms",
+        "Create more comparison content vs competitors",
+        "Improve structured data markup for rich snippets",
+        "Build more authoritative backlinks from industry publications"
+      ];
+    }
+
+    return areas.slice(0, 5);
+  };
+
+  const competitivePosition = deriveCompetitivePosition();
+  const improvementAreas = deriveImprovementAreas();
+
+  // Helper to clean markdown ** from text
+  const cleanMarkdown = (text: string): string => {
+    if (!text) return text;
+    return text
+      .replace(/\*\*([^*]+)\*\*/g, '$1')  // Remove **bold**
+      .replace(/__([^_]+)__/g, '$1')       // Remove __bold__
+      .replace(/\*([^*]+)\*/g, '$1')       // Remove *italic*
+      .replace(/_([^_]+)_/g, '$1')         // Remove _italic_
+      .trim();
+  };
+
+  const handleAreaClick = (area: string) => {
+    setSelectedAction(cleanMarkdown(area));
+    setShowActionModal(true);
+  };
 
   return (
     <div className="insight-island">
@@ -4465,7 +5157,8 @@ function CompetitivePositionIsland({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Changed to vertical layout (grid-cols-1) */}
+        <div className="grid grid-cols-1 gap-6">
           {/* Competitive Position */}
           <div className="p-5 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-200">
             <div className="flex items-center gap-3 mb-4">
@@ -4490,11 +5183,34 @@ function CompetitivePositionIsland({
               </div>
             </div>
 
-            {aiVisibility?.competitorMentionGap ? (
+            {competitivePosition ? (
               <div className="space-y-4">
                 <p className="text-sm text-gray-700 leading-relaxed bg-white p-4 rounded-lg border border-indigo-100">
-                  {aiVisibility.competitorMentionGap}
+                  {competitivePosition}
                 </p>
+                {/* Show key metrics if available */}
+                {(aiVisibility?.mentionFrequency || aiVisibility?.typicalPosition || aiVisibility?.recommendationLikelihood) && (
+                  <div className="flex flex-wrap gap-3">
+                    {aiVisibility?.mentionFrequency && aiVisibility.mentionFrequency !== "none" && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-100 rounded-lg">
+                        <span className="text-xs text-indigo-600 font-medium">Mention Frequency:</span>
+                        <span className="text-xs font-semibold text-indigo-700 capitalize">{aiVisibility.mentionFrequency}</span>
+                      </div>
+                    )}
+                    {aiVisibility?.typicalPosition !== null && aiVisibility?.typicalPosition !== undefined && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-100 rounded-lg">
+                        <span className="text-xs text-violet-600 font-medium">Typical Position:</span>
+                        <span className="text-xs font-semibold text-violet-700">#{aiVisibility.typicalPosition}</span>
+                      </div>
+                    )}
+                    {aiVisibility?.recommendationLikelihood && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 rounded-lg">
+                        <span className="text-xs text-purple-600 font-medium">AI Recommends:</span>
+                        <span className="text-xs font-semibold text-purple-700 capitalize">{aiVisibility.recommendationLikelihood}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8 bg-white rounded-lg border border-indigo-100">
@@ -4532,20 +5248,30 @@ function CompetitivePositionIsland({
               {improvementAreas.map((area, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-3 p-3 bg-white rounded-lg border border-amber-100 hover:shadow-md transition-shadow"
+                  className="flex items-start gap-3 p-3 bg-white rounded-lg border border-amber-100 hover:shadow-md transition-shadow cursor-pointer group"
+                  onClick={() => handleAreaClick(area)}
                 >
                   <div className="flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold flex-shrink-0">
                     {i + 1}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-700 leading-relaxed">{area}</p>
+                    <p className="text-sm text-gray-700 leading-relaxed">{cleanMarkdown(area)}</p>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <ArrowRight className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5 group-hover:text-amber-600 group-hover:translate-x-1 transition-all" />
                 </div>
               ))}
             </div>
           </div>
         </div>
+
+        {/* Action Steps Modal */}
+        <ActionStepsModal
+          isOpen={showActionModal}
+          onClose={() => setShowActionModal(false)}
+          action={selectedAction || ""}
+          brandName={brandName}
+          brandContext={brandContext}
+        />
       </div>
     </div>
   );
