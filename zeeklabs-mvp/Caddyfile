@@ -1,0 +1,3 @@
+zeeklabs.ai, www.zeeklabs.ai {
+	reverse_proxy localhost:3000
+}

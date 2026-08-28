@@ -25,5 +25,14 @@ module.exports = {
       cwd: __dirname,
       env: { NODE_ENV: "production" },
     },
+    {
+      // TLS termination + reverse proxy to web-bff (localhost:3000). Auto-HTTPS
+      // via Let's Encrypt only succeeds once zeeklabs.ai's DNS points at this
+      // box's Elastic IP - see docs/AWS-DEPLOYMENT-PLAN-MVP.md §9.
+      name: "caddy",
+      script: "/usr/local/bin/caddy",
+      args: "run --config Caddyfile --adapter caddyfile",
+      cwd: __dirname,
+    },
   ],
 };
