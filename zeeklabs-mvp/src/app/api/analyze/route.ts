@@ -219,7 +219,7 @@ export async function POST(req: NextRequest) {
         },
       });
       console.log(`Analysis cache entry created (pending) for brand ${brand.name}`);
-    } catch (error) {
+    } catch {
       // Handle race condition - another request might have created the entry
       console.log("Cache entry creation failed - possibly due to race condition");
       return NextResponse.json(
