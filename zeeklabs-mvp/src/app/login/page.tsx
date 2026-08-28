@@ -99,6 +99,18 @@ function LoginErrorBanner() {
   );
 }
 
+function DemoAutoTrigger({ onTrigger }: { onTrigger: () => void }) {
+  const searchParams = useSearchParams();
+  const triggered = searchParams.get("demo") === "1";
+
+  useEffect(() => {
+    if (triggered) onTrigger();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggered]);
+
+  return null;
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -112,10 +124,11 @@ export default function LoginPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleDemoLogin = async () => {
+  const handleDemoLogin = async (overrideEmail?: string) => {
     setIsLoading(true);
+    const effectiveEmail = overrideEmail !== undefined ? overrideEmail : email;
     await signIn("credentials", {
-      email: email || "demo@zeeklabs.com",
+      email: effectiveEmail || "demo@zeeklabs.com",
       callbackUrl: "/dashboard/analysis",
     });
     setIsLoading(false);
@@ -151,20 +164,19 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-grid opacity-20" />
 
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-between p-10 xl:p-14 w-full">
+        <div className="relative z-10 flex flex-col justify-between gap-10 p-10 xl:p-14 w-full h-screen overflow-y-auto">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <Image
               src="/zeeklabs-logo.svg"
               alt="zeeklabs Logo"
-              width={44}
-              height={44}
-              className="h-11 w-11"
+              width={40}
+              height={40}
+              className="h-10 w-10"
             />
-            <div className="flex flex-col">
-              <span className="text-xl font-bold tracking-tight text-white">zeeklabs</span>
-              <span className="text-xs text-primary -mt-0.5">.ai</span>
-            </div>
+            <span className="text-xl font-bold tracking-tight text-white">
+              zeeklabs<span className="text-primary">.ai</span>
+            </span>
           </div>
 
           {/* Main content */}
@@ -305,6 +317,9 @@ export default function LoginPage() {
             <Suspense fallback={null}>
               <LoginErrorBanner />
             </Suspense>
+            <Suspense fallback={null}>
+              <DemoAutoTrigger onTrigger={() => handleDemoLogin("demo@zeeklabs.com")} />
+            </Suspense>
 
             {/* Google login */}
             <Button
@@ -358,7 +373,7 @@ export default function LoginPage() {
 
               <Button
                 className="w-full h-12 text-base rounded-xl gradient-bg hover:opacity-90 transition-opacity"
-                onClick={handleDemoLogin}
+                onClick={() => handleDemoLogin()}
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -378,20 +393,25 @@ export default function LoginPage() {
               </Button>
             </div>
 
-            {/* Demo hint */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-primary/10 via-accent/5 to-transparent border border-primary/20">
+            {/* Demo hint - directly triggers the demo login, not just a hint */}
+            <button
+              type="button"
+              onClick={() => handleDemoLogin("demo@zeeklabs.com")}
+              disabled={isLoading}
+              className="w-full text-left p-4 rounded-xl bg-primary/10 border-2 border-primary/30 hover:bg-primary/15 hover:border-primary/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
               <div className="flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-primary/20">
                   <Sparkles className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <p className="font-semibold text-sm">Try the demo</p>
+                  <p className="font-semibold text-sm">Try the demo — no signup required</p>
                   <p className="text-sm text-muted-foreground">
-                    Leave email empty to explore with a demo account
+                    Instantly explore zeeklabs with a live demo account
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
 
             {/* Features list */}
             <div className="space-y-3 pt-4">
@@ -415,9 +435,9 @@ export default function LoginPage() {
           {/* Footer */}
           <p className="text-center text-xs text-muted-foreground">
             By signing in, you agree to our{" "}
-            <a href="#" className="text-primary hover:underline">Terms of Service</a>
+            <a href="/terms" className="text-primary hover:underline">Terms of Service</a>
             {" "}and{" "}
-            <a href="#" className="text-primary hover:underline">Privacy Policy</a>
+            <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
           </p>
         </div>
       </div>

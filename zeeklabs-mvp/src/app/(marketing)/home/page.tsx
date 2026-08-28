@@ -7,18 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   ArrowRight,
-  Check,
   Star,
   Play,
   Globe,
   Target,
   BarChart3,
-  Users,
   Sparkles,
   ChevronDown,
   Send,
   Loader2,
-  Quote,
   Menu,
   X,
   MessageSquare,
@@ -89,22 +86,16 @@ export default function LandingPage() {
               </div>
 
               <Link
-                href="/pricing"
+                href="#why-zeeklabs"
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                Pricing
+                Why zeeklabs
               </Link>
               <Link
-                href="#testimonials"
+                href="/contact"
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                Testimonials
-              </Link>
-              <Link
-                href="/terms"
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Terms
+                Contact
               </Link>
             </div>
 
@@ -137,14 +128,11 @@ export default function LandingPage() {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-2">
-            <Link href="/pricing" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
-              Pricing
+            <Link href="#why-zeeklabs" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+              Why zeeklabs
             </Link>
-            <Link href="#testimonials" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
-              Testimonials
-            </Link>
-            <Link href="/terms" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
-              Terms
+            <Link href="/contact" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+              Contact
             </Link>
             <div className="pt-2 border-t border-gray-100 space-y-2">
               <Link href="/login" className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
@@ -205,9 +193,9 @@ export default function LandingPage() {
                 asChild
                 className="rounded-xl px-8 h-14 text-base border-gray-300 hover:bg-gray-50"
               >
-                <Link href="#demo">
+                <Link href="/login?demo=1">
                   <Play className="mr-2 h-5 w-5" />
-                  Book Demo
+                  Try the Demo
                 </Link>
               </Button>
             </div>
@@ -328,72 +316,68 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section id="testimonials" className="py-24 bg-[#FAFAFB]">
+      {/* Why zeeklabs / Differentiation Section */}
+      <section id="why-zeeklabs" className="py-24 bg-[#FAFAFB]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Trusted by leading brands
+              Built for a world where AI answers the question first
             </h2>
-            <p className="text-lg text-gray-600">
-              See how companies are improving their AI visibility with zeeklabs
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              More buyers are asking ChatGPT and Gemini before they ever open Google.
+              Here&apos;s why the tools you already use can&apos;t see that.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 mb-16">
+            <div className="p-6 rounded-2xl bg-white border border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-2">Traditional SEO tools</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Optimize for blue links and search rankings — blind to what ChatGPT, Gemini,
+                and Perplexity actually tell your customers.
+              </p>
+            </div>
+            <div className="p-6 rounded-2xl bg-white border border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-2">Social listening platforms</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Track mentions on social media — but AI assistants don&apos;t post publicly.
+                They just answer, and that answer disappears.
+              </p>
+            </div>
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-xl shadow-indigo-500/25">
+              <h3 className="font-semibold mb-2">zeeklabs</h3>
+              <p className="text-indigo-50 text-sm leading-relaxed">
+                Purpose-built to simulate real buyer questions across every major AI engine,
+                benchmark you against named competitors, and turn the gaps into a prioritized
+                action plan.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                quote: "Our AI visibility increased by 200% in just 3 months. The insights are incredible.",
-                author: "Sarah Chen",
-                role: "CMO, TechStartup",
-                metric: "+200% visibility",
+                step: "1",
+                title: "Simulate",
+                description: "We run the exact questions your buyers ask AI assistants — “best CRM for startups,” “alternatives to [competitor]” — across ChatGPT, Gemini, and Perplexity.",
               },
               {
-                quote: "Finally, a tool that helps us understand how AI talks about our brand.",
-                author: "Michael Park",
-                role: "Head of Digital, Enterprise Co",
-                metric: "+85% mentions",
+                step: "2",
+                title: "Measure",
+                description: "Get a visibility score, sentiment breakdown, and side-by-side competitor benchmark.",
               },
               {
-                quote: "The competitor analysis helped us identify gaps we never knew existed.",
-                author: "Emily Rodriguez",
-                role: "Marketing Director, SaaS Inc",
-                metric: "+150% recommendations",
+                step: "3",
+                title: "Improve",
+                description: "A prioritized action plan — Wikipedia, Crunchbase, G2, schema markup, and more — shows exactly what closes the gap fastest.",
               },
-              {
-                quote: "Essential for any brand serious about AI-first marketing.",
-                author: "David Kim",
-                role: "CEO, AI Agency",
-                metric: "4x ROI",
-              },
-              {
-                quote: "The action plan feature is a game-changer for our SEO team.",
-                author: "Jessica Liu",
-                role: "SEO Lead, E-commerce Brand",
-                metric: "+120% citations",
-              },
-              {
-                quote: "Best investment we've made in our digital presence this year.",
-                author: "Alex Thompson",
-                role: "Founder, B2B Platform",
-                metric: "+300% reach",
-              },
-            ].map((testimonial, i) => (
-              <div
-                key={i}
-                className="p-6 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300"
-              >
-                <Quote className="h-8 w-8 text-indigo-200 mb-4" />
-                <p className="text-gray-700 mb-6 leading-relaxed">&ldquo;{testimonial.quote}&rdquo;</p>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-gray-900">{testimonial.author}</p>
-                    <p className="text-sm text-gray-500">{testimonial.role}</p>
-                  </div>
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                    {testimonial.metric}
-                  </Badge>
+            ].map((item) => (
+              <div key={item.step} className="text-center">
+                <div className="h-10 w-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center mx-auto mb-4">
+                  {item.step}
                 </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{item.title}</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">{item.description}</p>
               </div>
             ))}
           </div>
@@ -424,9 +408,9 @@ export default function LandingPage() {
               size="lg"
               variant="outline"
               asChild
-              className="rounded-xl px-8 h-14 text-base border-white/30 text-white hover:bg-white/10"
+              className="rounded-xl px-8 h-14 text-base bg-transparent border-white/30 text-white hover:bg-white/10"
             >
-              <Link href="#demo">Book Demo</Link>
+              <Link href="/login?demo=1">Try the Demo</Link>
             </Button>
           </div>
         </div>
@@ -455,12 +439,6 @@ export default function LandingPage() {
               </Link>
               <Link href="/security" className="hover:text-white transition-colors">
                 Security
-              </Link>
-              <Link href="/docs" className="hover:text-white transition-colors">
-                Documentation
-              </Link>
-              <Link href="/pricing" className="hover:text-white transition-colors">
-                Pricing
               </Link>
               <Link href="/contact" className="hover:text-white transition-colors">
                 Contact
