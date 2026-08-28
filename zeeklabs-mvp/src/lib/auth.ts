@@ -77,20 +77,37 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
     async signIn({ user }) {
-      // Google OAuth: the adapter has already created/found the User row
-      // by this point, so we can gate on its status here.
       if (!user.email) return true;
 
       if (isAdminEmail(user.email)) {
-        await prisma.user.updateMany({
-          where: { email: user.email, status: { not: "APPROVED" } },
-          data: { status: "APPROVED" },
+        await prisma.user.upsert({
+          where: { email: user.email },
+          update: { status: "APPROVED" },
+          create: { email: user.email, name: user.name, status: "APPROVED" },
         });
         return true;
       }
 
-      const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
-      if (!dbUser || dbUser.status === "APPROVED") return true;
+      // Find-or-create ourselves rather than assuming the adapter already
+      // created the User row - for a first-time Google sign-in it hasn't,
+      // and relying on that timing let brand-new users straight in with no
+      // approval check at all.
+      let dbUser = await prisma.user.findUnique({ where: { email: user.email } });
+
+      if (!dbUser) {
+        dbUser = await prisma.user.create({
+          data: {
+            email: user.email,
+            name: user.name,
+            status: "PENDING",
+            ...generateApprovalToken(),
+          },
+        });
+        await notifyAdminOfNewSignup(dbUser);
+        return false;
+      }
+
+      if (dbUser.status === "APPROVED") return true;
       if (dbUser.status === "REJECTED") return false;
 
       // PENDING: notify the admin (once) and deny the session.
