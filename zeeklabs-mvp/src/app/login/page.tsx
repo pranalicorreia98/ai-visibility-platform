@@ -13,8 +13,6 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  Quote,
-  Star,
   CheckCircle2,
   ArrowRight,
   Activity,
@@ -24,39 +22,23 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 
-// Testimonials data
-const testimonials = [
+// Highlights - what makes zeeklabs different, not attributed to fabricated customers
+const highlights = [
   {
-    quote: "zeeklabs transformed how we understand our brand presence in AI. We increased our ChatGPT mentions by 340% in 3 months.",
-    author: "Sarah Chen",
-    role: "Head of Growth",
-    company: "TechScale AI",
-    avatar: "SC",
-    rating: 5,
+    icon: Target,
+    title: "See what AI actually says",
+    description: "ChatGPT, Gemini, and Perplexity don't show up in Google Analytics. We simulate real buyer questions and show you exactly how each one answers.",
   },
   {
-    quote: "Finally, a tool that shows us exactly how AI assistants talk about our brand. The insights are game-changing for our SEO strategy.",
-    author: "Marcus Williams",
-    role: "VP Marketing",
-    company: "Innovate Labs",
-    avatar: "MW",
-    rating: 5,
+    icon: Users,
+    title: "Benchmark against named competitors",
+    description: "Not just your own score in isolation - see exactly how you compare to the competitors you actually care about, every time you run an analysis.",
   },
   {
-    quote: "We went from not being mentioned at all to ranking #2 in ChatGPT recommendations. The ROI has been incredible.",
-    author: "Priya Sharma",
-    role: "CMO",
-    company: "DataDriven.io",
-    avatar: "PS",
-    rating: 5,
+    icon: TrendingUp,
+    title: "A plan, not just a score",
+    description: "Wikipedia, Crunchbase, G2, schema markup - a prioritized action plan tells you exactly what closes the gap fastest.",
   },
-];
-
-// Stats
-const stats = [
-  { value: "500+", label: "Brands Tracked" },
-  { value: "2M+", label: "AI Queries Analyzed" },
-  { value: "340%", label: "Avg Visibility Increase" },
 ];
 
 // Features
@@ -114,12 +96,12 @@ function DemoAutoTrigger({ onTrigger }: { onTrigger: () => void }) {
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const [currentHighlight, setCurrentHighlight] = useState(0);
 
-  // Auto-rotate testimonials
+  // Auto-rotate highlights
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+      setCurrentHighlight((prev) => (prev + 1) % highlights.length);
     }, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -140,12 +122,12 @@ export default function LoginPage() {
     setIsLoading(false);
   };
 
-  const nextTestimonial = () => {
-    setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+  const nextHighlight = () => {
+    setCurrentHighlight((prev) => (prev + 1) % highlights.length);
   };
 
-  const prevTestimonial = () => {
-    setCurrentTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+  const prevHighlight = () => {
+    setCurrentHighlight((prev) => (prev - 1 + highlights.length) % highlights.length);
   };
 
   return (
@@ -210,60 +192,45 @@ export default function LoginPage() {
               ))}
             </div>
 
-            {/* Testimonial carousel */}
+            {/* Highlight carousel */}
             <div className="relative">
               <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                <Quote className="h-8 w-8 text-primary/50 mb-4" />
+                {(() => {
+                  const HighlightIcon = highlights[currentHighlight].icon;
+                  return <HighlightIcon className="h-8 w-8 text-primary/70 mb-4" />;
+                })()}
 
                 <div className="min-h-[120px]">
-                  <p className="text-lg text-white leading-relaxed">
-                    &quot;{testimonials[currentTestimonial].quote}&quot;
+                  <p className="font-semibold text-white text-lg mb-2">
+                    {highlights[currentHighlight].title}
                   </p>
-                </div>
-
-                <div className="flex items-center justify-between mt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold">
-                      {testimonials[currentTestimonial].avatar}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-white">{testimonials[currentTestimonial].author}</p>
-                      <p className="text-sm text-slate-400">
-                        {testimonials[currentTestimonial].role}, {testimonials[currentTestimonial].company}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Stars */}
-                  <div className="flex gap-0.5">
-                    {[...Array(testimonials[currentTestimonial].rating)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                    ))}
-                  </div>
+                  <p className="text-slate-400 leading-relaxed">
+                    {highlights[currentHighlight].description}
+                  </p>
                 </div>
 
                 {/* Navigation */}
                 <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/10">
                   <div className="flex gap-2">
-                    {testimonials.map((_, i) => (
+                    {highlights.map((_, i) => (
                       <button
                         key={i}
-                        onClick={() => setCurrentTestimonial(i)}
+                        onClick={() => setCurrentHighlight(i)}
                         className={`h-2 rounded-full transition-all ${
-                          i === currentTestimonial ? "w-6 bg-primary" : "w-2 bg-white/30"
+                          i === currentHighlight ? "w-6 bg-primary" : "w-2 bg-white/30"
                         }`}
                       />
                     ))}
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={prevTestimonial}
+                      onClick={prevHighlight}
                       className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
                     >
                       <ChevronLeft className="h-4 w-4 text-white" />
                     </button>
                     <button
-                      onClick={nextTestimonial}
+                      onClick={nextHighlight}
                       className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
                     >
                       <ChevronRight className="h-4 w-4 text-white" />
@@ -272,16 +239,6 @@ export default function LoginPage() {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Stats */}
-          <div className="flex gap-8">
-            {stats.map((stat, i) => (
-              <div key={i}>
-                <div className="text-2xl font-bold text-white">{stat.value}</div>
-                <div className="text-sm text-slate-400">{stat.label}</div>
-              </div>
-            ))}
           </div>
         </div>
       </div>

@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   ArrowRight,
-  Star,
   Play,
   Globe,
   Target,
@@ -16,17 +15,16 @@ import {
   ChevronDown,
   Send,
   Loader2,
+  Search,
+  Check,
   Menu,
   X,
   MessageSquare,
   TrendingUp,
   Shield,
   Clock,
-  Search,
-  CheckCircle2,
 } from "lucide-react";
 import Image from "next/image";
-import { ChatGPTLogo, GeminiLogo, PerplexityLogo } from "@/components/ui/ai-logos";
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -202,95 +200,6 @@ export default function LandingPage() {
                 </Link>
               </Button>
             </div>
-
-            {/* Social Proof */}
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-gray-500">
-              <div className="flex items-center gap-2">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      className="h-8 w-8 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 border-2 border-white"
-                    />
-                  ))}
-                </div>
-                <span>2,000+ brands optimized</span>
-              </div>
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
-                ))}
-                <span className="ml-1">4.9/5 rating</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Hero Illustration - shows the actual product mechanic instead of static logos */}
-          <div className="mt-12 relative">
-            <div className="bg-white rounded-3xl shadow-2xl shadow-gray-200/50 border border-gray-100 p-6 sm:p-8 max-w-5xl mx-auto">
-              {/* Mock prompt */}
-              <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-gray-50 border border-gray-200 mb-6">
-                <Search className="h-5 w-5 text-gray-400 shrink-0" />
-                <span className="text-gray-600 text-sm sm:text-base">
-                  &quot;What&apos;s the best project management tool for remote teams?&quot;
-                </span>
-              </div>
-
-              {/* Three AI engines answering the same question */}
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl border border-emerald-100 bg-emerald-50/50">
-                  <div className="flex items-center gap-2 mb-3">
-                    <ChatGPTLogo size={18} className="text-emerald-600" />
-                    <span className="text-sm font-semibold text-emerald-700">ChatGPT</span>
-                  </div>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    For remote teams, I&apos;d recommend{" "}
-                    <span className="font-semibold text-indigo-700 bg-indigo-50 px-1 rounded">YourBrand</span>
-                    , Asana, or Monday.com — all offer strong async collaboration.
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-3 text-xs font-medium text-emerald-600">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Mentioned
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/50">
-                  <div className="flex items-center gap-2 mb-3">
-                    <GeminiLogo size={18} />
-                    <span className="text-sm font-semibold text-blue-700">Gemini</span>
-                  </div>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    Popular options include{" "}
-                    <span className="font-semibold text-indigo-700 bg-indigo-50 px-1 rounded">YourBrand</span>
-                    , ClickUp, and Notion, depending on your workflow.
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-3 text-xs font-medium text-emerald-600">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Mentioned
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl border border-violet-100 bg-violet-50/50">
-                  <div className="flex items-center gap-2 mb-3">
-                    <PerplexityLogo size={18} className="text-violet-600" />
-                    <span className="text-sm font-semibold text-violet-700">Perplexity</span>
-                  </div>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    Top-rated tools:{" "}
-                    <span className="font-semibold text-indigo-700 bg-indigo-50 px-1 rounded">YourBrand</span>
-                    , Basecamp, and Trello — each excels at different team sizes.
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-3 text-xs font-medium text-emerald-600">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Mentioned
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-center text-xs text-gray-400 mt-6">
-                Illustrative example — your actual analysis uses your real brand and competitors.
-              </p>
-            </div>
           </div>
         </div>
       </section>
@@ -376,52 +285,75 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-10">
-            <div className="p-6 rounded-2xl bg-white border border-gray-200">
-              <h3 className="font-semibold text-gray-900 mb-2">Traditional SEO tools</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Optimize for blue links and search rankings — blind to what ChatGPT, Gemini,
-                and Perplexity actually tell your customers.
-              </p>
-            </div>
-            <div className="p-6 rounded-2xl bg-white border border-gray-200">
-              <h3 className="font-semibold text-gray-900 mb-2">Social listening platforms</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Track mentions on social media — but AI assistants don&apos;t post publicly.
-                They just answer, and that answer disappears.
-              </p>
-            </div>
-            <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-xl shadow-indigo-500/25">
-              <h3 className="font-semibold mb-2">zeeklabs</h3>
-              <p className="text-indigo-50 text-sm leading-relaxed">
-                Purpose-built to simulate real buyer questions across every major AI engine,
-                benchmark you against named competitors, and turn the gaps into a prioritized
-                action plan.
-              </p>
-            </div>
+          {/* Comparison table */}
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 mb-14">
+            <table className="w-full min-w-[640px] border-separate border-spacing-0">
+              <thead>
+                <tr>
+                  <th className="text-left p-4 bg-transparent" />
+                  <th className="p-4 bg-white border border-gray-200 border-b-0 rounded-t-xl font-semibold text-gray-600 text-sm">
+                    Traditional SEO
+                  </th>
+                  <th className="p-4 bg-white border border-gray-200 border-b-0 border-l-0 font-semibold text-gray-600 text-sm">
+                    Social listening
+                  </th>
+                  <th className="p-4 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-t-xl font-semibold text-white text-sm">
+                    zeeklabs
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  "Sees what ChatGPT & Gemini actually say",
+                  "Benchmarks you against named competitors",
+                  "Tracks sentiment across AI platforms",
+                  "Turns gaps into a prioritized action plan",
+                ].map((label, i, arr) => (
+                  <tr key={label}>
+                    <td className={`p-4 bg-white border-l border-gray-200 text-sm font-medium text-gray-700 ${i === arr.length - 1 ? "border-b rounded-bl-xl" : ""}`}>
+                      {label}
+                    </td>
+                    <td className={`p-4 bg-white border-x border-gray-200 text-center ${i === arr.length - 1 ? "border-b" : ""}`}>
+                      <X className="mx-auto h-5 w-5 text-gray-300" />
+                    </td>
+                    <td className={`p-4 bg-white border-r border-gray-200 text-center ${i === arr.length - 1 ? "border-b" : ""}`}>
+                      <X className="mx-auto h-5 w-5 text-gray-300" />
+                    </td>
+                    <td className={`p-4 bg-indigo-50 text-center ${i === arr.length - 1 ? "rounded-b-xl" : ""}`}>
+                      <Check className="mx-auto h-5 w-5 text-indigo-600" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          {/* How it works */}
+          <div className="grid md:grid-cols-3 gap-8 relative">
+            <div className="hidden md:block absolute top-6 left-[16.5%] right-[16.5%] h-px bg-gray-200" />
             {[
               {
+                icon: Search,
                 step: "1",
                 title: "Simulate",
                 description: "We run the exact questions your buyers ask AI assistants — “best CRM for startups,” “alternatives to [competitor]” — across ChatGPT, Gemini, and Perplexity.",
               },
               {
+                icon: BarChart3,
                 step: "2",
                 title: "Measure",
                 description: "Get a visibility score, sentiment breakdown, and side-by-side competitor benchmark.",
               },
               {
+                icon: TrendingUp,
                 step: "3",
                 title: "Improve",
                 description: "A prioritized action plan — Wikipedia, Crunchbase, G2, schema markup, and more — shows exactly what closes the gap fastest.",
               },
             ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="h-10 w-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center mx-auto mb-4">
-                  {item.step}
+              <div key={item.step} className="relative text-center">
+                <div className="relative z-10 h-12 w-12 rounded-full bg-white border-2 border-indigo-600 text-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-sm">
+                  <item.icon className="h-5 w-5" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">{item.title}</h3>
                 <p className="text-gray-600 text-sm leading-relaxed">{item.description}</p>
@@ -438,9 +370,9 @@ export default function LandingPage() {
             Ready to boost your AI visibility?
           </h2>
           <p className="text-xl text-indigo-100 mb-10">
-            Join 2,000+ brands already optimizing their presence across AI platforms.
+            Get discovered the moment AI recommends a solution to your customers.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex items-center justify-center">
             <Button
               size="lg"
               asChild
@@ -450,14 +382,6 @@ export default function LandingPage() {
                 Start Free Analysis
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              asChild
-              className="rounded-xl px-8 h-14 text-base bg-transparent border-white/30 text-white hover:bg-white/10"
-            >
-              <Link href="/login?demo=1">Try the Demo</Link>
             </Button>
           </div>
         </div>
