@@ -188,29 +188,29 @@ export function Header() {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-gray-100 bg-white px-6">
+    <header className="flex h-16 items-center justify-between border-b border-gray-100 bg-white px-3 sm:px-6 gap-2">
       {/* Logo and Brand Selector */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
         {/* Logo */}
-        <Link href="/dashboard/analysis" className="flex items-center gap-2.5">
+        <Link href="/dashboard/analysis" className="flex items-center gap-2.5 shrink-0">
           <Image
             src="/zeeklabs-logo.svg"
             alt="zeeklabs.ai Logo"
             width={36}
             height={36}
-            className="h-9 w-9"
+            className="h-8 w-8 sm:h-9 sm:w-9"
           />
-          <span className="font-bold text-lg tracking-tight text-gray-900">
+          <span className="hidden sm:inline font-bold text-lg tracking-tight text-gray-900">
             zeeklabs<span className="text-indigo-600">.ai</span>
           </span>
         </Link>
 
         {/* Divider */}
-        <div className="h-8 w-px bg-gray-200" />
+        <div className="hidden sm:block h-8 w-px bg-gray-200" />
 
         {/* Brand Selector */}
         <Select value={selectedBrandId} onValueChange={setSelectedBrandId}>
-          <SelectTrigger className="w-[220px] bg-gray-50 border-gray-200 rounded-xl focus:ring-indigo-500 focus:border-indigo-500">
+          <SelectTrigger className="w-[130px] sm:w-[220px] bg-gray-50 border-gray-200 rounded-xl focus:ring-indigo-500 focus:border-indigo-500">
             <SelectValue placeholder="Select a brand" />
           </SelectTrigger>
           <SelectContent className="rounded-xl">
@@ -229,36 +229,38 @@ export function Header() {
       </div>
 
       {/* Right side actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Prompt Simulator Button */}
         <Button
           onClick={() => setPromptSimulatorOpen(true)}
-          className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-full shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 px-5"
+          size="icon"
+          className="sm:w-auto sm:px-5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-full shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40"
         >
-          <Search className="h-4 w-4 mr-2" />
-          Prompt
+          <Search className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Prompt</span>
         </Button>
 
         {/* Download PDF */}
         <Button
           onClick={handleDownloadPDF}
           disabled={!hasReportData || downloadingPdf}
-          className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40"
+          size="icon"
+          className="sm:w-auto sm:px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40"
           title={hasReportData ? "Download PDF Report" : "Run analysis first to download report"}
         >
           {downloadingPdf ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
           ) : (
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="h-4 w-4 sm:mr-2" />
           )}
-          Download PDF
+          <span className="hidden sm:inline">Download PDF</span>
         </Button>
 
-        {/* Settings */}
+        {/* Settings - duplicated in the user menu below, hide on mobile to save space */}
         <Button
           variant="outline"
           asChild
-          className="rounded-xl border-gray-200 hover:border-indigo-300 hover:bg-indigo-50"
+          className="hidden md:inline-flex rounded-xl border-gray-200 hover:border-indigo-300 hover:bg-indigo-50"
         >
           <Link href="/dashboard/settings">
             <Settings className="h-4 w-4 mr-2 text-gray-600" />
@@ -267,13 +269,13 @@ export function Header() {
         </Button>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-gray-100 relative">
+        <Button variant="ghost" size="icon" className="hidden sm:inline-flex rounded-xl hover:bg-gray-100 relative">
           <Bell className="h-5 w-5 text-gray-500" />
           <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-indigo-600 rounded-full" />
         </Button>
 
         {/* Help */}
-        <Button variant="ghost" size="icon" className="rounded-xl hover:bg-gray-100">
+        <Button variant="ghost" size="icon" className="hidden sm:inline-flex rounded-xl hover:bg-gray-100">
           <HelpCircle className="h-5 w-5 text-gray-500" />
         </Button>
 

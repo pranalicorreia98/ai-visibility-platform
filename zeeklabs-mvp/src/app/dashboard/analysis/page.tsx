@@ -282,17 +282,17 @@ export default function AnalysisPage() {
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-violet-400 to-transparent rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
         </div>
 
-        <div className="relative flex items-center justify-between">
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           {/* Left: Brand Identity */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             {/* Brand Logo */}
-            <div className="relative">
-              <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center overflow-hidden shadow-lg">
+            <div className="relative shrink-0">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center overflow-hidden shadow-lg">
                 {brandLogoUrl ? (
                   <img
                     src={brandLogoUrl}
                     alt={`${selectedBrand?.name} logo`}
-                    className="w-10 h-10 object-contain"
+                    className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
                     onError={(e) => {
                       // Fallback to first letter if favicon fails
                       e.currentTarget.style.display = 'none';
@@ -300,7 +300,7 @@ export default function AnalysisPage() {
                     }}
                   />
                 ) : null}
-                <span className={`text-2xl font-bold text-white ${brandLogoUrl ? 'hidden' : ''}`}>
+                <span className={`text-xl sm:text-2xl font-bold text-white ${brandLogoUrl ? 'hidden' : ''}`}>
                   {selectedBrand?.name?.charAt(0).toUpperCase() || 'B'}
                 </span>
               </div>
@@ -311,17 +311,17 @@ export default function AnalysisPage() {
             </div>
 
             {/* Brand Name and Title */}
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-2xl font-bold text-white tracking-tight">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight break-words">
                   {selectedBrand?.name || "Your Brand"}&apos;s AI Visibility
                 </h1>
-                <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-xs">
+                <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-xs shrink-0">
                   Live Analysis
                 </Badge>
               </div>
-              <p className="text-slate-400 text-sm flex items-center gap-2">
-                <Globe className="h-3.5 w-3.5" />
+              <p className="text-slate-400 text-sm flex flex-wrap items-center gap-x-2 gap-y-1">
+                <Globe className="h-3.5 w-3.5 shrink-0" />
                 {selectedBrand?.domain || "No domain set"}
                 <span className="text-slate-600">•</span>
                 <span className="text-slate-400">
@@ -352,7 +352,7 @@ export default function AnalysisPage() {
               <DropdownMenuTrigger asChild>
                 <Button
                   disabled={analysisLoading || !selectedBrandId}
-                  className="gap-2 bg-white text-slate-900 hover:bg-slate-100 shadow-lg"
+                  className="gap-2 bg-white text-slate-900 hover:bg-slate-100 shadow-lg w-full sm:w-auto"
                   size="lg"
                 >
                   {analysisLoading ? (
@@ -2462,7 +2462,7 @@ interface ProgressSummary {
 }
 
 function ProgressTrackingGraph({ brandId }: { brandId: string }) {
-  const [period, setPeriod] = useState<"week" | "month" | "quarter" | "year">("month");
+  const [period, setPeriod] = useState<"week" | "month" | "quarter" | "year">("week");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ProgressDataPoint[]>([]);
   const [summary, setSummary] = useState<ProgressSummary | null>(null);

@@ -612,7 +612,7 @@ export default function SimulatorPage() {
           {/* Options row */}
           <div className="flex flex-wrap items-center gap-4 pt-2">
             {/* AI Systems */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Ask:</span>
               <button
                 onClick={() => toggleSystem("chatgpt")}
