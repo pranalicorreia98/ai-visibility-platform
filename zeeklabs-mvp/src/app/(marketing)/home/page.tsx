@@ -22,8 +22,11 @@ import {
   TrendingUp,
   Shield,
   Clock,
+  Search,
+  CheckCircle2,
 } from "lucide-react";
 import Image from "next/image";
+import { ChatGPTLogo, GeminiLogo, PerplexityLogo } from "@/components/ui/ai-logos";
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -222,27 +225,71 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Hero Illustration */}
+          {/* Hero Illustration - shows the actual product mechanic instead of static logos */}
           <div className="mt-20 relative">
-            <div className="bg-white rounded-3xl shadow-2xl shadow-gray-200/50 border border-gray-100 p-8 max-w-5xl mx-auto">
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 h-[400px] flex items-center justify-center">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-4 mb-6">
-                    <div className="h-16 w-16 rounded-2xl bg-emerald-100 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-emerald-600">GPT</span>
-                    </div>
-                    <div className="h-16 w-16 rounded-2xl bg-blue-100 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-blue-600">G</span>
-                    </div>
-                    <div className="h-16 w-16 rounded-2xl bg-violet-100 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-violet-600">C</span>
-                    </div>
+            <div className="bg-white rounded-3xl shadow-2xl shadow-gray-200/50 border border-gray-100 p-6 sm:p-8 max-w-5xl mx-auto">
+              {/* Mock prompt */}
+              <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-gray-50 border border-gray-200 mb-6">
+                <Search className="h-5 w-5 text-gray-400 shrink-0" />
+                <span className="text-gray-600 text-sm sm:text-base">
+                  &quot;What&apos;s the best project management tool for remote teams?&quot;
+                </span>
+              </div>
+
+              {/* Three AI engines answering the same question */}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl border border-emerald-100 bg-emerald-50/50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ChatGPTLogo size={18} className="text-emerald-600" />
+                    <span className="text-sm font-semibold text-emerald-700">ChatGPT</span>
                   </div>
-                  <p className="text-lg text-gray-600 font-medium">
-                    AI models discovering your brand in real-time
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    For remote teams, I&apos;d recommend{" "}
+                    <span className="font-semibold text-indigo-700 bg-indigo-50 px-1 rounded">YourBrand</span>
+                    , Asana, or Monday.com — all offer strong async collaboration.
                   </p>
+                  <div className="flex items-center gap-1.5 mt-3 text-xs font-medium text-emerald-600">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Mentioned
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <GeminiLogo size={18} />
+                    <span className="text-sm font-semibold text-blue-700">Gemini</span>
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Popular options include{" "}
+                    <span className="font-semibold text-indigo-700 bg-indigo-50 px-1 rounded">YourBrand</span>
+                    , ClickUp, and Notion, depending on your workflow.
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-3 text-xs font-medium text-emerald-600">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Mentioned
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-violet-100 bg-violet-50/50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <PerplexityLogo size={18} className="text-violet-600" />
+                    <span className="text-sm font-semibold text-violet-700">Perplexity</span>
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Top-rated tools:{" "}
+                    <span className="font-semibold text-indigo-700 bg-indigo-50 px-1 rounded">YourBrand</span>
+                    , Basecamp, and Trello — each excels at different team sizes.
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-3 text-xs font-medium text-emerald-600">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Mentioned
+                  </div>
                 </div>
               </div>
+
+              <p className="text-center text-xs text-gray-400 mt-6">
+                Illustrative example — your actual analysis uses your real brand and competitors.
+              </p>
             </div>
           </div>
         </div>
