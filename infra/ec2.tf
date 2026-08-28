@@ -74,7 +74,8 @@ resource "aws_instance" "app" {
     curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
     dnf install -y nodejs
     npm install -g pm2 tsx
-    curl -fsSL "https://github.com/caddyserver/caddy/releases/latest/download/caddy_2.8.4_linux_arm64.tar.gz" -o /tmp/caddy.tar.gz
+    CADDY_VERSION=$(curl -fsSL https://api.github.com/repos/caddyserver/caddy/releases/latest | grep -oP '"tag_name": "v\K[0-9.]+')
+    curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v$${CADDY_VERSION}/caddy_$${CADDY_VERSION}_linux_arm64.tar.gz" -o /tmp/caddy.tar.gz
     tar -xzf /tmp/caddy.tar.gz -C /usr/local/bin caddy
     chmod +x /usr/local/bin/caddy
   EOF
