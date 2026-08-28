@@ -150,7 +150,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-20 pb-32 overflow-hidden">
+      <section className="relative pt-12 pb-16 sm:pt-16 sm:pb-20 overflow-hidden">
         {/* Background Elements */}
         <div className="absolute inset-0 bg-gradient-to-b from-indigo-50/50 to-transparent pointer-events-none" />
         <div className="absolute top-20 left-1/4 w-72 h-72 bg-indigo-200/30 rounded-full blur-3xl" />
@@ -204,7 +204,7 @@ export default function LandingPage() {
             </div>
 
             {/* Social Proof */}
-            <div className="mt-12 flex items-center justify-center gap-8 text-sm text-gray-500">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-gray-500">
               <div className="flex items-center gap-2">
                 <div className="flex -space-x-2">
                   {[1, 2, 3, 4].map((i) => (
@@ -226,7 +226,7 @@ export default function LandingPage() {
           </div>
 
           {/* Hero Illustration - shows the actual product mechanic instead of static logos */}
-          <div className="mt-20 relative">
+          <div className="mt-12 relative">
             <div className="bg-white rounded-3xl shadow-2xl shadow-gray-200/50 border border-gray-100 p-6 sm:p-8 max-w-5xl mx-auto">
               {/* Mock prompt */}
               <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-gray-50 border border-gray-200 mb-6">
@@ -296,9 +296,9 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-24 bg-white">
+      <section className="py-14 sm:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               Everything you need for AI visibility
             </h2>
@@ -364,9 +364,9 @@ export default function LandingPage() {
       </section>
 
       {/* Why zeeklabs / Differentiation Section */}
-      <section id="why-zeeklabs" className="py-24 bg-[#FAFAFB]">
+      <section id="why-zeeklabs" className="py-14 sm:py-16 bg-[#FAFAFB]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               Built for a world where AI answers the question first
             </h2>
@@ -376,7 +376,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
+          <div className="grid md:grid-cols-3 gap-8 mb-10">
             <div className="p-6 rounded-2xl bg-white border border-gray-200">
               <h3 className="font-semibold text-gray-900 mb-2">Traditional SEO tools</h3>
               <p className="text-gray-600 text-sm leading-relaxed">
@@ -432,7 +432,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-br from-indigo-600 to-violet-700">
+      <section className="py-14 sm:py-16 bg-gradient-to-br from-indigo-600 to-violet-700">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
             Ready to boost your AI visibility?
