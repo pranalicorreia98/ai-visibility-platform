@@ -1,11 +1,11 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Zap,
   Mail,
   BarChart3,
   TrendingUp,
@@ -20,12 +20,14 @@ import {
   Activity,
   Target,
   Users,
+  AlertTriangle,
 } from "lucide-react";
+import Image from "next/image";
 
 // Testimonials data
 const testimonials = [
   {
-    quote: "ZeekLabs transformed how we understand our brand presence in AI. We increased our ChatGPT mentions by 340% in 3 months.",
+    quote: "zeeklabs transformed how we understand our brand presence in AI. We increased our ChatGPT mentions by 340% in 3 months.",
     author: "Sarah Chen",
     role: "Head of Growth",
     company: "TechScale AI",
@@ -81,6 +83,22 @@ const features = [
   },
 ];
 
+function LoginErrorBanner() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
+  if (!error) return null;
+
+  return (
+    <div className="flex items-start gap-3 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10">
+      <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0 mt-0.5" />
+      <p className="text-sm">
+        Access denied — your account is either awaiting admin approval or wasn&apos;t
+        approved. You&apos;ll get an email once a decision is made.
+      </p>
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -98,14 +116,14 @@ export default function LoginPage() {
     setIsLoading(true);
     await signIn("credentials", {
       email: email || "demo@zeeklabs.com",
-      callbackUrl: "/dashboard",
+      callbackUrl: "/dashboard/analysis",
     });
     setIsLoading(false);
   };
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
-    await signIn("google", { callbackUrl: "/dashboard" });
+    await signIn("google", { callbackUrl: "/dashboard/analysis" });
     setIsLoading(false);
   };
 
@@ -136,11 +154,15 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col justify-between p-10 xl:p-14 w-full">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-xl gradient-bg flex items-center justify-center shadow-lg shadow-primary/30">
-              <Zap className="h-6 w-6 text-white" />
-            </div>
+            <Image
+              src="/zeeklabs-logo.svg"
+              alt="zeeklabs Logo"
+              width={44}
+              height={44}
+              className="h-11 w-11"
+            />
             <div className="flex flex-col">
-              <span className="text-xl font-bold tracking-tight text-white">ZeekLabs</span>
+              <span className="text-xl font-bold tracking-tight text-white">zeeklabs</span>
               <span className="text-xs text-primary -mt-0.5">.ai</span>
             </div>
           </div>
@@ -257,11 +279,15 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center justify-center gap-3 mb-8">
-            <div className="h-14 w-14 rounded-2xl gradient-bg flex items-center justify-center shadow-lg shadow-primary/30">
-              <Zap className="h-7 w-7 text-white" />
-            </div>
+            <Image
+              src="/zeeklabs-logo.svg"
+              alt="zeeklabs Logo"
+              width={56}
+              height={56}
+              className="h-14 w-14"
+            />
             <div className="text-center">
-              <span className="text-2xl font-bold tracking-tight">ZeekLabs</span>
+              <span className="text-2xl font-bold tracking-tight">zeeklabs</span>
               <span className="text-primary">.ai</span>
             </div>
           </div>
@@ -276,6 +302,10 @@ export default function LoginPage() {
 
           {/* Login form */}
           <div className="space-y-5">
+            <Suspense fallback={null}>
+              <LoginErrorBanner />
+            </Suspense>
+
             {/* Google login */}
             <Button
               variant="outline"

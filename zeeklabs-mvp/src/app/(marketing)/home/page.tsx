@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  Zap,
   ArrowRight,
   Check,
   Star,
@@ -27,6 +26,7 @@ import {
   Shield,
   Clock,
 } from "lucide-react";
+import Image from "next/image";
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -52,11 +52,15 @@ export default function LandingPage() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:shadow-indigo-500/40 transition-shadow">
-                <Zap className="h-5 w-5 text-white" />
-              </div>
+              <Image
+                src="/zeeklabs-logo.svg"
+                alt="zeeklabs Logo"
+                width={36}
+                height={36}
+                className="h-9 w-9"
+              />
               <span className="font-bold text-xl tracking-tight text-gray-900">
-                ZeekLabs<span className="text-indigo-600">.ai</span>
+                zeeklabs<span className="text-indigo-600">.ai</span>
               </span>
             </Link>
 
@@ -332,7 +336,7 @@ export default function LandingPage() {
               Trusted by leading brands
             </h2>
             <p className="text-lg text-gray-600">
-              See how companies are improving their AI visibility with ZeekLabs
+              See how companies are improving their AI visibility with zeeklabs
             </p>
           </div>
 
@@ -433,10 +437,14 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
-                <Zap className="h-4 w-4 text-white" />
-              </div>
-              <span className="font-bold text-lg text-white">ZeekLabs.ai</span>
+              <Image
+                src="/zeeklabs-logo.svg"
+                alt="zeeklabs Logo"
+                width={32}
+                height={32}
+                className="h-8 w-8"
+              />
+              <span className="font-bold text-lg text-white">zeeklabs.ai</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-gray-400">
               <Link href="/terms" className="hover:text-white transition-colors">
@@ -460,7 +468,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-800 text-center text-sm text-gray-500">
-            © {new Date().getFullYear()} ZeekLabs.ai. All rights reserved.
+            © {new Date().getFullYear()} zeeklabs.ai. All rights reserved.
           </div>
         </div>
       </footer>

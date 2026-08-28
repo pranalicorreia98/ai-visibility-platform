@@ -3,7 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/providers/session-provider";
 
 export const metadata: Metadata = {
-  title: "ZeekLabs.ai - AI Visibility Platform",
+  title: "zeeklabs.ai - AI Visibility Platform",
   description: "Monitor and improve your brand visibility across AI systems like ChatGPT and Gemini",
 };
 

@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# local dev Postgres data (scripts/dev-db.ts) and old SQLite db
+/prisma/.pgdata
+/prisma/dev.db

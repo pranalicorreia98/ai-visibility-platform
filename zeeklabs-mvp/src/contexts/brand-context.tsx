@@ -7,6 +7,7 @@ const SELECTED_BRAND_KEY = "zeeklabs_selected_brand_id";
 const VISIBILITY_CACHE_KEY = "zeeklabs_visibility_cache";
 const MENTIONS_CACHE_KEY = "zeeklabs_mentions_cache";
 const ANALYSIS_CACHE_KEY = "zeeklabs_analysis_cache";
+const ANALYSIS_SESSION_KEY = "zeeklabs_analysis_session"; // Tracks if analysis was run in current session
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
 
 // Types
@@ -35,6 +36,16 @@ export interface VisibilityData {
     positive: number;
     neutral: number;
     negative: number;
+    percentages?: {
+      positive: number;
+      neutral: number;
+      negative: number;
+    };
+  };
+  platformSentiment?: {
+    chatgpt: { positive: number; neutral: number; negative: number };
+    gemini: { positive: number; neutral: number; negative: number };
+    perplexity: { positive: number; neutral: number; negative: number };
   };
   simulations: number;
   trend: Array<{
@@ -44,6 +55,17 @@ export interface VisibilityData {
     perplexity: number;
     total: number;
   }>;
+  trends?: {
+    mentions: number | null;
+    frequency: number | null;
+    position: number | null;
+  };
+  position?: {
+    average: number | null;
+    trend: number | null;
+  };
+  mentionFrequency?: number;
+  fromAnalysis?: boolean;
 }
 
 export interface Mention {
@@ -258,6 +280,8 @@ function getCachedMentionsData(brandId: string): Mention[] | null {
 }
 
 // Cache analysis data in sessionStorage
+// NOTE: We use a shorter TTL here to avoid conflicts with the DB cache (24 hours)
+// The client cache is just for navigation between pages, not for long-term storage
 function cacheAnalysisData(brandId: string, data: AnalysisResult) {
   if (typeof window === "undefined") return;
   try {
@@ -280,14 +304,47 @@ function getCachedAnalysisData(brandId: string): AnalysisResult | null {
 
     const { data, timestamp, brandId: cachedBrandId } = JSON.parse(cached);
 
-    // Check if cache is for the same brand and not expired (30 min TTL for analysis)
-    const ANALYSIS_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for analysis
+    // Use a shorter TTL (5 minutes) to avoid conflicts with server-side DB cache
+    // This cache is just for in-session navigation, not for long-term persistence
+    const ANALYSIS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for analysis
     if (cachedBrandId === brandId && Date.now() - timestamp < ANALYSIS_CACHE_TTL) {
       return data;
     }
+    // Clear stale cache
+    sessionStorage.removeItem(ANALYSIS_CACHE_KEY);
     return null;
   } catch {
     return null;
+  }
+}
+
+// Clear analysis cache (call after running fresh analysis)
+function clearAnalysisCache() {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(ANALYSIS_CACHE_KEY);
+  } catch {
+    // Ignore
+  }
+}
+
+// Track whether analysis was explicitly run in this session
+// This prevents stale data from showing on fresh page load
+function markAnalysisRunInSession(brandId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(ANALYSIS_SESSION_KEY, brandId);
+  } catch {
+    // Ignore
+  }
+}
+
+function wasAnalysisRunInSession(brandId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(ANALYSIS_SESSION_KEY) === brandId;
+  } catch {
+    return false;
   }
 }
 
@@ -297,7 +354,8 @@ function invalidateCache() {
   try {
     sessionStorage.removeItem(VISIBILITY_CACHE_KEY);
     sessionStorage.removeItem(MENTIONS_CACHE_KEY);
-    // Note: We don't clear analysis cache here - it's cleared separately
+    sessionStorage.removeItem(ANALYSIS_CACHE_KEY);
+    // Note: We don't clear ANALYSIS_SESSION_KEY here as it tracks session validity
   } catch {
     // Ignore
   }
@@ -331,6 +389,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     setAnalysisDataState(data);
     if (data && currentBrandIdRef.current) {
       cacheAnalysisData(currentBrandIdRef.current, data);
+      // Mark that analysis was run in this session
+      // This allows cached data to be shown when navigating between pages
+      // but prevents stale data from showing on fresh page load (new session)
+      markAnalysisRunInSession(currentBrandIdRef.current);
     }
   }, []);
 
@@ -339,11 +401,17 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     const storedId = getStoredBrandId();
     if (storedId) {
       setSelectedBrandIdState(storedId);
-      // Also load cached analysis data
-      const cachedAnalysis = getCachedAnalysisData(storedId);
-      if (cachedAnalysis) {
-        setAnalysisDataState(cachedAnalysis);
+      // Only load cached analysis if it was explicitly run in this session
+      // This prevents stale data from showing on fresh login
+      // The session marker is set when user runs analysis and cleared when browser tab closes
+      if (wasAnalysisRunInSession(storedId)) {
+        const cachedAnalysis = getCachedAnalysisData(storedId);
+        if (cachedAnalysis) {
+          setAnalysisDataState(cachedAnalysis);
+        }
       }
+      // If not run in this session, analysis page will show empty state
+      // User must explicitly click "Run Analysis" to see data
     }
     setInitialized(true);
   }, []);
@@ -488,7 +556,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         // Check if we have cached data for the new brand
         const cachedVisibility = getCachedVisibilityData(selectedBrandId);
         const cachedMentions = getCachedMentionsData(selectedBrandId);
-        const cachedAnalysis = getCachedAnalysisData(selectedBrandId);
 
         if (cachedVisibility) {
           setVisibilityData(cachedVisibility);
@@ -496,10 +563,18 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         if (cachedMentions) {
           setRecentMentions(cachedMentions);
         }
-        if (cachedAnalysis) {
-          setAnalysisDataState(cachedAnalysis);
+
+        // Only load cached analysis if it was run in this session for this brand
+        // This prevents stale data from showing when switching brands
+        if (wasAnalysisRunInSession(selectedBrandId)) {
+          const cachedAnalysis = getCachedAnalysisData(selectedBrandId);
+          if (cachedAnalysis) {
+            setAnalysisDataState(cachedAnalysis);
+          } else {
+            setAnalysisDataState(null);
+          }
         } else {
-          // Clear analysis data if switching to a brand without cached analysis
+          // Clear analysis data - user must run analysis for this brand
           setAnalysisDataState(null);
         }
       }

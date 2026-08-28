@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -25,11 +26,15 @@ export function Sidebar() {
     <div className="flex h-full w-64 flex-col bg-white border-r border-gray-100">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2.5 px-6 border-b border-gray-100">
-        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <Zap className="h-5 w-5 text-white" />
-        </div>
+        <Image
+          src="/zeeklabs-logo.svg"
+          alt="zeeklabs Logo"
+          width={36}
+          height={36}
+          className="h-9 w-9"
+        />
         <span className="font-bold text-lg tracking-tight text-gray-900">
-          ZeekLabs<span className="text-indigo-600">.ai</span>
+          zeeklabs<span className="text-indigo-600">.ai</span>
         </span>
       </div>
 
@@ -85,7 +90,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="px-6 py-4 border-t border-gray-100">
         <div className="text-xs text-gray-400">
-          ZeekLabs.ai v1.0
+          zeeklabs.ai v1.0
         </div>
       </div>
     </div>

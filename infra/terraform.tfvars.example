@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars (gitignored) and fill in real values.
+# These end up as SecureString params in SSM, not committed anywhere.
+
+nextauth_secret      = ""
+google_client_id     = ""
+google_client_secret = ""
+google_ai_api_key    = ""
+github_token         = ""
+openrouter_api_key   = ""
+perplexity_api_key   = ""
+resend_api_key       = ""
+cron_secret          = ""
+admin_emails         = "founder@zeeklabs.ai"

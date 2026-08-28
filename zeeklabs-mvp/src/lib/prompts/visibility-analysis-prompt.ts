@@ -548,10 +548,25 @@ function fillDefaultValues(parsed: Partial<VisibilityAnalysisResult>): Visibilit
     },
     citations: parsed.citations || [],
     recommendations: parsed.recommendations || {
-      immediate: ["Run more AI simulations to gather visibility data"],
-      shortTerm: ["Analyze competitor mentions"],
-      longTerm: ["Build comprehensive visibility strategy"],
-      competitiveActions: [],
+      immediate: [
+        "Claim and optimize Google Business Profile with complete information",
+        "Add structured data markup (Organization, Product) to website",
+        "Respond to recent customer reviews on G2 and Capterra"
+      ],
+      shortTerm: [
+        "Create comparison content vs top competitors with feature tables",
+        "Publish FAQ page with conversational Q&A format for AI assistants",
+        "Build relationships with industry publications for coverage"
+      ],
+      longTerm: [
+        "Develop thought leadership content strategy with regular industry insights",
+        "Build authoritative backlink profile from trusted industry sources",
+        "Create comprehensive resource center with guides AI systems will cite"
+      ],
+      competitiveActions: [
+        "Monitor competitor AI mentions weekly and identify winning patterns",
+        "Target topics where competitors rank but you don't appear"
+      ],
     },
     aiVisibility: parsed.aiVisibility || {
       mentionFrequency: "low",
@@ -615,10 +630,25 @@ function getDefaultAnalysisResult(): VisibilityAnalysisResult {
     },
     citations: [],
     recommendations: {
-      immediate: ["Run AI simulations to establish baseline visibility"],
-      shortTerm: ["Configure competitors for comparison analysis"],
-      longTerm: ["Build systematic visibility improvement strategy"],
-      competitiveActions: ["Monitor competitor AI mentions regularly"],
+      immediate: [
+        "Verify and complete Google Business Profile listing",
+        "Add organization structured data to website homepage",
+        "Submit brand to Crunchbase and industry directories"
+      ],
+      shortTerm: [
+        "Publish educational content about your industry niche",
+        "Create detailed product/service comparison pages",
+        "Build presence on Q&A platforms like Quora and Reddit"
+      ],
+      longTerm: [
+        "Establish thought leadership through regular industry reports",
+        "Develop a comprehensive knowledge base or resource center",
+        "Build strategic partnerships for cross-promotional content"
+      ],
+      competitiveActions: [
+        "Research competitor content strategies and identify gaps",
+        "Track competitor AI mentions to understand positioning"
+      ],
     },
     aiVisibility: {
       mentionFrequency: "low",

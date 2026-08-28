@@ -419,7 +419,7 @@ export default function MonitoringPage() {
   <div class="container">
     <!-- Header -->
     <div class="header">
-      <div class="logo">ZeekLabs.ai</div>
+      <div class="logo">zeeklabs.ai</div>
       <div class="subtitle">AI Visibility Analysis Report</div>
     </div>
 
@@ -798,9 +798,9 @@ export default function MonitoringPage() {
 
     <!-- Footer -->
     <div class="footer">
-      <div class="footer-logo">ZeekLabs.ai</div>
+      <div class="footer-logo">zeeklabs.ai</div>
       <div>AI Visibility Platform | Generated on ${report.reportDate}</div>
-      <div style="margin-top: 8px;">© ${new Date().getFullYear()} ZeekLabs.ai. All rights reserved.</div>
+      <div style="margin-top: 8px;">© ${new Date().getFullYear()} zeeklabs.ai. All rights reserved.</div>
     </div>
   </div>
 </body>

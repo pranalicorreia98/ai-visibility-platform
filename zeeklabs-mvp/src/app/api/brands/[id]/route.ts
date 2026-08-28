@@ -148,7 +148,44 @@ export async function DELETE(
       return NextResponse.json({ error: "Brand not found" }, { status: 404 });
     }
 
-    await prisma.brand.delete({ where: { id } });
+    // Delete all related data in a transaction to ensure consistency
+    await prisma.$transaction(async (tx) => {
+      // Delete PromptCache entries (no foreign key relation)
+      await tx.promptCache.deleteMany({ where: { brandId: id } });
+
+      // Delete Simulations for this brand (schema has SetNull, so we manually delete)
+      await tx.simulation.deleteMany({ where: { brandId: id } });
+
+      // The following will be cascade-deleted by the brand delete,
+      // but we explicitly delete them for clarity and to ensure cleanup:
+
+      // Delete Mentions
+      await tx.mention.deleteMany({ where: { brandId: id } });
+
+      // Delete Competitors
+      await tx.competitor.deleteMany({ where: { brandId: id } });
+
+      // Delete Recommendations
+      await tx.recommendation.deleteMany({ where: { brandId: id } });
+
+      // Delete BackreferenceStatus
+      await tx.backreferenceStatus.deleteMany({ where: { brandId: id } });
+
+      // Delete ReportGenerations
+      await tx.reportGeneration.deleteMany({ where: { brandId: id } });
+
+      // Delete AnalysisSnapshots
+      await tx.analysisSnapshot.deleteMany({ where: { brandId: id } });
+
+      // Delete AnalysisCache
+      await tx.analysisCache.deleteMany({ where: { brandId: id } });
+
+      // Delete MonitoringConfig
+      await tx.monitoringConfig.deleteMany({ where: { brandId: id } });
+
+      // Finally, delete the brand itself
+      await tx.brand.delete({ where: { id } });
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

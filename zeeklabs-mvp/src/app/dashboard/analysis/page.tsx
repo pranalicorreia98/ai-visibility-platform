@@ -142,6 +142,42 @@ export default function AnalysisPage() {
     };
   }, [analysisLoading]);
 
+  // Poll the analysis job status until it succeeds or fails.
+  // POST /api/analyze returns immediately (pending: true) once the job is
+  // queued; the background worker (scripts/analysis-worker.ts) does the
+  // actual LLM call, so the frontend has to poll for the result.
+  const pollAnalysisStatus = async (cacheId: string): Promise<void> => {
+    const POLL_INTERVAL_MS = 3000;
+    const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const startedAt = Date.now();
+
+    for (;;) {
+      const response = await fetch(`/api/analyze/status/${cacheId}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to check analysis status");
+      }
+
+      if (data.status === "success" && data.analysis) {
+        setAnalysisData(data.analysis);
+        await refreshVisibilityData(true);
+        console.log(`Fresh analysis completed via ${data.meta?.provider}`);
+        return;
+      }
+
+      if (data.status === "failed") {
+        throw new Error(data.errorMessage || "Analysis failed");
+      }
+
+      if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+        throw new Error("Analysis is taking longer than expected. Please try again shortly.");
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    }
+  };
+
   // Run analysis for the selected brand
   // forceRefresh: true will bypass the 24-hour server cache and call AI again
   const runAnalysis = async (forceRefresh = false) => {
@@ -169,23 +205,15 @@ export default function AnalysisPage() {
         throw new Error(data.error || "Failed to run analysis");
       }
 
-      // The API returns { success, brand, competitors, analysis, meta }
-      // We need to extract the analysis object
-      if (data.analysis) {
+      if (data.cached && data.analysis) {
+        // Server returned a still-valid cached analysis directly, no job to poll
         setAnalysisData(data.analysis);
-
-        // IMPORTANT: Refresh visibility data after analysis completes
-        // This ensures the visibility API reads the fresh cached analysis data
         await refreshVisibilityData(true);
-      } else {
-        throw new Error("No analysis data in response");
-      }
-
-      // Log cache status for debugging
-      if (data.cached) {
         console.log(`Analysis returned from cache (expires: ${data.cacheExpiry})`);
+      } else if (data.pending && data.cacheId) {
+        await pollAnalysisStatus(data.cacheId);
       } else {
-        console.log(`Fresh analysis completed via ${data.meta?.provider}`);
+        throw new Error("Unexpected response from analysis API");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");

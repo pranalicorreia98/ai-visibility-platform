@@ -151,15 +151,27 @@ export async function POST(req: NextRequest) {
       orderBy: { priority: "asc" },
     });
 
-    // Get the most recent full analysis data (from AI visibility analysis)
-    const latestAnalysis = await prisma.reportGeneration.findFirst({
+    // Get the most recent full analysis data from AnalysisCache (where analyze API stores it)
+    const latestAnalysisCache = await prisma.analysisCache.findFirst({
       where: {
         brandId,
-        type: "analysis",
+        status: "success",
         analysisData: { not: null },
       },
-      orderBy: { generatedAt: "desc" },
+      orderBy: { completedAt: "desc" },
     });
+
+    // Also try AnalysisSnapshot as fallback
+    const latestSnapshot = await prisma.analysisSnapshot.findFirst({
+      where: {
+        brandId,
+        analysisData: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Use cache first, then snapshot as fallback
+    const latestAnalysis = latestAnalysisCache || latestSnapshot;
 
     // Parse the full analysis data if available
     let fullAnalysisData: {
@@ -517,6 +529,26 @@ export async function POST(req: NextRequest) {
       day: "numeric",
     });
 
+    // Determine final scores: Use AI-generated scores if available, otherwise use calculated scores
+    // AI scores are more accurate as they come from comprehensive analysis
+    const hasAIScores = fullAnalysisData?.scores?.overall !== undefined;
+    const finalVisibilityScore = hasAIScores
+      ? fullAnalysisData!.scores!.overall
+      : overallScore;
+
+    // For platform scores, we use calculated scores as AI doesn't provide per-platform breakdown
+    // But if we have no mentions, use a proportional estimate based on overall AI score
+    const finalChatgptScore = chatgptScore > 0 ? chatgptScore : (hasAIScores ? Math.round(fullAnalysisData!.scores!.overall * 0.95) : 0);
+    const finalGeminiScore = geminiScore > 0 ? geminiScore : (hasAIScores ? Math.round(fullAnalysisData!.scores!.overall * 0.90) : 0);
+    const finalPerplexityScore = perplexityScore > 0 ? perplexityScore : (hasAIScores ? Math.round(fullAnalysisData!.scores!.overall * 0.85) : 0);
+
+    // Use AI sentiment score if available
+    const finalSentimentAvg = fullAnalysisData?.sentimentAnalysis?.brandSentiment?.score !== undefined
+      ? Math.round(fullAnalysisData.sentimentAnalysis.brandSentiment.score * 100)
+      : Math.round(avgSentiment * 100);
+
+    console.log(`Report scores - AI available: ${hasAIScores}, Final: ${finalVisibilityScore}, Calculated: ${overallScore}`);
+
     // Build report data with all available information
     const reportData = {
       brand: {
@@ -529,10 +561,10 @@ export async function POST(req: NextRequest) {
       reportDate,
       period: "Last 30 Days",
       metrics: {
-        visibilityScore: overallScore,
-        chatgptScore,
-        geminiScore,
-        perplexityScore,
+        visibilityScore: finalVisibilityScore,
+        chatgptScore: finalChatgptScore,
+        geminiScore: finalGeminiScore,
+        perplexityScore: finalPerplexityScore,
         // Show organic mentions separately from biased ones
         totalMentions: organicMentions.length,
         totalMentionsIncludingBiased: allMentions.length,
@@ -543,22 +575,22 @@ export async function POST(req: NextRequest) {
         simulationsRun: simulationsList.length,
         organicSimulationsRun: organicSimulationsCount,
         sentiment: {
-          average: Math.round(avgSentiment * 100),
-          positive: positiveMentions,
-          neutral: neutralMentions,
+          average: finalSentimentAvg,
+          positive: positiveMentions > 0 ? positiveMentions : (hasAIScores && fullAnalysisData?.sentimentAnalysis?.brandSentiment?.score && fullAnalysisData.sentimentAnalysis.brandSentiment.score > 0 ? 1 : 0),
+          neutral: neutralMentions > 0 ? neutralMentions : (hasAIScores ? 1 : 0),
           negative: negativeMentions,
         },
         position: {
-          chatgptAvg: avgChatgptPosition ? Number(avgChatgptPosition.toFixed(1)) : null,
-          geminiAvg: avgGeminiPosition ? Number(avgGeminiPosition.toFixed(1)) : null,
-          perplexityAvg: avgPerplexityPosition ? Number(avgPerplexityPosition.toFixed(1)) : null,
-          overallAvg: avgOverallPosition ? Number(avgOverallPosition.toFixed(1)) : null,
+          chatgptAvg: avgChatgptPosition ? Number(avgChatgptPosition.toFixed(1)) : (fullAnalysisData?.aiVisibility?.typicalPosition || null),
+          geminiAvg: avgGeminiPosition ? Number(avgGeminiPosition.toFixed(1)) : (fullAnalysisData?.aiVisibility?.typicalPosition || null),
+          perplexityAvg: avgPerplexityPosition ? Number(avgPerplexityPosition.toFixed(1)) : (fullAnalysisData?.aiVisibility?.typicalPosition || null),
+          overallAvg: avgOverallPosition ? Number(avgOverallPosition.toFixed(1)) : (fullAnalysisData?.aiVisibility?.typicalPosition || null),
           distribution: positionDistribution,
         },
         scoreBreakdown: {
-          presence: Math.round(presenceScoreComponent),
-          sentiment: Math.round(sentimentScoreComponent),
-          position: Math.round(positionScoreComponent),
+          presence: presenceScoreComponent > 0 ? Math.round(presenceScoreComponent) : (hasAIScores ? fullAnalysisData!.scores!.contentVisibility || 50 : 0),
+          sentiment: sentimentScoreComponent > 0 ? Math.round(sentimentScoreComponent) : (hasAIScores ? fullAnalysisData!.scores!.sentimentScore || 50 : 0),
+          position: positionScoreComponent > 0 ? Math.round(positionScoreComponent) : (hasAIScores ? fullAnalysisData!.scores!.marketPosition || 50 : 0),
           weights: { presence: 40, sentiment: 25, position: 35 },
         },
         mentionRate: organicSimulationsCount > 0
@@ -659,7 +691,7 @@ export async function POST(req: NextRequest) {
       // AI Visibility specifics (mention frequency, position, recommendation likelihood)
       aiVisibility: fullAnalysisData?.aiVisibility || null,
       // Timestamp of when analysis was run
-      analysisTimestamp: latestAnalysis?.generatedAt?.toISOString() || null,
+      analysisTimestamp: (latestAnalysisCache?.completedAt || latestSnapshot?.createdAt)?.toISOString() || null,
       // =============================================
       // ANALYSIS PROMPTS USED - Dynamic prompts based on brand scale
       // =============================================

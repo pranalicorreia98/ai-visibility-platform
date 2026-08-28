@@ -17,6 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+// Note: DropdownMenu still used for user profile menu
 import {
   Select,
   SelectContent,
@@ -43,8 +44,8 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useBrand } from "@/contexts/brand-context";
-import { generatePDFReport } from "@/lib/pdf-generator";
 import { determineBrandScale, generateBrandPrompts, getIndustryContext, getPromptCount } from "@/lib/prompts/prompt-generator";
 
 export function Header() {
@@ -59,7 +60,13 @@ export function Header() {
   } = useBrand();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
-  const hasReportData = analysisData !== null || (visibilityData?.simulations && visibilityData.simulations > 0);
+  // Enable PDF download if we have analysis data OR visibility data with any meaningful data
+  const hasReportData = analysisData !== null ||
+    (visibilityData !== null && (
+      (visibilityData.simulations && visibilityData.simulations > 0) ||
+      (visibilityData.score?.overall && visibilityData.score.overall > 0) ||
+      (visibilityData.mentions?.total && visibilityData.mentions.total > 0)
+    ));
   const [promptSimulatorOpen, setPromptSimulatorOpen] = useState(false);
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -134,32 +141,74 @@ export function Header() {
 
     setDownloadingPdf(true);
     try {
-      const response = await fetch("/api/reports/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId: selectedBrandId }),
-      });
+      // Open the new report preview page in a new window for printing
+      const reportWindow = window.open(`/report-preview/${selectedBrandId}`, '_blank');
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to generate report");
+      if (!reportWindow) {
+        throw new Error('Could not open report window. Please allow popups.');
       }
 
-      setDownloadingPdf(false);
-      await new Promise(resolve => setTimeout(resolve, 50));
-      generatePDFReport(data.report);
+      // Wait for the page to load, then trigger print
+      // The report-preview page will render the full report
+      let printTriggered = false;
+
+      const triggerPrint = () => {
+        if (printTriggered) return;
+        printTriggered = true;
+
+        try {
+          reportWindow.focus();
+          reportWindow.print();
+        } catch (e) {
+          console.error('Print error:', e);
+        }
+      };
+
+      // Try onload first
+      reportWindow.onload = () => {
+        // Wait for React to render
+        setTimeout(triggerPrint, 1500);
+      };
+
+      // Fallback timeout
+      setTimeout(() => {
+        if (!printTriggered) {
+          triggerPrint();
+        }
+      }, 4000);
+
     } catch (err) {
       console.error("Error downloading PDF:", err);
-      alert("Failed to generate report. Please try again.");
-      setDownloadingPdf(false);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      alert(`Failed to generate report: ${errorMessage}`);
+    } finally {
+      // Reset downloading state after a short delay
+      setTimeout(() => setDownloadingPdf(false), 2000);
     }
   };
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-gray-100 bg-white px-6">
-      {/* Brand Selector */}
+      {/* Logo and Brand Selector */}
       <div className="flex items-center gap-4">
+        {/* Logo */}
+        <Link href="/dashboard/analysis" className="flex items-center gap-2.5">
+          <Image
+            src="/zeeklabs-logo.svg"
+            alt="zeeklabs.ai Logo"
+            width={36}
+            height={36}
+            className="h-9 w-9"
+          />
+          <span className="font-bold text-lg tracking-tight text-gray-900">
+            zeeklabs<span className="text-indigo-600">.ai</span>
+          </span>
+        </Link>
+
+        {/* Divider */}
+        <div className="h-8 w-px bg-gray-200" />
+
+        {/* Brand Selector */}
         <Select value={selectedBrandId} onValueChange={setSelectedBrandId}>
           <SelectTrigger className="w-[220px] bg-gray-50 border-gray-200 rounded-xl focus:ring-indigo-500 focus:border-indigo-500">
             <SelectValue placeholder="Select a brand" />
@@ -190,7 +239,7 @@ export function Header() {
           Prompt
         </Button>
 
-        {/* Download PDF - Floating Primary Button */}
+        {/* Download PDF */}
         <Button
           onClick={handleDownloadPDF}
           disabled={!hasReportData || downloadingPdf}
@@ -203,6 +252,18 @@ export function Header() {
             <Download className="h-4 w-4 mr-2" />
           )}
           Download PDF
+        </Button>
+
+        {/* Settings */}
+        <Button
+          variant="outline"
+          asChild
+          className="rounded-xl border-gray-200 hover:border-indigo-300 hover:bg-indigo-50"
+        >
+          <Link href="/dashboard/settings">
+            <Settings className="h-4 w-4 mr-2 text-gray-600" />
+            Settings
+          </Link>
         </Button>
 
         {/* Notifications */}

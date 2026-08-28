@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -21,6 +21,11 @@ model User {
   image         String?
   emailVerified DateTime?
   createdAt     DateTime  @default(now())
+
+  status               String    @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  approvalToken        String?   @unique
+  approvalTokenExpires DateTime?
+  approvedAt           DateTime?
 
   accounts        Account[]
   sessions        Session[]
@@ -369,6 +374,7 @@ model AnalysisCache {
   createdAt      DateTime @default(now())
   expiresAt      DateTime // When this cache entry expires (createdAt + 24 hours)
   completedAt    DateTime? // When the analysis completed (null if pending/failed)
+  lockedAt       DateTime? // Set when a worker claims this job (status = "processing"); used to detect/reclaim stuck jobs
 
   // Ensure one active cache per brand+provider+competitors combination
   @@unique([brandId, provider, competitorIds])
