@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   ArrowRight,
-  Play,
   Globe,
   Target,
   BarChart3,
@@ -177,7 +176,7 @@ export default function LandingPage() {
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="flex items-center justify-center">
               <Button
                 size="lg"
                 asChild
@@ -186,17 +185,6 @@ export default function LandingPage() {
                 <Link href="/login">
                   <Globe className="mr-2 h-5 w-5" />
                   Analyze My Website
-                </Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                asChild
-                className="rounded-xl px-8 h-14 text-base border-gray-300 hover:bg-gray-50"
-              >
-                <Link href="/login?demo=1">
-                  <Play className="mr-2 h-5 w-5" />
-                  Try the Demo
                 </Link>
               </Button>
             </div>

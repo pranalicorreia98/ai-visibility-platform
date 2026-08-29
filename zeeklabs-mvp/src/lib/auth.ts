@@ -15,21 +15,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
     }),
     Credentials({
-      name: "Demo Account",
+      name: "Email",
       credentials: {
-        email: { label: "Email", type: "email", placeholder: "demo@zeeklabs.com" },
+        email: { label: "Email", type: "email", placeholder: "you@company.com" },
       },
       async authorize(credentials) {
         if (!credentials?.email) return null;
 
         const email = credentials.email as string;
-        // The "Try the demo" button (empty email field) submits this fixed
-        // address - it's a public, self-serve demo and must never require
-        // admin approval, but it also isn't in ADMIN_EMAILS so it gets no
-        // admin-panel access (that's gated separately via isAdminEmail()).
-        const isDemo = email.toLowerCase() === "demo@zeeklabs.com";
 
-        // For demo purposes, auto-create or find user
         let user = await prisma.user.findUnique({
           where: { email },
         });
@@ -39,22 +33,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           user = await prisma.user.create({
             data: {
               email,
-              name: isDemo ? "Demo User" : email.split("@")[0],
-              status: isAdmin || isDemo ? "APPROVED" : "PENDING",
-              ...(isAdmin || isDemo ? {} : generateApprovalToken()),
+              name: email.split("@")[0],
+              status: isAdmin ? "APPROVED" : "PENDING",
+              ...(isAdmin ? {} : generateApprovalToken()),
             },
           });
 
-          if (!isAdmin && !isDemo) {
+          if (!isAdmin) {
             await notifyAdminOfNewSignup(user);
           }
-        } else if (isDemo && user.status !== "APPROVED") {
-          // Self-heal: a demo row created before this account existed (or
-          // before this bypass existed) may be stuck PENDING/REJECTED.
-          user = await prisma.user.update({
-            where: { id: user.id },
-            data: { status: "APPROVED" },
-          });
         }
 
         // Not approved yet (or rejected) — deny the session outright.

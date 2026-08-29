@@ -81,18 +81,6 @@ function LoginErrorBanner() {
   );
 }
 
-function DemoAutoTrigger({ onTrigger }: { onTrigger: () => void }) {
-  const searchParams = useSearchParams();
-  const triggered = searchParams.get("demo") === "1";
-
-  useEffect(() => {
-    if (triggered) onTrigger();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [triggered]);
-
-  return null;
-}
-
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -106,11 +94,11 @@ export default function LoginPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleDemoLogin = async (overrideEmail?: string) => {
+  const handleEmailLogin = async () => {
+    if (!email.trim()) return;
     setIsLoading(true);
-    const effectiveEmail = overrideEmail !== undefined ? overrideEmail : email;
     await signIn("credentials", {
-      email: effectiveEmail || "demo@zeeklabs.com",
+      email,
       callbackUrl: "/dashboard/analysis",
     });
     setIsLoading(false);
@@ -274,9 +262,6 @@ export default function LoginPage() {
             <Suspense fallback={null}>
               <LoginErrorBanner />
             </Suspense>
-            <Suspense fallback={null}>
-              <DemoAutoTrigger onTrigger={() => handleDemoLogin("demo@zeeklabs.com")} />
-            </Suspense>
 
             {/* Google login */}
             <Button
@@ -330,8 +315,8 @@ export default function LoginPage() {
 
               <Button
                 className="w-full h-12 text-base rounded-xl gradient-bg hover:opacity-90 transition-opacity"
-                onClick={() => handleDemoLogin()}
-                disabled={isLoading}
+                onClick={handleEmailLogin}
+                disabled={isLoading || !email.trim()}
               >
                 {isLoading ? (
                   <>
@@ -349,26 +334,6 @@ export default function LoginPage() {
                 )}
               </Button>
             </div>
-
-            {/* Demo hint - directly triggers the demo login, not just a hint */}
-            <button
-              type="button"
-              onClick={() => handleDemoLogin("demo@zeeklabs.com")}
-              disabled={isLoading}
-              className="w-full text-left p-4 rounded-xl bg-primary/10 border-2 border-primary/30 hover:bg-primary/15 hover:border-primary/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-primary/20">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <p className="font-semibold text-sm">Try the demo — no signup required</p>
-                  <p className="text-sm text-muted-foreground">
-                    Instantly explore zeeklabs with a live demo account
-                  </p>
-                </div>
-              </div>
-            </button>
 
             {/* Features list */}
             <div className="space-y-3 pt-4">
