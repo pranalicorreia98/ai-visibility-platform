@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
-import { callGeminiWithRetry, callPerplexityWithRetry } from "@/lib/ai-providers";
+import { callGeminiWithRetry, callPerplexityWithRetry, callOpenRouterGeminiWithRetry } from "@/lib/ai-providers";
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,7 +59,7 @@ Important:
       }
     }
 
-    // Fallback to Gemini
+    // Fallback to Gemini (direct API)
     if (competitors.length === 0 && process.env.GOOGLE_AI_API_KEY) {
       try {
         console.log("Discovering competitors via Gemini...");
@@ -73,6 +73,23 @@ Important:
         }
       } catch (error) {
         console.log("Gemini failed:", error);
+      }
+    }
+
+    // Fallback to OpenRouter (Gemini models via OpenRouter)
+    if (competitors.length === 0 && process.env.OPENROUTER_API_KEY) {
+      try {
+        console.log("Discovering competitors via OpenRouter Gemini...");
+        const response = await callOpenRouterGeminiWithRetry(prompt);
+        provider = "openrouter-gemini";
+
+        // Extract JSON from response
+        const jsonMatch = response.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          competitors = JSON.parse(jsonMatch[0]);
+        }
+      } catch (error) {
+        console.log("OpenRouter Gemini failed:", error);
       }
     }
 
