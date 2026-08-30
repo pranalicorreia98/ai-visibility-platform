@@ -11,10 +11,11 @@ const OPENROUTER_CHATGPT_MODELS = [
   "openai/gpt-4-turbo",
 ];
 
+// Updated OpenRouter Gemini models (August 2026)
 const OPENROUTER_GEMINI_MODELS = [
-  "google/gemini-2.0-flash-001",       // Fast, reliable
-  "google/gemini-2.5-flash:free",      // Free tier
-  "google/gemini-flash-1.5",           // Fallback
+  "google/gemini-2.5-flash",           // Fast, reliable
+  "google/gemini-2.5-flash-lite",      // Lighter/cheaper option
+  "google/gemini-pro-1.5",             // Fallback
 ];
 
 function getClient(): OpenAI {
