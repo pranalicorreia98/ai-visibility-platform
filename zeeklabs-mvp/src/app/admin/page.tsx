@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/auth";
 import { isAdminEmail } from "@/lib/admin";
-import { AdminUsersTable } from "./admin-users-table";
+import { AdminDashboard } from "./admin-dashboard";
 
 export default async function AdminPage() {
   const session = await getAuthSession();
@@ -15,14 +15,14 @@ export default async function AdminPage() {
 
   return (
     <div className="min-h-screen bg-[#FAFAFB] p-6 md:p-10">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">User approvals</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
           <p className="text-muted-foreground">
-            Review sign-in requests and manage access.
+            Manage beta access, allowlist, and user approvals.
           </p>
         </div>
-        <AdminUsersTable />
+        <AdminDashboard />
       </div>
     </div>
   );

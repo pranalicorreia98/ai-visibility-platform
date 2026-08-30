@@ -23,6 +23,7 @@ model User {
   createdAt     DateTime  @default(now())
 
   status               String    @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  accessType           String?   // "BETA" | "PAID" - how user got access
   approvalToken        String?   @unique
   approvalTokenExpires DateTime?
   approvedAt           DateTime?
@@ -67,6 +68,29 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────────────────────
+// BETA ACCESS MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+
+// Beta access requests from users
+model BetaRequest {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  status    String   @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+}
+
+// Allowlisted emails for beta access
+model Allowlist {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  createdAt         DateTime  @default(now())
+  magicToken        String?   @unique
+  magicTokenExpires DateTime?
+  usedAt            DateTime? // When the magic link was used to sign up
 }
 
 // ─────────────────────────────────────────────────────────────
