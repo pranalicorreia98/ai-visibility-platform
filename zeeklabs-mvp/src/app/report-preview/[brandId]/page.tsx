@@ -55,11 +55,22 @@ export default function ReportPreviewPage() {
         // Fetch progress data if available
         let progressData: ProgressApiData | null = null;
         try {
-          const progressResponse = await fetch(`/api/brands/${brandId}/progress`);
+          const progressResponse = await fetch(`/api/progress?brandId=${brandId}&period=month`);
           if (progressResponse.ok) {
-            progressData = await progressResponse.json();
+            const progressResult = await progressResponse.json();
+            // Transform the API response to match ProgressApiData format
+            if (progressResult.success && progressResult.data) {
+              progressData = {
+                snapshots: progressResult.data.map((d: { date: string; overallScore: number }) => ({
+                  date: d.date,
+                  score: d.overallScore,
+                })),
+                summary: progressResult.summary,
+              };
+            }
           }
-        } catch {
+        } catch (e) {
+          console.log('Progress data fetch failed:', e);
           // Progress data is optional
         }
 
