@@ -33,6 +33,11 @@ interface Competitor {
   reason?: string;
 }
 
+interface ManualCompetitorForm {
+  name: string;
+  domain: string;
+}
+
 interface Brand {
   id: string;
   name: string;
@@ -59,6 +64,13 @@ export default function SettingsPage() {
     domain: "",
     alternateNames: "",
     competitors: [] as Competitor[],
+  });
+
+  // Manual competitor entry
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [manualCompetitor, setManualCompetitor] = useState<ManualCompetitorForm>({
+    name: "",
+    domain: "",
   });
 
   useEffect(() => {
@@ -154,6 +166,37 @@ export default function SettingsPage() {
       ...formData,
       competitors: formData.competitors.filter((_, i) => i !== index),
     });
+  };
+
+  const addManualCompetitor = () => {
+    if (!manualCompetitor.name.trim()) {
+      setError("Competitor name is required");
+      return;
+    }
+
+    // Check if competitor already exists
+    const exists = formData.competitors.some(
+      (c) => c.name.toLowerCase() === manualCompetitor.name.toLowerCase()
+    );
+    if (exists) {
+      setError("This competitor is already in the list");
+      return;
+    }
+
+    setFormData({
+      ...formData,
+      competitors: [
+        ...formData.competitors,
+        {
+          name: manualCompetitor.name.trim(),
+          domain: manualCompetitor.domain.trim() || undefined,
+          reason: "Manually added",
+        },
+      ],
+    });
+    setManualCompetitor({ name: "", domain: "" });
+    setShowManualAdd(false);
+    setError(null);
   };
 
   const handleSave = async () => {
@@ -396,7 +439,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Competitors section - Auto-discovered */}
+            {/* Competitors section - Auto-discovered or Manual */}
             <div className="border-t border-border pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -406,34 +449,87 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="text-lg font-semibold">Competitors</h3>
                     <p className="text-sm text-muted-foreground">
-                      Auto-discovered using AI analysis
+                      Auto-discover or add manually
                     </p>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={discoverCompetitors}
-                  disabled={discovering || !formData.name.trim()}
-                  className="rounded-xl gap-2"
-                >
-                  {discovering ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Discovering...
-                    </>
-                  ) : formData.competitors.length > 0 ? (
-                    <>
-                      <RefreshCw className="h-4 w-4" />
-                      Re-discover
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="h-4 w-4" />
-                      Discover Competitors
-                    </>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowManualAdd(!showManualAdd)}
+                    className="rounded-xl gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Manually
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={discoverCompetitors}
+                    disabled={discovering || !formData.name.trim()}
+                    className="rounded-xl gap-2"
+                  >
+                    {discovering ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Discovering...
+                      </>
+                    ) : formData.competitors.length > 0 ? (
+                      <>
+                        <RefreshCw className="h-4 w-4" />
+                        Re-discover
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4" />
+                        Discover with AI
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
+
+              {/* Manual competitor add form */}
+              {showManualAdd && (
+                <div className="p-4 rounded-xl bg-muted/50 border border-border mb-4">
+                  <div className="flex gap-3 items-end">
+                    <div className="flex-1 space-y-2">
+                      <label className="text-sm font-medium">Competitor Name *</label>
+                      <Input
+                        value={manualCompetitor.name}
+                        onChange={(e) => setManualCompetitor({ ...manualCompetitor, name: e.target.value })}
+                        placeholder="e.g., Competitor Inc"
+                        className="h-10 bg-background border-border rounded-xl"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <label className="text-sm font-medium">Domain (optional)</label>
+                      <Input
+                        value={manualCompetitor.domain}
+                        onChange={(e) => setManualCompetitor({ ...manualCompetitor, domain: e.target.value })}
+                        placeholder="e.g., competitor.com"
+                        className="h-10 bg-background border-border rounded-xl"
+                      />
+                    </div>
+                    <Button
+                      onClick={addManualCompetitor}
+                      className="rounded-xl h-10 px-4"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setShowManualAdd(false);
+                        setManualCompetitor({ name: "", domain: "" });
+                      }}
+                      className="rounded-xl h-10 px-3"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3">
                 {formData.competitors.map((competitor, index) => (
@@ -468,31 +564,41 @@ export default function SettingsPage() {
                   </div>
                 ))}
 
-                {formData.competitors.length === 0 && (
+                {formData.competitors.length === 0 && !showManualAdd && (
                   <div className="text-center py-12 rounded-xl bg-muted/30 border border-dashed border-border">
-                    <Wand2 className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="font-medium">No competitors discovered yet</p>
+                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="font-medium">No competitors added yet</p>
                     <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-                      Enter your brand name above and click &quot;Discover Competitors&quot; to automatically find your competition
+                      Use AI to discover competitors automatically, or add them manually
                     </p>
-                    <Button
-                      variant="outline"
-                      className="mt-4 rounded-xl"
-                      onClick={discoverCompetitors}
-                      disabled={discovering || !formData.name.trim()}
-                    >
-                      {discovering ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Discovering...
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 className="mr-2 h-4 w-4" />
-                          Discover Competitors
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex gap-3 justify-center mt-4">
+                      <Button
+                        variant="outline"
+                        className="rounded-xl"
+                        onClick={() => setShowManualAdd(true)}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Manually
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="rounded-xl"
+                        onClick={discoverCompetitors}
+                        disabled={discovering || !formData.name.trim()}
+                      >
+                        {discovering ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Discovering...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="mr-2 h-4 w-4" />
+                            Discover with AI
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -500,7 +606,7 @@ export default function SettingsPage() {
               {formData.competitors.length > 0 && (
                 <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
                   <Sparkles className="h-3 w-3" />
-                  You can remove competitors you don&apos;t want to track. Click Re-discover to find new ones.
+                  You can remove competitors you don&apos;t want to track, add more manually, or re-discover with AI.
                 </p>
               )}
             </div>
