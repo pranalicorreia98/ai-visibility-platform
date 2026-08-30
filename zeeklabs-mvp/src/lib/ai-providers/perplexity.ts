@@ -3,10 +3,10 @@ import OpenAI from "openai";
 let client: OpenAI | null = null;
 
 // Perplexity available models (in order of preference)
+// Updated to new model names as of 2026
 const PERPLEXITY_MODELS = [
-  "llama-3.1-sonar-large-128k-online",
-  "llama-3.1-sonar-small-128k-online",
-  "llama-3.1-sonar-huge-128k-online",
+  "sonar",           // Lightweight, cost-effective search model
+  "sonar-pro",       // Advanced search with complex queries support
 ];
 
 function getClient(): OpenAI {
@@ -25,7 +25,7 @@ function getClient(): OpenAI {
 
 export async function callPerplexity(
   prompt: string,
-  model: string = "llama-3.1-sonar-large-128k-online"
+  model: string = "sonar"
 ): Promise<string> {
   const openai = getClient();
 
