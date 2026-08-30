@@ -2,21 +2,63 @@ import OpenAI from "openai";
 
 let client: OpenAI | null = null;
 
-// OpenRouter models - ONLY OpenAI and Google models
-// See: https://openrouter.ai/docs/models
-// Using correct model identifiers for OpenRouter
-const OPENROUTER_CHATGPT_MODELS = [
-  "openai/gpt-4o",
-  "openai/gpt-4o-mini",
-  "openai/gpt-4-turbo",
-];
+// ============================================================================
+// SMART MODEL ROUTING via OpenRouter
+// ============================================================================
+// OpenRouter handles model fallbacks SERVER-SIDE when using the `models` array.
+// This means: no more manual retry loops, automatic handling of deprecated models,
+// and the router will try each model in order on failures (404, rate limits, etc.)
+//
+// Additionally, we use "openrouter/auto" for intelligent routing that:
+// - Automatically selects the best model based on task type
+// - Uses community spending data (updated every 7 days) to pick optimal models
+// - Handles new model releases automatically
+//
+// See: https://openrouter.ai/docs/guides/routing/model-fallbacks
+// See: https://openrouter.ai/docs/guides/routing/routers/auto-router
+// ============================================================================
 
-// Updated OpenRouter Gemini models (August 2026)
-const OPENROUTER_GEMINI_MODELS = [
-  "google/gemini-2.5-flash",           // Fast, reliable
-  "google/gemini-2.5-flash-lite",      // Lighter/cheaper option
-  "google/gemini-pro-1.5",             // Fallback
-];
+// Model families with fallbacks - OpenRouter tries each in order
+// Using wildcards where possible for automatic version updates
+const MODEL_CONFIGS = {
+  // Auto router - let OpenRouter pick the best model automatically
+  auto: {
+    models: ["openrouter/auto"],
+    description: "Auto-router selects best model based on task type"
+  },
+
+  // Gemini family - fast, good for analysis
+  gemini: {
+    models: [
+      "google/gemini-2.5-flash",        // Primary - fast and reliable
+      "google/gemini-2.5-pro",          // Fallback - more capable
+      "google/gemini-pro-1.5",          // Legacy fallback
+    ],
+    description: "Google Gemini models"
+  },
+
+  // OpenAI/ChatGPT family
+  chatgpt: {
+    models: [
+      "openai/gpt-4o",                  // Primary - best balance
+      "openai/gpt-4o-mini",             // Cheaper fallback
+      "openai/gpt-4-turbo",             // Legacy fallback
+    ],
+    description: "OpenAI GPT models"
+  },
+
+  // Claude family (via OpenRouter)
+  claude: {
+    models: [
+      "anthropic/claude-sonnet-4",      // Primary - good balance
+      "anthropic/claude-3.5-sonnet",    // Fallback
+      "anthropic/claude-3-haiku",       // Cheap fallback
+    ],
+    description: "Anthropic Claude models"
+  }
+} as const;
+
+type ModelFamily = keyof typeof MODEL_CONFIGS;
 
 function getClient(): OpenAI {
   if (!client) {
@@ -35,94 +77,131 @@ function getClient(): OpenAI {
   return client;
 }
 
-export async function callOpenRouter(prompt: string, model: string, maxTokens: number = 3500): Promise<string> {
+/**
+ * Core OpenRouter call using NATIVE model fallbacks.
+ * OpenRouter handles fallbacks server-side - no manual retry loops needed.
+ *
+ * When using the `models` array, OpenRouter will:
+ * - Try each model in order
+ * - Automatically fallback on 404 (model unavailable), rate limits, downtime
+ * - Bill only for the model that actually succeeds
+ */
+export async function callOpenRouterWithFallbacks(
+  prompt: string,
+  models: string[],
+  maxTokens: number = 3500
+): Promise<{ content: string; modelUsed: string }> {
   const openrouter = getClient();
 
-  // 45 second timeout - enough for analysis but still fast fallback
+  // 60 second timeout - allows time for fallbacks
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error(`OpenRouter API timeout after 45 seconds (model: ${model})`)), 45000);
+    setTimeout(() => reject(new Error(`OpenRouter API timeout after 60 seconds`)), 60000);
   });
+
+  console.log(`OpenRouter: Calling with fallback chain [${models.join(" -> ")}]`);
 
   const response = await Promise.race([
     openrouter.chat.completions.create({
-      model,
+      // @ts-expect-error - OpenRouter accepts 'models' array for fallbacks
+      models: models,
       messages: [{ role: "user", content: prompt }],
       max_tokens: maxTokens,
-      temperature: 0, // Deterministic output - same prompt = same response
+      temperature: 0,
     }),
     timeoutPromise
-  ]);
+  ]) as OpenAI.Chat.Completions.ChatCompletion;
 
-  return response.choices[0]?.message?.content || "";
+  const modelUsed = response.model || models[0];
+  console.log(`✓ OpenRouter succeeded using: ${modelUsed}`);
+
+  return {
+    content: response.choices[0]?.message?.content || "",
+    modelUsed
+  };
 }
 
-// OpenRouter ChatGPT (OpenAI models only) with model fallback
-export async function callOpenRouterChatGPTWithRetry(
+/**
+ * Call OpenRouter with Auto Router - intelligently selects best model.
+ * Uses community spending data to pick optimal model for the task.
+ * Stays up-to-date with new model releases automatically.
+ */
+export async function callOpenRouterAuto(
   prompt: string,
-  maxRetries: number = 2
-): Promise<string> {
-  let lastError: Error | null = null;
-
-  for (const model of OPENROUTER_CHATGPT_MODELS) {
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        console.log(`Trying OpenRouter ChatGPT model: ${model} (attempt ${i + 1})`);
-        const response = await callOpenRouter(prompt, model);
-        console.log(`✓ OpenRouter ${model} succeeded`);
-        return response;
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        console.log(`✗ OpenRouter ${model} failed: ${lastError.message}`);
-
-        // If timeout, 404, or rate limited, skip to next model immediately
-        if (lastError.message.includes("timeout") ||
-            lastError.message.includes("404") || lastError.message.includes("429") ||
-            lastError.message.includes("rate") || lastError.message.includes("quota") ||
-            lastError.message.includes("credit")) {
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
-      }
-    }
+  maxTokens: number = 3500,
+  options?: {
+    costTier?: "low" | "medium" | "high" | "xhigh" | "max";
+    allowedModels?: string[];  // e.g., ["google/*", "anthropic/*"]
   }
+): Promise<{ content: string; modelUsed: string }> {
+  const openrouter = getClient();
 
-  throw lastError || new Error("Failed to call OpenRouter ChatGPT - all models exhausted");
+  console.log(`OpenRouter Auto: Letting router select best model (tier: ${options?.costTier || "default"})`);
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`OpenRouter Auto timeout after 60 seconds`)), 60000);
+  });
+
+  // Build plugins config for auto-router
+  const plugins = options?.costTier || options?.allowedModels ? [{
+    id: "auto-router",
+    ...(options?.costTier && { cost_tier: options.costTier }),
+    ...(options?.allowedModels && { allowed_models: options.allowedModels })
+  }] : undefined;
+
+  const response = await Promise.race([
+    openrouter.chat.completions.create({
+      model: "openrouter/auto",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: maxTokens,
+      temperature: 0,
+      ...(plugins && { plugins })
+    }),
+    timeoutPromise
+  ]) as OpenAI.Chat.Completions.ChatCompletion;
+
+  const modelUsed = response.model || "openrouter/auto";
+  console.log(`✓ OpenRouter Auto selected: ${modelUsed}`);
+
+  return {
+    content: response.choices[0]?.message?.content || "",
+    modelUsed
+  };
 }
 
-// OpenRouter Gemini (Google models only) with model fallback
-export async function callOpenRouterGeminiWithRetry(
+/**
+ * Call OpenRouter with a specific model family (gemini, chatgpt, claude).
+ * Uses OpenRouter's native fallback chain for resilience.
+ */
+export async function callOpenRouterFamily(
   prompt: string,
-  maxRetries: number = 2
-): Promise<string> {
-  let lastError: Error | null = null;
-
-  for (const model of OPENROUTER_GEMINI_MODELS) {
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        console.log(`Trying OpenRouter Gemini model: ${model} (attempt ${i + 1})`);
-        const response = await callOpenRouter(prompt, model);
-        console.log(`✓ OpenRouter ${model} succeeded`);
-        return response;
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        console.log(`✗ OpenRouter ${model} failed: ${lastError.message}`);
-
-        // If timeout, 404, or rate limited, skip to next model immediately
-        if (lastError.message.includes("timeout") ||
-            lastError.message.includes("404") || lastError.message.includes("429") ||
-            lastError.message.includes("rate") || lastError.message.includes("quota") ||
-            lastError.message.includes("credit")) {
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
-      }
-    }
-  }
-
-  throw lastError || new Error("Failed to call OpenRouter Gemini - all models exhausted");
+  family: ModelFamily = "gemini",
+  maxTokens: number = 3500
+): Promise<{ content: string; modelUsed: string }> {
+  const config = MODEL_CONFIGS[family];
+  console.log(`OpenRouter ${family}: ${config.description}`);
+  return callOpenRouterWithFallbacks(prompt, [...config.models], maxTokens);
 }
 
-// Legacy export for backwards compatibility
+// ============================================================================
+// LEGACY EXPORTS - For backwards compatibility
+// These wrap the new smart routing functions
+// ============================================================================
+
+export async function callOpenRouter(prompt: string, model: string, maxTokens: number = 3500): Promise<string> {
+  const { content } = await callOpenRouterWithFallbacks(prompt, [model], maxTokens);
+  return content;
+}
+
+export async function callOpenRouterChatGPTWithRetry(prompt: string): Promise<string> {
+  const { content } = await callOpenRouterFamily(prompt, "chatgpt");
+  return content;
+}
+
+export async function callOpenRouterGeminiWithRetry(prompt: string): Promise<string> {
+  const { content } = await callOpenRouterFamily(prompt, "gemini");
+  return content;
+}
+
 export async function callOpenRouterWithRetry(prompt: string): Promise<string> {
   return callOpenRouterGeminiWithRetry(prompt);
 }

@@ -5,6 +5,8 @@ import {
   callPerplexityWithRetry,
   callOpenRouterChatGPTWithRetry,
   callOpenRouterGeminiWithRetry,
+  callOpenRouterAuto,
+  callOpenRouterFamily,
 } from "@/lib/ai-providers";
 import {
   generateAnalysisPrompt,
@@ -16,12 +18,38 @@ import { recordUsage } from "@/lib/rate-limit";
 import type { AnalysisCache, Competitor } from "@prisma/client";
 
 /**
- * Call AI provider with fallback chain
+ * Call AI provider with fallback chain.
+ *
+ * Provider options:
+ * - "auto": Uses OpenRouter's Auto Router for intelligent model selection (RECOMMENDED)
+ * - "chatgpt": GitHub Models -> OpenRouter ChatGPT family
+ * - "gemini": Google AI Studio -> OpenRouter Gemini family
+ * - "perplexity": Perplexity AI (no fallback)
+ *
+ * The "auto" provider is most resilient as it:
+ * - Automatically selects the best model based on task type
+ * - Updates with new model releases every 7 days
+ * - Never breaks due to deprecated model names
  */
 export async function callAIWithFallback(
   prompt: string,
-  provider: "chatgpt" | "gemini" | "perplexity"
+  provider: "chatgpt" | "gemini" | "perplexity" | "auto"
 ): Promise<{ response: string; actualProvider: string }> {
+  // Auto provider - let OpenRouter pick the best model
+  if (provider === "auto") {
+    if (process.env.OPENROUTER_API_KEY) {
+      console.log("Analysis: Using OpenRouter Auto Router (intelligent model selection)...");
+      const result = await callOpenRouterAuto(prompt, 3500, {
+        costTier: "high",  // Use high-quality models
+        allowedModels: ["google/*", "anthropic/*", "openai/*"]  // Only major providers
+      });
+      return { response: result.content, actualProvider: `openrouter-auto:${result.modelUsed}` };
+    }
+    // Fallback to gemini logic if no OpenRouter key
+    console.log("Analysis: OpenRouter not configured, falling back to Gemini...");
+    provider = "gemini";
+  }
+
   if (provider === "chatgpt") {
     // Try GitHub Models first
     if (process.env.GITHUB_TOKEN) {
@@ -33,11 +61,11 @@ export async function callAIWithFallback(
         console.log(`Analysis: GitHub Models failed: ${error}`);
       }
     }
-    // Fallback to OpenRouter
+    // Fallback to OpenRouter with native fallback chain
     if (process.env.OPENROUTER_API_KEY) {
-      console.log("Analysis: Trying OpenRouter (ChatGPT)...");
-      const response = await callOpenRouterChatGPTWithRetry(prompt);
-      return { response, actualProvider: "openrouter-chatgpt" };
+      console.log("Analysis: Trying OpenRouter (ChatGPT family with auto-fallback)...");
+      const result = await callOpenRouterFamily(prompt, "chatgpt");
+      return { response: result.content, actualProvider: `openrouter:${result.modelUsed}` };
     }
     throw new Error("No ChatGPT providers available");
   } else if (provider === "perplexity") {
@@ -63,11 +91,11 @@ export async function callAIWithFallback(
         console.log(`Analysis: Google AI Studio failed: ${error}`);
       }
     }
-    // Fallback to OpenRouter
+    // Fallback to OpenRouter with native fallback chain
     if (process.env.OPENROUTER_API_KEY) {
-      console.log("Analysis: Trying OpenRouter (Gemini)...");
-      const response = await callOpenRouterGeminiWithRetry(prompt);
-      return { response, actualProvider: "openrouter-gemini" };
+      console.log("Analysis: Trying OpenRouter (Gemini family with auto-fallback)...");
+      const result = await callOpenRouterFamily(prompt, "gemini");
+      return { response: result.content, actualProvider: `openrouter:${result.modelUsed}` };
     }
     throw new Error("No Gemini providers available");
   }
