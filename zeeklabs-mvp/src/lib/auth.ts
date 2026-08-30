@@ -1,10 +1,19 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "./prisma";
 import { isAdminEmail, generateApprovalToken } from "./admin";
 import { notifyAdminOfNewSignup } from "./email";
+
+// Custom error classes for better error handling
+class PendingApprovalError extends CredentialsSignin {
+  code = "pending";
+}
+
+class RejectedError extends CredentialsSignin {
+  code = "rejected";
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true, // Trust localhost for development
@@ -41,6 +50,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           if (!isAdmin) {
             await notifyAdminOfNewSignup(user);
+            // Throw custom error so login page shows proper pending message
+            throw new PendingApprovalError();
           }
         }
 
@@ -48,7 +59,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // This is the sole enforcement point: SQLite/Prisma can't run in
         // the Edge middleware runtime, so gating happens here at sign-in
         // rather than via middleware on every request.
-        if (user.status !== "APPROVED") return null;
+        if (user.status === "REJECTED") {
+          throw new RejectedError();
+        }
+        if (user.status === "PENDING") {
+          throw new PendingApprovalError();
+        }
 
         return {
           id: user.id,

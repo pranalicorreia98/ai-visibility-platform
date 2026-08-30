@@ -1,19 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import {
   ArrowRight,
   Globe,
   Target,
   BarChart3,
   Sparkles,
-  ChevronDown,
-  Send,
-  Loader2,
   Search,
   Check,
   Menu,
@@ -27,19 +23,6 @@ import Image from "next/image";
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [platformHovered, setPlatformHovered] = useState(false);
-  const platformRef = useRef<HTMLDivElement>(null);
-
-  // Close platform menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (platformRef.current && !platformRef.current.contains(event.target as Node)) {
-        setPlatformHovered(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   return (
     <div className="min-h-screen bg-[#FAFAFB]">
@@ -63,28 +46,6 @@ export default function LandingPage() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-1">
-              {/* Platform with Hover Menu */}
-              <div
-                ref={platformRef}
-                className="relative"
-                onMouseEnter={() => setPlatformHovered(true)}
-              >
-                <button className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors">
-                  Platform
-                  <ChevronDown className={`h-4 w-4 transition-transform ${platformHovered ? "rotate-180" : ""}`} />
-                </button>
-
-                {/* Platform Mega Menu with Playground */}
-                {platformHovered && (
-                  <div
-                    className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[600px] bg-white rounded-2xl shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden"
-                    onMouseLeave={() => setPlatformHovered(false)}
-                  >
-                    <PromptPlayground />
-                  </div>
-                )}
-              </div>
-
               <Link
                 href="#why-zeeklabs"
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors"
@@ -409,124 +370,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-// Prompt Playground Component (shows on Platform hover)
-function PromptPlayground() {
-  const [prompt, setPrompt] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [responses, setResponses] = useState<{
-    chatgpt?: string;
-    gemini?: string;
-  } | null>(null);
-
-  const examplePrompts = [
-    "What is the best CRM?",
-    "What is the best fintech API?",
-    "What are the best running shoes?",
-  ];
-
-  const handleSubmit = async () => {
-    if (!prompt.trim()) return;
-    setLoading(true);
-
-    // Simulate API response for demo
-    await new Promise((r) => setTimeout(r, 1500));
-
-    setResponses({
-      chatgpt: `Based on your query "${prompt}", here are some top recommendations...`,
-      gemini: `For "${prompt}", I would suggest considering these options...`,
-    });
-    setLoading(false);
-  };
-
-  return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-indigo-100">
-          <Sparkles className="h-5 w-5 text-indigo-600" />
-        </div>
-        <div>
-          <h3 className="font-semibold text-gray-900">Prompt Playground</h3>
-          <p className="text-sm text-gray-500">Test how AI responds to prompts</p>
-        </div>
-      </div>
-
-      {/* Prompt Input */}
-      <div className="relative mb-4">
-        <Input
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Try: What is the best CRM?"
-          className="pr-12 h-12 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
-          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-        />
-        <button
-          onClick={handleSubmit}
-          disabled={loading || !prompt.trim()}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-        </button>
-      </div>
-
-      {/* Example Prompts */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {examplePrompts.map((ep, i) => (
-          <button
-            key={i}
-            onClick={() => setPrompt(ep)}
-            className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
-          >
-            {ep}
-          </button>
-        ))}
-      </div>
-
-      {/* Responses */}
-      {responses && (
-        <div className="space-y-3">
-          {/* ChatGPT Response */}
-          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-6 w-6 rounded-lg bg-emerald-500 flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white">GPT</span>
-              </div>
-              <span className="text-sm font-medium text-emerald-800">ChatGPT</span>
-            </div>
-            <p className="text-sm text-emerald-700">{responses.chatgpt}</p>
-          </div>
-
-          {/* Gemini Response */}
-          <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-6 w-6 rounded-lg bg-blue-500 flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white">G</span>
-              </div>
-              <span className="text-sm font-medium text-blue-800">Gemini</span>
-            </div>
-            <p className="text-sm text-blue-700">{responses.gemini}</p>
-          </div>
-        </div>
-      )}
-
-      {/* CTA */}
-      <div className="mt-4 pt-4 border-t border-gray-100">
-        <Link
-          href="/login"
-          className="flex items-center justify-center gap-2 w-full py-2.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
-        >
-          Get full analysis for your brand
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      </div>
     </div>
   );
 }

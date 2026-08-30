@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { isAdminEmail } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
-import { notifyUserApproved } from "@/lib/email";
+import { notifyUserApproved, notifyUserRejected } from "@/lib/email";
 import { z } from "zod";
 
 const actionSchema = z.object({
@@ -38,6 +38,8 @@ export async function PATCH(
 
   if (status === "APPROVED") {
     await notifyUserApproved(user);
+  } else {
+    await notifyUserRejected(user);
   }
 
   return NextResponse.json({ user });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { notifyUserApproved } from "@/lib/email";
+import { notifyUserApproved, notifyUserRejected } from "@/lib/email";
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = req.nextUrl;
@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
 
   if (status === "APPROVED") {
     await notifyUserApproved(updated);
+  } else {
+    await notifyUserRejected(updated);
   }
 
   resultUrl.searchParams.set("status", action === "approve" ? "approved" : "rejected");
