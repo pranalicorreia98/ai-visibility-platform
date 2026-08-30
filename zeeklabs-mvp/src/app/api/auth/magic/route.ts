@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
+
 export async function GET(req: NextRequest) {
-  const { searchParams, origin } = req.nextUrl;
+  const { searchParams } = req.nextUrl;
   const token = searchParams.get("token");
 
   if (!token) {
-    return NextResponse.redirect(new URL("/login?error=invalid-token", origin));
+    return NextResponse.redirect(new URL("/login?error=invalid-token", APP_URL));
   }
 
   // Find allowlist entry with this magic token
@@ -15,18 +17,18 @@ export async function GET(req: NextRequest) {
   });
 
   if (!allowlistEntry) {
-    return NextResponse.redirect(new URL("/login?error=invalid-token", origin));
+    return NextResponse.redirect(new URL("/login?error=invalid-token", APP_URL));
   }
 
   // Check if token expired
   if (allowlistEntry.magicTokenExpires && allowlistEntry.magicTokenExpires < new Date()) {
-    return NextResponse.redirect(new URL("/login?error=token-expired", origin));
+    return NextResponse.redirect(new URL("/login?error=token-expired", APP_URL));
   }
 
   // Check if already used
   if (allowlistEntry.usedAt) {
     // Token already used, but user is allowlisted - just redirect to login
-    return NextResponse.redirect(new URL("/login?message=already-activated", origin));
+    return NextResponse.redirect(new URL("/login?message=already-activated", APP_URL));
   }
 
   // Mark magic link as used
@@ -69,5 +71,5 @@ export async function GET(req: NextRequest) {
 
   // Redirect to login with success message
   // The user will now be able to sign in normally since they're approved
-  return NextResponse.redirect(new URL("/login?message=activated", origin));
+  return NextResponse.redirect(new URL("/login?message=activated", APP_URL));
 }

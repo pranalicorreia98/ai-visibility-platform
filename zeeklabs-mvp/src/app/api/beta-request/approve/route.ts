@@ -7,11 +7,11 @@ const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 const MAGIC_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function GET(req: NextRequest) {
-  const { searchParams, origin } = req.nextUrl;
+  const { searchParams } = req.nextUrl;
   const email = searchParams.get("email");
   const action = searchParams.get("action");
 
-  const resultUrl = new URL("/admin/beta-result", origin);
+  const resultUrl = new URL("/admin/beta-result", APP_URL);
 
   if (!email || (action !== "approve" && action !== "reject")) {
     resultUrl.searchParams.set("status", "invalid");
