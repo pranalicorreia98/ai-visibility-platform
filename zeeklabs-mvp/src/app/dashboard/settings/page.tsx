@@ -33,6 +33,9 @@ interface Competitor {
   reason?: string;
 }
 
+// Matches the `.max(5)` cap in the /api/brands Zod schemas (server-side).
+const MAX_COMPETITORS = 5;
+
 interface ManualCompetitorForm {
   name: string;
   domain: string;
@@ -174,6 +177,13 @@ export default function SettingsPage() {
       return;
     }
 
+    if (formData.competitors.length >= MAX_COMPETITORS) {
+      setError(
+        `You can track up to ${MAX_COMPETITORS} competitors. Remove one before adding another.`
+      );
+      return;
+    }
+
     // Check if competitor already exists
     const exists = formData.competitors.some(
       (c) => c.name.toLowerCase() === manualCompetitor.name.toLowerCase()
@@ -230,7 +240,10 @@ export default function SettingsPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to save brand");
+        const detail = Array.isArray(data.details)
+          ? data.details.map((d: { message?: string }) => d.message).filter(Boolean).join("; ")
+          : undefined;
+        throw new Error(detail || data.error || "Failed to save brand");
       }
 
       setSuccess(editingBrand ? "Brand updated successfully" : "Brand created successfully");
@@ -449,7 +462,7 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="text-lg font-semibold">Competitors</h3>
                     <p className="text-sm text-muted-foreground">
-                      Auto-discover or add manually
+                      Auto-discover or add manually · {formData.competitors.length}/{MAX_COMPETITORS} used
                     </p>
                   </div>
                 </div>
@@ -457,6 +470,12 @@ export default function SettingsPage() {
                   <Button
                     variant="outline"
                     onClick={() => setShowManualAdd(!showManualAdd)}
+                    disabled={formData.competitors.length >= MAX_COMPETITORS}
+                    title={
+                      formData.competitors.length >= MAX_COMPETITORS
+                        ? `Maximum of ${MAX_COMPETITORS} competitors reached — remove one first`
+                        : undefined
+                    }
                     className="rounded-xl gap-2"
                   >
                     <Plus className="h-4 w-4" />
