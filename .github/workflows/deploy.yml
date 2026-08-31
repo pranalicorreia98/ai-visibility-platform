@@ -68,7 +68,7 @@ jobs:
               "while IFS=$(printf \"\\t\") read -r name value; do key=$(basename \"$name\"); printf \"%s=%s\\n\" \"$key\" \"$value\" >> .env; done < /tmp/params.tsv",
               "set -a; . ./.env; set +a",
               "npx prisma migrate deploy",
-              "npm run build",
+              "NODE_OPTIONS=--max-old-space-size=1536 npm run build",
               "pm2 reload ecosystem.config.js --update-env"
             ]' \
             --timeout-seconds 1200 \
