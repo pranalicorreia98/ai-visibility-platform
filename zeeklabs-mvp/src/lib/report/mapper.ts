@@ -117,6 +117,7 @@ interface ReportData {
   competitorComparison?: Array<{
     name: string;
     overallScore: number;
+    dataSource?: 'measured' | 'ai_estimate';
     strengths: string[];
     weaknesses: string[];
     marketShare: string;
@@ -407,7 +408,7 @@ function mapCompetitors(data: ReportData): CompetitorData {
   // Comparison details
   const comparison: CompetitorComparison[] = competitors.map(c => ({
     name: c.name,
-    subtitle: c.strengths?.[0]?.split(' ').slice(0, 3).join(' ') || 'Industry Player',
+    subtitle: c.dataSource === 'measured' ? 'Measured' : 'AI Estimate',
     score: c.overallScore,
     strengths: c.strengths || [],
     weaknesses: c.weaknesses || [],

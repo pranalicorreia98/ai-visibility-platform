@@ -12,6 +12,7 @@ const brandSchema = z.object({
       z.object({
         name: z.string().min(1),
         domain: z.string().optional(),
+        source: z.enum(["ai", "manual"]).optional(),
       })
     )
     .max(5)
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
               create: competitors.map((c) => ({
                 name: c.name,
                 domain: c.domain,
+                source: c.source ?? "ai",
               })),
             }
           : undefined,

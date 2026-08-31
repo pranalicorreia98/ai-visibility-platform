@@ -22,6 +22,7 @@ import {
   RefreshCw,
   X,
   ArrowLeft,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import { useBrand } from "@/contexts/brand-context";
@@ -31,6 +32,7 @@ interface Competitor {
   name: string;
   domain?: string;
   reason?: string;
+  source?: "ai" | "manual";
 }
 
 // Matches the `.max(5)` cap in the /api/brands Zod schemas (server-side).
@@ -153,7 +155,7 @@ export default function SettingsPage() {
 
       setFormData({
         ...formData,
-        competitors: data.competitors,
+        competitors: data.competitors.map((c: Competitor) => ({ ...c, source: "ai" as const })),
       });
 
       setSuccess(`Found ${data.competitors.length} competitors using AI`);
@@ -177,13 +179,6 @@ export default function SettingsPage() {
       return;
     }
 
-    if (formData.competitors.length >= MAX_COMPETITORS) {
-      setError(
-        `You can track up to ${MAX_COMPETITORS} competitors. Remove one before adding another.`
-      );
-      return;
-    }
-
     // Check if competitor already exists
     const exists = formData.competitors.some(
       (c) => c.name.toLowerCase() === manualCompetitor.name.toLowerCase()
@@ -193,17 +188,48 @@ export default function SettingsPage() {
       return;
     }
 
+    let competitors = formData.competitors;
+    let replacedName: string | null = null;
+
+    if (competitors.length >= MAX_COMPETITORS) {
+      // Make room by dropping the lowest-ranked AI-discovered competitor
+      // (AI discovery returns results ordered by relevance, so the last
+      // non-manual entry is its weakest suggestion) rather than blocking a
+      // user's own, presumably more informed, pick. Only block if every
+      // slot is already a manual entry, since there's no AI ranking to
+      // defer to in that case.
+      let evictIndex = -1;
+      for (let i = competitors.length - 1; i >= 0; i--) {
+        if (competitors[i].source !== "manual") {
+          evictIndex = i;
+          break;
+        }
+      }
+      if (evictIndex === -1) {
+        setError(
+          `You can track up to ${MAX_COMPETITORS} competitors. Remove one before adding another.`
+        );
+        return;
+      }
+      replacedName = competitors[evictIndex].name;
+      competitors = competitors.filter((_, i) => i !== evictIndex);
+    }
+
     setFormData({
       ...formData,
       competitors: [
-        ...formData.competitors,
+        ...competitors,
         {
           name: manualCompetitor.name.trim(),
           domain: manualCompetitor.domain.trim() || undefined,
           reason: "Manually added",
+          source: "manual",
         },
       ],
     });
+    if (replacedName) {
+      setSuccess(`Replaced AI suggestion "${replacedName}" with your manual entry`);
+    }
     setManualCompetitor({ name: "", domain: "" });
     setShowManualAdd(false);
     setError(null);
@@ -246,16 +272,22 @@ export default function SettingsPage() {
         throw new Error(detail || data.error || "Failed to save brand");
       }
 
-      setSuccess(editingBrand ? "Brand updated successfully" : "Brand created successfully");
+      const wasEditing = !!editingBrand;
+      const savedBrandId = editingBrand?.id;
 
-      // Refresh brands list
+      // Refresh brands list first — fetchBrands() re-selects a brand
+      // internally (via selectBrand), which clears any success/error state,
+      // so the confirmation must be set after this settles or it gets wiped
+      // before it's ever visible.
       await fetchBrands();
 
       // Update the selected brand in context and refresh all data across pages
-      if (editingBrand) {
-        setSelectedBrandId(editingBrand.id);
+      if (savedBrandId) {
+        setSelectedBrandId(savedBrandId);
       }
       refreshData();
+
+      setSuccess(wasEditing ? "Brand updated successfully" : "Brand created successfully");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -279,11 +311,14 @@ export default function SettingsPage() {
         throw new Error("Failed to delete brand");
       }
 
-      setSuccess("Brand deleted successfully");
+      // handleNewBrand()/fetchBrands() clear success/error state internally
+      // (see handleSave for the same ordering fix), so set the confirmation
+      // after they settle or it never becomes visible.
       handleNewBrand();
       await fetchBrands();
       // Refresh all data across pages
       refreshData();
+      setSuccess("Brand deleted successfully");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -301,6 +336,12 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  // True only once every slot is a manual entry — at that point there's no
+  // AI suggestion left to auto-replace, so adding another has to be blocked.
+  const allCompetitorSlotsManual =
+    formData.competitors.length >= MAX_COMPETITORS &&
+    formData.competitors.every((c) => c.source === "manual");
 
   return (
     <div className="p-6 lg:p-8 space-y-8 fade-in">
@@ -399,9 +440,19 @@ export default function SettingsPage() {
               </div>
             )}
             {success && (
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
-                <p className="text-sm text-emerald-600">{success}</p>
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
+                  <p className="text-sm text-emerald-600">{success}</p>
+                </div>
+                {editingBrand && (
+                  <Link href="/dashboard/analysis">
+                    <Button size="sm" className="rounded-xl gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+                      Go to AI Visibility
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
 
@@ -463,6 +514,9 @@ export default function SettingsPage() {
                     <h3 className="text-lg font-semibold">Competitors</h3>
                     <p className="text-sm text-muted-foreground">
                       Auto-discover or add manually · {formData.competitors.length}/{MAX_COMPETITORS} used
+                      {formData.competitors.length >= MAX_COMPETITORS &&
+                        !allCompetitorSlotsManual &&
+                        " · adding another replaces the lowest AI suggestion"}
                     </p>
                   </div>
                 </div>
@@ -470,9 +524,9 @@ export default function SettingsPage() {
                   <Button
                     variant="outline"
                     onClick={() => setShowManualAdd(!showManualAdd)}
-                    disabled={formData.competitors.length >= MAX_COMPETITORS}
+                    disabled={allCompetitorSlotsManual}
                     title={
-                      formData.competitors.length >= MAX_COMPETITORS
+                      allCompetitorSlotsManual
                         ? `Maximum of ${MAX_COMPETITORS} competitors reached — remove one first`
                         : undefined
                     }

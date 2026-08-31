@@ -13,6 +13,7 @@ const updateBrandSchema = z.object({
         id: z.string().optional(),
         name: z.string().min(1),
         domain: z.string().optional(),
+        source: z.enum(["ai", "manual"]).optional(),
       })
     )
     .max(5)
@@ -106,6 +107,7 @@ export async function PUT(
             brandId: id,
             name: c.name,
             domain: c.domain,
+            source: c.source ?? "ai",
           })),
         });
       }

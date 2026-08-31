@@ -66,6 +66,41 @@ export async function POST(req: NextRequest) {
       s => !isBiasedPrompt(s.prompt, brand.name)
     ).length;
 
+    // Real, measured competitor scores (same math + query shape as
+    // api/competitors/metrics/route.ts, which /dashboard/competitors already
+    // renders with a "Measured" badge). Without this, the PDF's competitor
+    // section fell back to the AI's one-shot guess even after real
+    // comparison-simulation data existed, so the report could show numbers
+    // that visibly disagreed with what the app itself now measures.
+    const comparisonSimulationsCount = await prisma.simulation.count({
+      where: { brandId, promptType: "competitor_comparison", createdAt: { gte: startDate } },
+    });
+    const competitorMentionsForMetrics = comparisonSimulationsCount > 0
+      ? await prisma.mention.findMany({
+          where: { brandId, isCompetitor: true, createdAt: { gte: startDate } },
+        })
+      : [];
+    const realCompetitorScores = new Map<
+      string,
+      { score: number; mentions: number; avgPosition: number | null; avgSentiment: number | null }
+    >();
+    for (const competitor of brand.competitors) {
+      const compMentions = competitorMentionsForMetrics.filter((m) => m.competitorName === competitor.name);
+      if (compMentions.length === 0) continue;
+      const compPositions = compMentions.filter((m) => m.position !== null).map((m) => m.position!);
+      const compSentiments = compMentions.filter((m) => m.sentiment !== null).map((m) => m.sentiment!);
+      realCompetitorScores.set(competitor.name.toLowerCase(), {
+        score: calculateScoreFromMentions(compMentions, comparisonSimulationsCount),
+        mentions: compMentions.length,
+        avgPosition: compPositions.length > 0
+          ? Number((compPositions.reduce((a, b) => a + b, 0) / compPositions.length).toFixed(1))
+          : null,
+        avgSentiment: compSentiments.length > 0
+          ? Number((compSentiments.reduce((a, b) => a + b, 0) / compSentiments.length).toFixed(2))
+          : null,
+      });
+    }
+
     // Calculate Perplexity mentions
     const organicPerplexityMentions = organicMentions.filter((m) => m.aiSystem === "perplexity");
 
@@ -600,8 +635,34 @@ export async function POST(req: NextRequest) {
       // =============================================
       // AI Visibility Report scores
       aiScores: fullAnalysisData?.scores || null,
-      // Competitor Comparison with strengths/weaknesses
-      competitorComparison: fullAnalysisData?.competitorComparison || null,
+      // Competitor Comparison with strengths/weaknesses. Score comes from
+      // real measurement when available (realCompetitorScores above);
+      // strengths/weaknesses/marketShare/sentiment prose still comes from
+      // the AI's qualitative read since there's no measured equivalent for
+      // free-text commentary. A competitor with neither real nor AI data is
+      // dropped rather than shown with a fabricated 0.
+      competitorComparison: (() => {
+        const aiEntries = fullAnalysisData?.competitorComparison || [];
+        const merged = brand.competitors
+          .map((competitor) => {
+            const real = realCompetitorScores.get(competitor.name.toLowerCase());
+            const aiEntry = aiEntries.find(
+              (c) => c.name.toLowerCase() === competitor.name.toLowerCase()
+            );
+            if (!real && !aiEntry) return null;
+            return {
+              name: competitor.name,
+              overallScore: real ? real.score : aiEntry!.overallScore,
+              dataSource: (real ? "measured" : "ai_estimate") as "measured" | "ai_estimate",
+              strengths: aiEntry?.strengths || [],
+              weaknesses: aiEntry?.weaknesses || [],
+              marketShare: aiEntry?.marketShare || "N/A",
+              sentiment: aiEntry?.sentiment || "neutral",
+            };
+          })
+          .filter((c): c is NonNullable<typeof c> => c !== null);
+        return merged.length > 0 ? merged : null;
+      })(),
       // Market Intelligence
       marketIntelligence: fullAnalysisData?.marketIntelligence || null,
       // Sentiment Analysis (brand, customer, market)

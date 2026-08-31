@@ -124,6 +124,7 @@ model Competitor {
   brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
   name      String
   domain    String?
+  source    String   @default("ai") // "ai" | "manual" - which flow added this competitor
   createdAt DateTime @default(now())
 }
 
