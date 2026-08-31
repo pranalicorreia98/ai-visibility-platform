@@ -5,24 +5,7 @@ import { getReportPromptSuggestions, type PromptSuggestion } from "@/lib/prompt-
 import { generateBrandPrompts, getIndustryContext } from "@/lib/prompts/prompt-generator";
 import { calculateScoreFromMentions, calculatePresenceScore, calculateSentimentScore, calculatePositionScore } from "@/lib/scoring";
 import { extractCitationsFromResponse } from "@/lib/citations";
-
-// Helper: Check if a prompt is a "biased" branded prompt that shouldn't count for organic mentions
-function isBiasedPrompt(prompt: string, brandName: string): boolean {
-  const normalizedPrompt = prompt.toLowerCase();
-  const normalizedBrand = brandName.toLowerCase();
-
-  // Prompts that explicitly ask about the brand inflate mention scores artificially
-  const biasedPatterns = [
-    `visibility analysis for ${normalizedBrand}`,
-    `analyze ${normalizedBrand}`,
-    `tell me about ${normalizedBrand}`,
-    `what is ${normalizedBrand}`,
-    `competitor analysis: ${normalizedBrand}`,
-    `competitor ${normalizedBrand}`,
-  ];
-
-  return biasedPatterns.some(pattern => normalizedPrompt.includes(pattern));
-}
+import { isBiasedPrompt } from "@/lib/biased-prompt";
 
 export async function POST(req: NextRequest) {
   try {

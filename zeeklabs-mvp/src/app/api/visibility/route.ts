@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateScoreFromMentions } from "@/lib/scoring";
+import { isBiasedPrompt } from "@/lib/biased-prompt";
 
 export async function GET(req: NextRequest) {
   try {
@@ -83,35 +84,62 @@ export async function GET(req: NextRequest) {
       isCompetitor: false, // Only count actual brand mentions, not competitor mentions
     };
 
+    // Need each mention's owning brand's name to filter out biased
+    // (self-referential) prompts below — build an id -> name lookup for
+    // either the single selected brand or all of the user's brands.
+    const brandNameById = new Map<string, string>();
+
     if (brandId) {
       whereClause.brandId = brandId;
+      const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { id: true, name: true } });
+      if (brand) brandNameById.set(brand.id, brand.name);
     } else {
-      // Get user's brands
       const userBrands = await prisma.brand.findMany({
         where: { userId: session.user.id },
-        select: { id: true },
+        select: { id: true, name: true },
       });
       whereClause.brandId = { in: userBrands.map((b) => b.id) };
+      for (const b of userBrands) brandNameById.set(b.id, b.name);
     }
 
-    const mentions = await prisma.mention.findMany({
+    const allMentions = await prisma.mention.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
     });
+
+    // Exclude self-referential prompts ("Tell me about X", "Analyze X") from
+    // every visibility metric — a prompt that names the brand trivially
+    // "finds" it, which isn't a measurement of unprompted AI recall. This
+    // matches api/reports/generate/route.ts exactly so the dashboard and
+    // the PDF report can never disagree on a brand's score because one
+    // counted a self-test and the other didn't.
+    const mentions = allMentions.filter((m) => {
+      const brandName = brandNameById.get(m.brandId);
+      return !brandName || !isBiasedPrompt(m.prompt, brandName);
+    });
+    const biasedMentionsExcluded = allMentions.length - mentions.length;
 
     // Calculate visibility metrics
     const chatgptMentions = mentions.filter((m) => m.aiSystem === "chatgpt");
     const geminiMentions = mentions.filter((m) => m.aiSystem === "gemini");
     const perplexityMentions = mentions.filter((m) => m.aiSystem === "perplexity");
 
-    // Get simulations count for the period
-    const simulations = await prisma.simulation.count({
+    // Get simulations for the period, then exclude biased ones from the
+    // count too — a self-referential prompt shouldn't count toward the
+    // denominator either, or presence rate stays inflated even with the
+    // numerator fixed (matches organicSimulationsCount in the report route).
+    const allSimulations = await prisma.simulation.findMany({
       where: {
         userId: session.user.id,
         createdAt: { gte: startDate },
         ...(brandId && { brandId }),
       },
+      select: { id: true, prompt: true, brandId: true },
     });
+    const simulations = allSimulations.filter((s) => {
+      const brandName = s.brandId ? brandNameById.get(s.brandId) : undefined;
+      return !brandName || !isBiasedPrompt(s.prompt, brandName);
+    }).length;
 
     // Calculate scores using the canonical formula (src/lib/scoring.ts) — the
     // same function reports/generate/route.ts and the PDF mapper use, so the
@@ -160,7 +188,7 @@ export async function GET(req: NextRequest) {
     const previousStartDate = new Date(startDate);
     previousStartDate.setDate(previousStartDate.getDate() - days);
 
-    const previousMentions = await prisma.mention.findMany({
+    const allPreviousMentions = await prisma.mention.findMany({
       where: {
         ...whereClause,
         createdAt: {
@@ -170,8 +198,12 @@ export async function GET(req: NextRequest) {
         isCompetitor: false,
       },
     });
+    const previousMentions = allPreviousMentions.filter((m) => {
+      const brandName = brandNameById.get(m.brandId);
+      return !brandName || !isBiasedPrompt(m.prompt, brandName);
+    });
 
-    const previousSimulations = await prisma.simulation.count({
+    const allPreviousSimulations = await prisma.simulation.findMany({
       where: {
         userId: session.user.id,
         createdAt: {
@@ -180,7 +212,12 @@ export async function GET(req: NextRequest) {
         },
         ...(brandId && { brandId }),
       },
+      select: { id: true, prompt: true, brandId: true },
     });
+    const previousSimulations = allPreviousSimulations.filter((s) => {
+      const brandName = s.brandId ? brandNameById.get(s.brandId) : undefined;
+      return !brandName || !isBiasedPrompt(s.prompt, brandName);
+    }).length;
 
     // Calculate trend percentages (current vs previous period)
     const mentionsTrend = previousMentions.length > 0
@@ -339,6 +376,11 @@ export async function GET(req: NextRequest) {
       // AI-estimated values, kept separate from the measured fields above so
       // the UI can render them as an explicitly labeled estimate.
       aiEstimate,
+      // How many self-referential prompts ("Tell me about X") were excluded
+      // from every metric above — matches api/reports/generate/route.ts's
+      // dataQuality field, surfaced here so the dashboard can show the same
+      // disclosure the report does.
+      biasedMentionsExcluded,
     });
   } catch (error) {
     console.error("Error fetching visibility data:", error);
