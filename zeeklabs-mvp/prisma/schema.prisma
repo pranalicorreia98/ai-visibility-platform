@@ -140,6 +140,13 @@ model Simulation {
 
   prompt String
 
+  // "organic" = a normal user/monitoring prompt about the brand.
+  // "competitor_comparison" = a dedicated prompt run specifically to measure
+  // competitor mentions (see src/lib/competitor-measurement.ts). Used to
+  // compute the correct denominator when scoring competitors — organic
+  // prompts aren't a fair sample for "how often is competitor X mentioned."
+  promptType String @default("organic")
+
   // Responses stored as JSON strings
   chatgptResponse    String?
   geminiResponse     String?

@@ -29,7 +29,6 @@ import {
   formatDate,
   getCurrentDate,
   getScoreLabel,
-  formatDelta,
   formatPercent,
   calculatePercentage,
   truncate,
@@ -44,6 +43,18 @@ import {
   PROMPT_CATEGORIES,
   METHODOLOGY_SECTIONS,
 } from './constants';
+
+import {
+  SCORE_WEIGHTS,
+  calculatePresenceScore,
+  calculateSentimentScore,
+  calculatePositionScore,
+  getConfidenceLevel,
+} from '../scoring';
+
+// Each simulation queries this many AI engines (ChatGPT/Gemini/Perplexity) —
+// matches AI_ENGINE_COUNT in api/reports/generate/route.ts.
+const AI_ENGINE_COUNT = 3;
 
 // ============================================================================
 // INPUT TYPE (from existing API)
@@ -67,6 +78,7 @@ interface ReportData {
     geminiMentions: number;
     perplexityMentions?: number;
     simulationsRun: number;
+    organicSimulationsRun?: number;
     sentiment: {
       average: number;
       positive: number;
@@ -78,6 +90,11 @@ interface ReportData {
       geminiAvg: number | null;
       perplexityAvg?: number | null;
       overallAvg: number | null;
+      distribution?: {
+        chatgpt: { top3: number; top5: number; beyond5: number };
+        gemini: { top3: number; top5: number; beyond5: number };
+        perplexity: { top3: number; top5: number; beyond5: number };
+      };
     };
     mentionRate?: number;
   };
@@ -232,33 +249,10 @@ function mapExecutiveSummary(data: ReportData): ExecutiveSummaryData {
     data.metrics.sentiment.neutral +
     data.metrics.sentiment.negative;
 
-  // Calculate benchmarks
-  const benchmarks: BenchmarkMetric[] = [
-    {
-      label: 'Prompt Inclusion Rate',
-      value: `${(score * 0.6).toFixed(1)}%`,
-      industryAvg: '18.5%',
-      delta: score * 0.6 - 18.5,
-      deltaFormatted: formatDelta(score * 0.6 - 18.5),
-      isPositive: score * 0.6 > 18.5,
-    },
-    {
-      label: 'Contextual Accuracy',
-      value: `${Math.min(88 + Math.floor(score / 10), 95)}.0%`,
-      industryAvg: '82.1%',
-      delta: Math.min(88 + Math.floor(score / 10), 95) - 82.1,
-      deltaFormatted: formatDelta(Math.min(88 + Math.floor(score / 10), 95) - 82.1),
-      isPositive: true,
-    },
-    {
-      label: 'Citation Frequency',
-      value: `${(totalMentions / 1000).toFixed(1)} per k/words`,
-      industryAvg: '2.4 per k/words',
-      delta: (totalMentions / 1000) - 2.4,
-      deltaFormatted: `${((totalMentions / 1000) - 2.4).toFixed(1)}`,
-      isPositive: totalMentions / 1000 > 2.4,
-    },
-  ];
+  // No real cross-customer industry-benchmark data exists yet, so we show no
+  // benchmark comparisons rather than inventing "industry average" numbers
+  // (previously hardcoded 18.5% / 82.1% / 2.4 per k/words with no data source).
+  const benchmarks: BenchmarkMetric[] = [];
 
   // Generate strategic insight
   const avgPlatformScore = Math.round(
@@ -323,20 +317,21 @@ function mapSentiment(data: ReportData): SentimentData {
     ? Math.round((positivePercent * 100 + neutralPercent * 50) / 100)
     : 50;
 
-  // Platform sentiment (with slight variations)
+  // Platform sentiment - use consistent values across all platforms
+  // Previously used Math.random() which caused non-reproducible reports
   const byPlatform: PlatformSentiment[] = [
     {
       platform: 'ChatGPT (GPT-4)',
       icon: '💬',
-      positive: Math.min(positivePercent + Math.floor(Math.random() * 10) - 5, 100),
+      positive: positivePercent,
       neutral: neutralPercent,
-      negative: Math.max(negativePercent - Math.floor(Math.random() * 5), 0),
+      negative: negativePercent,
     },
     {
       platform: 'Google Gemini',
       icon: '✨',
-      positive: Math.min(positivePercent + Math.floor(Math.random() * 8) - 3, 100),
-      neutral: neutralPercent + Math.floor(Math.random() * 5),
+      positive: positivePercent,
+      neutral: neutralPercent,
       negative: negativePercent,
     },
     {
@@ -347,15 +342,6 @@ function mapSentiment(data: ReportData): SentimentData {
       negative: negativePercent,
     },
   ];
-
-  // Normalize platform sentiment percentages
-  byPlatform.forEach(p => {
-    const pTotal = p.positive + p.neutral + p.negative;
-    if (pTotal !== 100) {
-      const diff = 100 - pTotal;
-      p.neutral = Math.max(0, p.neutral + diff);
-    }
-  });
 
   const sentimentAnalysis = data.sentimentAnalysis;
 
@@ -425,7 +411,7 @@ function mapCompetitors(data: ReportData): CompetitorData {
     score: c.overallScore,
     strengths: c.strengths || [],
     weaknesses: c.weaknesses || [],
-    marketShare: c.marketShare || `${Math.floor(15 + Math.random() * 20)}%`,
+    marketShare: c.marketShare || 'N/A',
     sentiment: (c.sentiment as 'positive' | 'neutral' | 'negative') || 'neutral',
   }));
 
@@ -436,7 +422,9 @@ function mapCompetitors(data: ReportData): CompetitorData {
     marketLeaderGap: Math.max(0, marketLeaderGap),
     marketLeaderName: topCompetitor?.name || 'Market Leader',
     executiveSummary,
-    growthTrajectory: `+${data.progressData?.change || 4.5}% MoM`,
+    growthTrajectory: data.progressData?.change !== undefined
+      ? `${data.progressData.change >= 0 ? '+' : ''}${data.progressData.change}% MoM`
+      : 'N/A',
     comparison,
     matrix: {
       metrics: [
@@ -449,7 +437,9 @@ function mapCompetitors(data: ReportData): CompetitorData {
     insights: {
       growthVector: {
         title: 'Growth Vector',
-        description: `Focus on "Authority" scores to bridge the ${marketLeaderGap || 20}-point gap with ${topCompetitor?.name || 'market leader'}.`,
+        description: topCompetitor
+          ? `Focus on "Authority" scores to bridge the ${Math.max(0, marketLeaderGap)}-point gap with ${topCompetitor.name}.`
+          : 'No competitor data yet — add competitors to see the gap to the market leader.',
         color: 'purple',
       },
       trustDeficit: {
@@ -503,9 +493,14 @@ function mapProgress(data: ReportData, progressData?: ProgressApiData | null): P
   };
 }
 
+// Conservative ceiling on projected score gain shown in a single report cycle.
+// Full headroom to 100 is rarely achievable at once; this is a labeled UX
+// assumption, not a data-derived prediction.
+const REALISTIC_GAIN_CAP = 37;
+
 function mapActionPlan(data: ReportData): ActionPlanData {
   const currentScore = data.metrics.visibilityScore || 0;
-  const potentialGain = Math.min(100 - currentScore, 37);
+  const potentialGain = Math.min(100 - currentScore, REALISTIC_GAIN_CAP);
   const targetScore = Math.min(currentScore + potentialGain, 100);
 
   const recs = data.analysisRecommendations;
@@ -569,8 +564,19 @@ function mapActionPlan(data: ReportData): ActionPlanData {
       description: truncate(stripMarkdown(item), 80),
     })),
     impactSummary: `By executing these synchronized phases, ${data.brand.name} will pivot from ${currentScore < 40 ? 'an emerging player' : 'a competitive position'} (${currentScore}th percentile) to ${targetScore >= 70 ? 'an industry authority' : 'stronger market positioning'} (${targetScore}nd percentile). The projected +${potentialGain} gain reflects enhanced organic search visibility, increased brand sentiment through social proof, and long-term defensibility through technical differentiation.`,
-    implementationWeeks: 12,
-    confidence: 88,
+    // Rough effort-based estimate (2 weeks per recommended action, bounded),
+    // not a hardcoded constant — scales with how many actions are actually recommended.
+    implementationWeeks: Math.max(
+      4,
+      Math.min(16, (immediateItems.length + shortTermItems.length + longTermItems.length + competitiveItems.length) * 2)
+    ),
+    // Maps measured sample size (total mentions analyzed) to a confidence
+    // tier via the same thresholds used across the app (src/lib/scoring.ts) —
+    // not a fixed decorative number.
+    confidence: (() => {
+      const level = getConfidenceLevel(data.metrics.totalMentions || 0);
+      return level === 'high' ? 90 : level === 'moderate' ? 70 : 40;
+    })(),
   };
 }
 
@@ -582,7 +588,9 @@ function mapCitations(data: ReportData): CitationData {
     category: c.category,
     priority: (c.priority as 'high' | 'medium' | 'low') || 'medium',
     effort: (c.effort as 'low' | 'medium' | 'high') || 'medium',
-    status: c.status || 'missing',
+    // 'not_detected' means "not seen in analyzed AI responses" — not a
+    // verified absence, since we don't crawl these platforms directly.
+    status: c.status || 'not_detected',
     recommendation: truncate(c.aiRecommendation, 120),
     url: c.url,
   }));
@@ -655,7 +663,7 @@ function mapStrategicPosition(data: ReportData): StrategicPositionData {
   }
   if (aiVis?.recommendationLikelihood) {
     badges.push({
-      label: 'AI Recommends',
+      label: 'AI Recommendation Signal',
       value: aiVis.recommendationLikelihood,
       color: COLORS.gemini,
     });
@@ -676,15 +684,25 @@ function mapPlatformPerformance(data: ReportData): PlatformPerformanceData {
   const metrics = data.metrics;
   const brandName = data.brand.name || 'Brand';
 
-  // Score breakdown with weights
+  // Score breakdown built from the same canonical component functions
+  // (src/lib/scoring.ts) the dashboard and report generator use — a real
+  // presence rate (mentions / simulations queried), not 40% of the already-
+  // blended overall score.
+  const presenceScoreRaw = calculatePresenceScore(metrics.totalMentions, metrics.simulationsRun * AI_ENGINE_COUNT);
+  // metrics.sentiment.average is stored as avgSentiment*100 (see
+  // api/reports/generate/route.ts), so divide back down to the -1..1 range
+  // calculateSentimentScore expects.
+  const sentimentScoreRaw = calculateSentimentScore(metrics.sentiment.average / 100);
+  const positionScoreRaw = calculatePositionScore(metrics.position?.overallAvg ?? null);
+
   const scoreBreakdown = {
-    presence: Math.round(metrics.visibilityScore * 0.4) || 0,
-    sentiment: Math.round(((metrics.sentiment.positive / Math.max(1, metrics.sentiment.positive + metrics.sentiment.neutral + metrics.sentiment.negative)) * 100) * 0.25) || 0,
-    position: Math.round(metrics.position?.overallAvg ? Math.max(0, 100 - (metrics.position.overallAvg - 1) * 15) * 0.35 : 50 * 0.35) || 0,
+    presence: Math.round(presenceScoreRaw * SCORE_WEIGHTS.presence),
+    sentiment: Math.round(sentimentScoreRaw * SCORE_WEIGHTS.sentiment),
+    position: Math.round(positionScoreRaw * SCORE_WEIGHTS.position),
     weights: {
-      presence: 40,
-      sentiment: 25,
-      position: 35,
+      presence: SCORE_WEIGHTS.presence * 100,
+      sentiment: SCORE_WEIGHTS.sentiment * 100,
+      position: SCORE_WEIGHTS.position * 100,
     },
   };
 
@@ -719,8 +737,9 @@ function mapPlatformPerformance(data: ReportData): PlatformPerformanceData {
     },
   ];
 
-  // Position distribution (from API if available)
-  const positionDistribution = {
+  // Real position distribution computed by the report API (previously this
+  // was silently discarded here and replaced with hardcoded zeros).
+  const positionDistribution = metrics.position?.distribution || {
     chatgpt: { top3: 0, top5: 0, beyond5: 0 },
     gemini: { top3: 0, top5: 0, beyond5: 0 },
     perplexity: { top3: 0, top5: 0, beyond5: 0 },
@@ -753,7 +772,9 @@ function mapPlatformPerformance(data: ReportData): PlatformPerformanceData {
     platforms,
     positionDistribution,
     totalSimulations: data.metrics.simulationsRun || 0,
-    organicSimulations: data.metrics.simulationsRun || 0,
+    // Previously duplicated totalSimulations — the API separately computes
+    // organicSimulationsRun (excludes biased self-referential prompts).
+    organicSimulations: data.metrics.organicSimulationsRun ?? data.metrics.simulationsRun ?? 0,
     mentionRate: data.metrics.mentionRate || 0,
     strongestPlatform,
     weakestPlatform,

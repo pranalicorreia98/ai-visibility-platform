@@ -1786,8 +1786,9 @@ export default function ReportsPage() {
                 </div>
               </div>
               <div className="p-4 rounded-lg bg-muted/30 border border-border">
-                <div className="text-sm text-muted-foreground">Recommendation Likelihood</div>
+                <div className="text-sm text-muted-foreground">AI Recommendation Signal</div>
                 <div className="text-lg font-semibold capitalize">{reportData.aiVisibility.recommendationLikelihood}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">AI estimate, not measured</div>
               </div>
               <div className="p-4 rounded-lg bg-muted/30 border border-border">
                 <div className="text-sm text-muted-foreground">Competitor Gap</div>

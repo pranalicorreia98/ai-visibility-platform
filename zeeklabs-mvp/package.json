@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "dev:db": "tsx scripts/dev-db.ts start",
     "dev:db:stop": "tsx scripts/dev-db.ts stop",
     "worker:analysis": "tsx scripts/analysis-worker.ts",
@@ -58,6 +59,7 @@
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }

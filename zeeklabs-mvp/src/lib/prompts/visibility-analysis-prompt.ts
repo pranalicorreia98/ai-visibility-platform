@@ -390,7 +390,7 @@ Respond ONLY with valid JSON matching this exact structure:
 }
 \`\`\`
 
-Be thorough, specific, and base your analysis on real market knowledge. If you don't have specific data, provide reasonable estimates based on industry knowledge and clearly indicate they are estimates.`;
+Be thorough and specific. You have live web search available — use it to find real, current information about this brand and its competitors (market size, recent news, actual review/citation sources) rather than relying on training data alone. Prefer a cited fact from search over a guess. Only when search genuinely turns up nothing on a specific point should you fall back to a reasonable estimate from general industry knowledge, and in that case clearly say so (e.g. "estimated" or "no current data found") rather than stating it as fact.`;
 }
 
 /**

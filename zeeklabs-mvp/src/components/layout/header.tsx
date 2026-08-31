@@ -46,7 +46,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { useBrand } from "@/contexts/brand-context";
-import { determineBrandScale, generateBrandPrompts, getIndustryContext, getPromptCount } from "@/lib/prompts/prompt-generator";
+import { generateBrandPrompts, getIndustryContext } from "@/lib/prompts/prompt-generator";
 
 export function Header() {
   const { data: session } = useSession();
@@ -72,19 +72,16 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  // Generate dynamic prompts based on brand scale
+  // Generate the fixed prompt set for this brand (60 prompts, every brand)
   const brandName = selectedBrand?.name || "Your Brand";
   const domain = selectedBrand?.domain || "";
   const competitors = selectedBrand?.competitors || [];
-  const visibilityScore = visibilityData?.score?.overall;
 
-  // Determine brand scale and generate prompts
-  const brandScale = determineBrandScale(competitors, domain, visibilityScore);
   const industryContext = getIndustryContext(domain);
   const competitorNames = competitors.map(c => typeof c === 'string' ? c : c.name);
 
   // Generate prompts using the centralized prompt generator
-  const generatedPrompts = generateBrandPrompts(brandName, industryContext, competitorNames, brandScale);
+  const generatedPrompts = generateBrandPrompts(brandName, industryContext, competitorNames);
 
   // Map to the format expected by the UI (with insight instead of purpose)
   const prompts = generatedPrompts.map(p => ({
@@ -95,10 +92,6 @@ export function Header() {
     prompt: p.prompt,
     insight: p.purpose
   }));
-
-  // Scale label for display
-  const scaleLabel = brandScale === "large" ? "Enterprise" : brandScale === "mid" ? "Mid-sized" : "Small";
-  const promptCount = getPromptCount(brandScale);
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -372,7 +365,7 @@ export function Header() {
                   {selectedBrand?.name || "No brand selected"}
                 </Badge>
                 <Badge variant="outline" className="text-white/90 border-white/30">
-                  {scaleLabel} • {filteredPrompts.length} of {prompts.length} prompts
+                  {filteredPrompts.length} of {prompts.length} prompts
                 </Badge>
               </div>
             </div>
@@ -475,10 +468,10 @@ export function Header() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-800">
-                    {prompts.length} prompts generated for your {scaleLabel.toLowerCase()} brand
+                    {prompts.length} prompts generated for {brandName}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Copy these prompts and test them on ChatGPT, Gemini, and Perplexity. Prompt count scales based on competitors ({competitors.length}) and visibility score.
+                    Copy these prompts and test them on ChatGPT, Gemini, and Perplexity.
                   </p>
                 </div>
               </div>

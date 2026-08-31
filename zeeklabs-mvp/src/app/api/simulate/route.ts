@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
-  callChatGPTWithRetry,
-  callGeminiWithRetry,
-  callPerplexityWithRetry,
-  callOpenRouterChatGPTWithRetry,
-  callOpenRouterGeminiWithRetry,
-} from "@/lib/ai-providers";
+  callChatGPTWithFallbackChain,
+  callGeminiWithFallbackChain,
+  callPerplexityWithFallbackChain,
+} from "@/lib/ai-fallback-chains";
 import { detectMentions, analyzeSentiment, detectPosition } from "@/lib/analysis";
 import { checkRateLimit, recordUsage } from "@/lib/rate-limit";
 import {
@@ -16,106 +14,6 @@ import {
   setCachedResponse,
   findSimilarCachedPrompts,
 } from "@/lib/prompt-cache";
-
-/**
- * Fallback chain for Gemini:
- * 1. Google AI Studio (Gemini 2.0 Flash) - primary
- * 2. OpenRouter (Gemini 2.0 Flash free) - fallback
- *
- * We ONLY use Google Gemini models, no substitutes.
- */
-async function callGeminiWithFallbackChain(prompt: string): Promise<{ response: string; provider: string }> {
-  // Try Google AI Studio first
-  if (process.env.GOOGLE_AI_API_KEY) {
-    try {
-      console.log("Trying Google AI Studio (Gemini)...");
-      const response = await callGeminiWithRetry(prompt);
-      console.log("✓ Google AI Studio succeeded");
-      return { response, provider: "gemini" };
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      console.log(`✗ Google AI Studio failed: ${err.message}`);
-    }
-  } else {
-    console.log("Skipping Google AI Studio: API key not configured");
-  }
-
-  // Fallback to OpenRouter (Gemini models)
-  if (process.env.OPENROUTER_API_KEY) {
-    try {
-      console.log("Trying OpenRouter (Gemini models)...");
-      const response = await callOpenRouterGeminiWithRetry(prompt);
-      console.log("✓ OpenRouter Gemini succeeded");
-      return { response, provider: "gemini (via OpenRouter)" };
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      console.log(`✗ OpenRouter Gemini failed: ${err.message}`);
-      throw err;
-    }
-  }
-
-  throw new Error("No Gemini providers available. Configure GOOGLE_AI_API_KEY or OPENROUTER_API_KEY.");
-}
-
-/**
- * Fallback chain for ChatGPT:
- * 1. GitHub Models (GPT-4o) - primary
- * 2. OpenRouter (GPT-4o) - fallback
- *
- * We ONLY use OpenAI ChatGPT models, no substitutes.
- */
-async function callChatGPTWithFallbackChain(prompt: string): Promise<{ response: string; provider: string }> {
-  // Try GitHub Models first
-  if (process.env.GITHUB_TOKEN) {
-    try {
-      console.log("Trying GitHub Models (ChatGPT)...");
-      const response = await callChatGPTWithRetry(prompt);
-      console.log("✓ GitHub Models succeeded");
-      return { response, provider: "chatgpt" };
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      console.log(`✗ GitHub Models failed: ${err.message}`);
-    }
-  } else {
-    console.log("Skipping GitHub Models: API key not configured");
-  }
-
-  // Fallback to OpenRouter (OpenAI models)
-  if (process.env.OPENROUTER_API_KEY) {
-    try {
-      console.log("Trying OpenRouter (ChatGPT models)...");
-      const response = await callOpenRouterChatGPTWithRetry(prompt);
-      console.log("✓ OpenRouter ChatGPT succeeded");
-      return { response, provider: "chatgpt (via OpenRouter)" };
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      console.log(`✗ OpenRouter ChatGPT failed: ${err.message}`);
-      throw err;
-    }
-  }
-
-  throw new Error("No ChatGPT providers available. Configure GITHUB_TOKEN or OPENROUTER_API_KEY.");
-}
-
-/**
- * Perplexity AI using OpenAI-compatible API
- */
-async function callPerplexityWithFallbackChain(prompt: string): Promise<{ response: string; provider: string }> {
-  if (process.env.PERPLEXITY_API_KEY) {
-    try {
-      console.log("Trying Perplexity AI...");
-      const response = await callPerplexityWithRetry(prompt);
-      console.log("✓ Perplexity AI succeeded");
-      return { response, provider: "perplexity" };
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      console.log(`✗ Perplexity AI failed: ${err.message}`);
-      throw err;
-    }
-  }
-
-  throw new Error("Perplexity API key not configured. Set PERPLEXITY_API_KEY environment variable.");
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -288,30 +186,66 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Create mention records if brand exists
-    // Store ALL simulation results for monitoring (even when brand isn't mentioned)
+    // Create mention records if brand exists.
+    // Only when the brand was actually mentioned — a Mention row is used
+    // downstream as the numerator for presence (mentions / simulations), so
+    // a row must mean "the brand was found here," not "we ran a query."
+    // (Previously created a row unconditionally with a "NOT mentioned"
+    // placeholder context, which silently inflated every presence score —
+    // full Simulation rows already track that a query ran either way.)
     if (brand) {
       for (const system of ["chatgpt", "gemini", "perplexity"]) {
         const response = results[system];
         if (typeof response === "string" && analysis[system]) {
-          const brandMentions = analysis[system]!.mentions.filter((m) => !m.isCompetitor);
+          const allMentions = analysis[system]!.mentions;
+          const brandMentions = allMentions.filter((m) => !m.isCompetitor);
           const wasMentioned = brandMentions.length > 0;
 
-          await prisma.mention.create({
-            data: {
-              brandId: brand.id,
-              simulationId: simulation.id,
-              aiSystem: system,
-              prompt,
-              response: response.slice(0, 2000), // Truncate for storage
-              context: wasMentioned
-                ? brandMentions[0].context
-                : `Brand "${brand.name}" was NOT mentioned in this response`,
-              sentiment: analysis[system]!.sentiment,
-              position: wasMentioned ? analysis[system]!.position : null,
-              isCompetitor: false,
-            },
-          });
+          if (wasMentioned) {
+            await prisma.mention.create({
+              data: {
+                brandId: brand.id,
+                simulationId: simulation.id,
+                aiSystem: system,
+                prompt,
+                response: response.slice(0, 2000), // Truncate for storage
+                context: brandMentions[0].context,
+                sentiment: analysis[system]!.sentiment,
+                position: analysis[system]!.position,
+                isCompetitor: false,
+              },
+            });
+          }
+
+          // Persist competitor mentions detected in this same response —
+          // previously computed by detectMentions() and then discarded.
+          // Position/sentiment are measured per-competitor with the same
+          // deterministic pipeline used for the brand (detectPosition/
+          // analyzeSentiment are name-agnostic).
+          if (brand.competitors && brand.competitors.length > 0) {
+            const mentionedCompetitorNames = new Set(
+              allMentions
+                .filter((m) => m.isCompetitor && m.competitorName)
+                .map((m) => m.competitorName!)
+            );
+            for (const competitorName of mentionedCompetitorNames) {
+              const entries = allMentions.filter((m) => m.competitorName === competitorName);
+              await prisma.mention.create({
+                data: {
+                  brandId: brand.id,
+                  simulationId: simulation.id,
+                  aiSystem: system,
+                  prompt,
+                  response: response.slice(0, 2000),
+                  context: entries[0].context,
+                  sentiment: analyzeSentiment(response, competitorName),
+                  position: detectPosition(response, competitorName),
+                  isCompetitor: true,
+                  competitorName,
+                },
+              });
+            }
+          }
         }
       }
     }

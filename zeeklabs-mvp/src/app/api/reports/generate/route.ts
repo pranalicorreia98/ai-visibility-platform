@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getReportPromptSuggestions, type PromptSuggestion } from "@/lib/prompt-generator";
-import { determineBrandScale, generateBrandPrompts, getIndustryContext, getPromptCount } from "@/lib/prompts/prompt-generator";
+import { generateBrandPrompts, getIndustryContext } from "@/lib/prompts/prompt-generator";
+import { calculateScoreFromMentions, calculatePresenceScore, calculateSentimentScore, calculatePositionScore } from "@/lib/scoring";
+import { extractCitationsFromResponse } from "@/lib/citations";
 
 // Helper: Check if a prompt is a "biased" branded prompt that shouldn't count for organic mentions
 function isBiasedPrompt(prompt: string, brandName: string): boolean {
@@ -20,61 +22,6 @@ function isBiasedPrompt(prompt: string, brandName: string): boolean {
   ];
 
   return biasedPatterns.some(pattern => normalizedPrompt.includes(pattern));
-}
-
-// Helper: Extract citations from AI response text
-function extractCitationsFromResponse(response: string): Array<{ source: string; type: string; url?: string }> {
-  const citations: Array<{ source: string; type: string; url?: string }> = [];
-
-  // Extract URLs
-  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
-  const urls = response.match(urlRegex) || [];
-
-  for (const url of urls) {
-    try {
-      const hostname = new URL(url).hostname.replace("www.", "");
-      // Categorize by domain
-      let type = "web";
-      if (hostname.includes("g2") || hostname.includes("capterra") || hostname.includes("trustradius") || hostname.includes("trustpilot")) {
-        type = "review_site";
-      } else if (hostname.includes("linkedin") || hostname.includes("twitter") || hostname.includes("facebook")) {
-        type = "social";
-      } else if (hostname.includes("forbes") || hostname.includes("techcrunch") || hostname.includes("news")) {
-        type = "news";
-      }
-
-      if (!citations.find(c => c.url === url)) {
-        citations.push({ source: hostname, type, url });
-      }
-    } catch {
-      // Invalid URL, skip
-    }
-  }
-
-  // Extract mentions of known platforms
-  const knownPlatforms = [
-    { name: "G2", type: "review_site" },
-    { name: "Capterra", type: "review_site" },
-    { name: "TrustRadius", type: "review_site" },
-    { name: "Trustpilot", type: "review_site" },
-    { name: "Product Hunt", type: "review_site" },
-    { name: "LinkedIn", type: "social" },
-    { name: "Twitter", type: "social" },
-    { name: "Crunchbase", type: "industry_report" },
-    { name: "Gartner", type: "industry_report" },
-    { name: "Forrester", type: "industry_report" },
-    { name: "Wikipedia", type: "official" },
-  ];
-
-  for (const platform of knownPlatforms) {
-    if (response.toLowerCase().includes(platform.name.toLowerCase())) {
-      if (!citations.find(c => c.source === platform.name)) {
-        citations.push({ source: platform.name, type: platform.type });
-      }
-    }
-  }
-
-  return citations;
 }
 
 export async function POST(req: NextRequest) {
@@ -288,33 +235,13 @@ export async function POST(req: NextRequest) {
     const organicChatgptMentions = organicMentions.filter((m) => m.aiSystem === "chatgpt");
     const organicGeminiMentions = organicMentions.filter((m) => m.aiSystem === "gemini");
 
-    const calculateScore = (mentionsList: typeof organicMentions, totalSims: number) => {
-      // No simulations = no score possible
-      if (totalSims === 0) return 0;
-
-      // CRITICAL: No mentions = 0% score. Don't calculate sentiment/position for non-existent mentions.
-      if (mentionsList.length === 0) return 0;
-
-      // Presence: what % of simulations mentioned this brand (capped at 100%)
-      const presenceScore = Math.min((mentionsList.length / totalSims) * 100, 100);
-
-      // Sentiment: only calculate if we have sentiment data from actual mentions
-      const sentiments = mentionsList.filter((m) => m.sentiment !== null).map((m) => m.sentiment!);
-      const avgSentiment = sentiments.length > 0 ? sentiments.reduce((a, b) => a + b, 0) / sentiments.length : 0;
-      const sentimentScore = ((avgSentiment + 1) / 2) * 100; // Convert -1 to 1 range to 0-100
-
-      // Position: only calculate if we have position data from actual mentions
-      const positions = mentionsList.filter((m) => m.position !== null).map((m) => m.position!);
-      const avgPosition = positions.length > 0 ? positions.reduce((a, b) => a + b, 0) / positions.length : 5;
-      const positionScore = Math.max(0, 100 - (avgPosition - 1) * 15);
-
-      // Final weighted score
-      return Math.round(presenceScore * 0.4 + sentimentScore * 0.25 + positionScore * 0.35);
-    };
-
-    const chatgptScore = calculateScore(organicChatgptMentions, organicSimulationsCount);
-    const geminiScore = calculateScore(organicGeminiMentions, organicSimulationsCount);
-    const perplexityScore = calculateScore(organicPerplexityMentions, organicSimulationsCount);
+    // Canonical formula (src/lib/scoring.ts) — was previously a divergent
+    // linear position penalty here that disagreed with the dashboard's log2
+    // decay formula, so report PDFs could show a different score than the
+    // live dashboard for the same brand at the same moment.
+    const chatgptScore = calculateScoreFromMentions(organicChatgptMentions, organicSimulationsCount);
+    const geminiScore = calculateScoreFromMentions(organicGeminiMentions, organicSimulationsCount);
+    const perplexityScore = calculateScoreFromMentions(organicPerplexityMentions, organicSimulationsCount);
 
     // Calculate overall score (average of active engines)
     const activeScores = [chatgptScore, geminiScore, perplexityScore].filter(s => s > 0);
@@ -366,18 +293,14 @@ export async function POST(req: NextRequest) {
     // Calculate score components breakdown (using organic data)
     // Each simulation tests 3 AI engines (ChatGPT, Gemini, Perplexity)
     const AI_ENGINE_COUNT = 3;
-    const presenceScoreComponent = organicSimulationsCount > 0
-      ? Math.min((organicMentions.length / (organicSimulationsCount * AI_ENGINE_COUNT)) * 100, 100)
-      : 0;
-    const sentimentScoreComponent = ((avgSentiment + 1) / 2) * 100;
+    const presenceScoreComponent = calculatePresenceScore(organicMentions.length, organicSimulationsCount * AI_ENGINE_COUNT);
+    const sentimentScoreComponent = calculateSentimentScore(avgSentiment);
     const allPositions = organicMentions.filter((m) => m.position !== null).map((m) => m.position!);
     // Use null for position when no data, then use neutral score (50) instead of artificial penalty
     const avgOverallPosition = allPositions.length > 0
       ? allPositions.reduce((a, b) => a + b, 0) / allPositions.length
       : null;
-    const positionScoreComponent = avgOverallPosition !== null
-      ? Math.max(0, 100 - (avgOverallPosition - 1) * 15)
-      : 50; // Neutral position score when no data available
+    const positionScoreComponent = calculatePositionScore(avgOverallPosition);
 
     // Get unique prompts used (organic only, excluding biased)
     const uniqueOrganicPrompts = [...new Set(organicMentions.map(m => m.prompt))];
@@ -529,25 +452,43 @@ export async function POST(req: NextRequest) {
       day: "numeric",
     });
 
-    // Determine final scores: Use AI-generated scores if available, otherwise use calculated scores
-    // AI scores are more accurate as they come from comprehensive analysis
+    // Trust model (matches api/visibility/route.ts): once real organic
+    // simulations exist, measured data is authoritative and is never
+    // overridden by the LLM's one-shot analysis guess. The AI estimate is
+    // only used, explicitly flagged, when there is no measured data at all.
     const hasAIScores = fullAnalysisData?.scores?.overall !== undefined;
-    const finalVisibilityScore = hasAIScores
-      ? fullAnalysisData!.scores!.overall
-      : overallScore;
+    const hasMeasuredData = organicSimulationsCount > 0;
+    const dataSource: "measured" | "ai_estimate" | "none" = hasMeasuredData
+      ? "measured"
+      : hasAIScores
+        ? "ai_estimate"
+        : "none";
 
-    // For platform scores, we use calculated scores as AI doesn't provide per-platform breakdown
-    // But if we have no mentions, use a proportional estimate based on overall AI score
-    const finalChatgptScore = chatgptScore > 0 ? chatgptScore : (hasAIScores ? Math.round(fullAnalysisData!.scores!.overall * 0.95) : 0);
-    const finalGeminiScore = geminiScore > 0 ? geminiScore : (hasAIScores ? Math.round(fullAnalysisData!.scores!.overall * 0.90) : 0);
-    const finalPerplexityScore = perplexityScore > 0 ? perplexityScore : (hasAIScores ? Math.round(fullAnalysisData!.scores!.overall * 0.85) : 0);
+    const finalVisibilityScore = hasMeasuredData
+      ? overallScore
+      : (hasAIScores ? fullAnalysisData!.scores!.overall : 0);
 
-    // Use AI sentiment score if available
-    const finalSentimentAvg = fullAnalysisData?.sentimentAnalysis?.brandSentiment?.score !== undefined
-      ? Math.round(fullAnalysisData.sentimentAnalysis.brandSentiment.score * 100)
-      : Math.round(avgSentiment * 100);
+    // Per-platform scores are only ever real measurement — a real zero is a
+    // legitimate result, never replaced with a fraction of the AI's overall guess.
+    const finalChatgptScore = hasMeasuredData ? chatgptScore : 0;
+    const finalGeminiScore = hasMeasuredData ? geminiScore : 0;
+    const finalPerplexityScore = hasMeasuredData ? perplexityScore : 0;
 
-    console.log(`Report scores - AI available: ${hasAIScores}, Final: ${finalVisibilityScore}, Calculated: ${overallScore}`);
+    const finalSentimentAvg = hasMeasuredData
+      ? Math.round(avgSentiment * 100)
+      : (fullAnalysisData?.sentimentAnalysis?.brandSentiment?.score !== undefined
+          ? Math.round(fullAnalysisData.sentimentAnalysis.brandSentiment.score * 100)
+          : 0);
+
+    const aiEstimate = !hasMeasuredData && fullAnalysisData?.aiVisibility
+      ? {
+          mentionFrequency: fullAnalysisData.aiVisibility.mentionFrequency ?? null,
+          typicalPosition: fullAnalysisData.aiVisibility.typicalPosition ?? null,
+          recommendationLikelihood: fullAnalysisData.aiVisibility.recommendationLikelihood ?? null,
+        }
+      : null;
+
+    console.log(`Report scores - dataSource: ${dataSource}, Final: ${finalVisibilityScore}, Calculated: ${overallScore}`);
 
     // Build report data with all available information
     const reportData = {
@@ -576,23 +517,25 @@ export async function POST(req: NextRequest) {
         organicSimulationsRun: organicSimulationsCount,
         sentiment: {
           average: finalSentimentAvg,
-          positive: positiveMentions > 0 ? positiveMentions : (hasAIScores && fullAnalysisData?.sentimentAnalysis?.brandSentiment?.score && fullAnalysisData.sentimentAnalysis.brandSentiment.score > 0 ? 1 : 0),
-          neutral: neutralMentions > 0 ? neutralMentions : (hasAIScores ? 1 : 0),
+          positive: positiveMentions,
+          neutral: neutralMentions,
           negative: negativeMentions,
         },
         position: {
-          chatgptAvg: avgChatgptPosition ? Number(avgChatgptPosition.toFixed(1)) : (fullAnalysisData?.aiVisibility?.typicalPosition || null),
-          geminiAvg: avgGeminiPosition ? Number(avgGeminiPosition.toFixed(1)) : (fullAnalysisData?.aiVisibility?.typicalPosition || null),
-          perplexityAvg: avgPerplexityPosition ? Number(avgPerplexityPosition.toFixed(1)) : (fullAnalysisData?.aiVisibility?.typicalPosition || null),
-          overallAvg: avgOverallPosition ? Number(avgOverallPosition.toFixed(1)) : (fullAnalysisData?.aiVisibility?.typicalPosition || null),
+          chatgptAvg: avgChatgptPosition ? Number(avgChatgptPosition.toFixed(1)) : null,
+          geminiAvg: avgGeminiPosition ? Number(avgGeminiPosition.toFixed(1)) : null,
+          perplexityAvg: avgPerplexityPosition ? Number(avgPerplexityPosition.toFixed(1)) : null,
+          overallAvg: avgOverallPosition ? Number(avgOverallPosition.toFixed(1)) : null,
           distribution: positionDistribution,
         },
         scoreBreakdown: {
-          presence: presenceScoreComponent > 0 ? Math.round(presenceScoreComponent) : (hasAIScores ? fullAnalysisData!.scores!.contentVisibility || 50 : 0),
-          sentiment: sentimentScoreComponent > 0 ? Math.round(sentimentScoreComponent) : (hasAIScores ? fullAnalysisData!.scores!.sentimentScore || 50 : 0),
-          position: positionScoreComponent > 0 ? Math.round(positionScoreComponent) : (hasAIScores ? fullAnalysisData!.scores!.marketPosition || 50 : 0),
+          presence: Math.round(presenceScoreComponent),
+          sentiment: Math.round(sentimentScoreComponent),
+          position: Math.round(positionScoreComponent),
           weights: { presence: 40, sentiment: 25, position: 35 },
         },
+        dataSource,
+        aiEstimate,
         mentionRate: organicSimulationsCount > 0
           ? Math.round((organicMentions.length / (organicSimulationsCount * 2)) * 100)
           : 0,
@@ -693,14 +636,12 @@ export async function POST(req: NextRequest) {
       // Timestamp of when analysis was run
       analysisTimestamp: (latestAnalysisCache?.completedAt || latestSnapshot?.createdAt)?.toISOString() || null,
       // =============================================
-      // ANALYSIS PROMPTS USED - Dynamic prompts based on brand scale
+      // ANALYSIS PROMPTS USED - Fixed set of 60 prompts, every brand
       // =============================================
       analysisPrompts: (() => {
-        const mappedCompetitors = brand.competitors.map(c => ({ id: c.id, name: c.name, domain: c.domain || undefined }));
-        const brandScale = determineBrandScale(mappedCompetitors, brand.domain || undefined, overallScore);
         const industryContext = getIndustryContext(brand.domain || "");
         const competitorNames = brand.competitors.map(c => c.name);
-        const prompts = generateBrandPrompts(brand.name, industryContext, competitorNames, brandScale);
+        const prompts = generateBrandPrompts(brand.name, industryContext, competitorNames);
         return prompts.map(p => ({
           id: p.id,
           category: p.category,
@@ -713,73 +654,86 @@ export async function POST(req: NextRequest) {
       // =============================================
       citationOpportunities: (() => {
         const industryContext = getIndustryContext(brand.domain || "");
+        // We only actually know a source is present when we've detected it
+        // cited in a real AI response (allCitations, extracted above) — we
+        // don't crawl G2/Trustpilot/etc., so we can't verify "missing" for
+        // everything else. "not_detected" means exactly that: not seen in
+        // the responses we analyzed, not a verified absence.
+        const detectedSources = new Set(allCitations.map((c) => c.source.toLowerCase()));
+        const detectionStatus = (sourceName: string) => {
+          const normalized = sourceName.toLowerCase();
+          const isDetected = Array.from(detectedSources).some(
+            (detected) => detected.includes(normalized.split("/")[0].trim()) || normalized.includes(detected)
+          );
+          return isDetected ? "detected" : "not_detected";
+        };
         // Comprehensive citation sources - categorized by priority and type
         // AI systems cite these sources most frequently
         return [
           // ============ HIGH PRIORITY - Core AI Citation Sources ============
           // Wikipedia is #1 source for AI training data
-          { source: "Wikipedia", type: "directory", category: "Encyclopedia", status: "missing", priority: "high", effort: "high", url: "https://wikipedia.org", aiRecommendation: `Create a Wikipedia article for ${brand.name} - Wikipedia is the #1 cited source in AI responses. Ensure notability guidelines are met.` },
-          { source: "Google Business Profile", type: "directory", category: "Local Directory", status: "missing", priority: "high", effort: "low", url: "https://business.google.com", aiRecommendation: `Claim and optimize your Google Business Profile. AI assistants heavily reference Google data for local/business info.` },
-          { source: "LinkedIn Company", type: "social", category: "Professional Network", status: "missing", priority: "high", effort: "low", url: "https://linkedin.com/company", aiRecommendation: `Complete your LinkedIn company page with detailed info, employee count, and regular updates.` },
-          { source: "Crunchbase", type: "directory", category: "Business Database", status: "missing", priority: "high", effort: "low", url: "https://crunchbase.com", aiRecommendation: `Complete Crunchbase profile with funding history, team, and company details - major AI data source.` },
+          { source: "Wikipedia", type: "directory", category: "Encyclopedia", priority: "high", effort: "high", url: "https://wikipedia.org", aiRecommendation: `Create a Wikipedia article for ${brand.name} - Wikipedia is the #1 cited source in AI responses. Ensure notability guidelines are met.` },
+          { source: "Google Business Profile", type: "directory", category: "Local Directory", priority: "high", effort: "low", url: "https://business.google.com", aiRecommendation: `Claim and optimize your Google Business Profile. AI assistants heavily reference Google data for local/business info.` },
+          { source: "LinkedIn Company", type: "social", category: "Professional Network", priority: "high", effort: "low", url: "https://linkedin.com/company", aiRecommendation: `Complete your LinkedIn company page with detailed info, employee count, and regular updates.` },
+          { source: "Crunchbase", type: "directory", category: "Business Database", priority: "high", effort: "low", url: "https://crunchbase.com", aiRecommendation: `Complete Crunchbase profile with funding history, team, and company details - major AI data source.` },
 
           // ============ HIGH PRIORITY - Review Platforms ============
-          { source: "G2", type: "review_site", category: "Review Platform", status: "missing", priority: "high", effort: "medium", url: "https://g2.com", aiRecommendation: `Create or claim ${brand.name} profile on G2. AI heavily cites G2 reviews when recommending software.` },
-          { source: "Capterra", type: "review_site", category: "Review Platform", status: "missing", priority: "high", effort: "medium", url: "https://capterra.com", aiRecommendation: `List ${brand.name} on Capterra with detailed features. Capterra is a primary B2B software citation source.` },
-          { source: "Trustpilot", type: "review_site", category: "Review Platform", status: "missing", priority: "high", effort: "low", url: "https://trustpilot.com", aiRecommendation: `Claim Trustpilot profile and actively collect reviews. Trust scores influence AI recommendations.` },
-          { source: "TrustRadius", type: "review_site", category: "Review Platform", status: "missing", priority: "high", effort: "medium", url: "https://trustradius.com", aiRecommendation: `Get verified reviews on TrustRadius - AI uses this for enterprise software recommendations.` },
-          { source: "Software Advice", type: "review_site", category: "Review Platform", status: "missing", priority: "high", effort: "medium", url: "https://softwareadvice.com", aiRecommendation: `List on Software Advice for visibility in Gartner's recommendation network.` },
+          { source: "G2", type: "review_site", category: "Review Platform", priority: "high", effort: "medium", url: "https://g2.com", aiRecommendation: `Create or claim ${brand.name} profile on G2. AI heavily cites G2 reviews when recommending software.` },
+          { source: "Capterra", type: "review_site", category: "Review Platform", priority: "high", effort: "medium", url: "https://capterra.com", aiRecommendation: `List ${brand.name} on Capterra with detailed features. Capterra is a primary B2B software citation source.` },
+          { source: "Trustpilot", type: "review_site", category: "Review Platform", priority: "high", effort: "low", url: "https://trustpilot.com", aiRecommendation: `Claim Trustpilot profile and actively collect reviews. Trust scores influence AI recommendations.` },
+          { source: "TrustRadius", type: "review_site", category: "Review Platform", priority: "high", effort: "medium", url: "https://trustradius.com", aiRecommendation: `Get verified reviews on TrustRadius - AI uses this for enterprise software recommendations.` },
+          { source: "Software Advice", type: "review_site", category: "Review Platform", priority: "high", effort: "medium", url: "https://softwareadvice.com", aiRecommendation: `List on Software Advice for visibility in Gartner's recommendation network.` },
 
           // ============ HIGH PRIORITY - News & Authority ============
-          { source: "TechCrunch", type: "news", category: "Tech News", status: "missing", priority: "high", effort: "high", url: "https://techcrunch.com", aiRecommendation: `Pitch newsworthy stories to TechCrunch. Tech news citations heavily influence AI responses about startups.` },
-          { source: "Forbes", type: "news", category: "Business News", status: "missing", priority: "high", effort: "high", url: "https://forbes.com", aiRecommendation: `Submit to Forbes Councils or pitch to Forbes journalists. Forbes is a top-tier authority citation.` },
-          { source: "Business Insider", type: "news", category: "Business News", status: "missing", priority: "high", effort: "high", url: "https://businessinsider.com", aiRecommendation: `Target Business Insider for company profiles and industry analysis mentions.` },
+          { source: "TechCrunch", type: "news", category: "Tech News", priority: "high", effort: "high", url: "https://techcrunch.com", aiRecommendation: `Pitch newsworthy stories to TechCrunch. Tech news citations heavily influence AI responses about startups.` },
+          { source: "Forbes", type: "news", category: "Business News", priority: "high", effort: "high", url: "https://forbes.com", aiRecommendation: `Submit to Forbes Councils or pitch to Forbes journalists. Forbes is a top-tier authority citation.` },
+          { source: "Business Insider", type: "news", category: "Business News", priority: "high", effort: "high", url: "https://businessinsider.com", aiRecommendation: `Target Business Insider for company profiles and industry analysis mentions.` },
 
           // ============ HIGH PRIORITY - Q&A & Community ============
-          { source: "Reddit", type: "social", category: "Social Community", status: "missing", priority: "high", effort: "medium", url: "https://reddit.com", aiRecommendation: `Build authentic presence in relevant subreddits. Reddit discussions are heavily cited by AI for opinions.` },
-          { source: "Quora", type: "social", category: "Q&A Platform", status: "missing", priority: "high", effort: "low", url: "https://quora.com", aiRecommendation: `Answer questions about ${industryContext}. Quora answers frequently appear in AI responses.` },
-          { source: "Stack Overflow", type: "social", category: "Tech Q&A", status: "missing", priority: "high", effort: "medium", url: "https://stackoverflow.com", aiRecommendation: `Contribute to Stack Overflow discussions if ${brand.name} has technical aspects. Top cited for dev tools.` },
+          { source: "Reddit", type: "social", category: "Social Community", priority: "high", effort: "medium", url: "https://reddit.com", aiRecommendation: `Build authentic presence in relevant subreddits. Reddit discussions are heavily cited by AI for opinions.` },
+          { source: "Quora", type: "social", category: "Q&A Platform", priority: "high", effort: "low", url: "https://quora.com", aiRecommendation: `Answer questions about ${industryContext}. Quora answers frequently appear in AI responses.` },
+          { source: "Stack Overflow", type: "social", category: "Tech Q&A", priority: "high", effort: "medium", url: "https://stackoverflow.com", aiRecommendation: `Contribute to Stack Overflow discussions if ${brand.name} has technical aspects. Top cited for dev tools.` },
 
           // ============ MEDIUM PRIORITY - Product Discovery ============
-          { source: "Product Hunt", type: "content", category: "Product Discovery", status: "missing", priority: "medium", effort: "medium", url: "https://producthunt.com", aiRecommendation: `Launch on Product Hunt - AI cites PH for new products and startup recommendations.` },
-          { source: "AlternativeTo", type: "directory", category: "Software Directory", status: "missing", priority: "medium", effort: "low", url: "https://alternativeto.net", aiRecommendation: `List ${brand.name} as an alternative to competitors. AI uses AlternativeTo for software comparisons.` },
-          { source: "SaaSHub", type: "directory", category: "SaaS Directory", status: "missing", priority: "medium", effort: "low", url: "https://saashub.com", aiRecommendation: `Add ${brand.name} to SaaSHub for improved SaaS category visibility.` },
-          { source: "GetApp", type: "review_site", category: "Review Platform", status: "missing", priority: "medium", effort: "medium", url: "https://getapp.com", aiRecommendation: `List on GetApp (Gartner network) for additional review platform coverage.` },
+          { source: "Product Hunt", type: "content", category: "Product Discovery", priority: "medium", effort: "medium", url: "https://producthunt.com", aiRecommendation: `Launch on Product Hunt - AI cites PH for new products and startup recommendations.` },
+          { source: "AlternativeTo", type: "directory", category: "Software Directory", priority: "medium", effort: "low", url: "https://alternativeto.net", aiRecommendation: `List ${brand.name} as an alternative to competitors. AI uses AlternativeTo for software comparisons.` },
+          { source: "SaaSHub", type: "directory", category: "SaaS Directory", priority: "medium", effort: "low", url: "https://saashub.com", aiRecommendation: `Add ${brand.name} to SaaSHub for improved SaaS category visibility.` },
+          { source: "GetApp", type: "review_site", category: "Review Platform", priority: "medium", effort: "medium", url: "https://getapp.com", aiRecommendation: `List on GetApp (Gartner network) for additional review platform coverage.` },
 
           // ============ MEDIUM PRIORITY - Video & Content ============
-          { source: "YouTube", type: "content", category: "Video Platform", status: "missing", priority: "medium", effort: "high", url: "https://youtube.com", aiRecommendation: `Create educational content. YouTube videos are cited for tutorials and product explanations.` },
-          { source: "Medium", type: "content", category: "Blog Platform", status: "missing", priority: "medium", effort: "low", url: "https://medium.com", aiRecommendation: `Publish thought leadership articles. Medium posts with high engagement get cited by AI.` },
-          { source: "Dev.to", type: "content", category: "Developer Blog", status: "missing", priority: "medium", effort: "low", url: "https://dev.to", aiRecommendation: `Post technical content on Dev.to if ${brand.name} targets developers.` },
-          { source: "Substack", type: "content", category: "Newsletter", status: "missing", priority: "medium", effort: "medium", url: "https://substack.com", aiRecommendation: `Start a Substack newsletter on ${industryContext} topics for thought leadership citations.` },
+          { source: "YouTube", type: "content", category: "Video Platform", priority: "medium", effort: "high", url: "https://youtube.com", aiRecommendation: `Create educational content. YouTube videos are cited for tutorials and product explanations.` },
+          { source: "Medium", type: "content", category: "Blog Platform", priority: "medium", effort: "low", url: "https://medium.com", aiRecommendation: `Publish thought leadership articles. Medium posts with high engagement get cited by AI.` },
+          { source: "Dev.to", type: "content", category: "Developer Blog", priority: "medium", effort: "low", url: "https://dev.to", aiRecommendation: `Post technical content on Dev.to if ${brand.name} targets developers.` },
+          { source: "Substack", type: "content", category: "Newsletter", priority: "medium", effort: "medium", url: "https://substack.com", aiRecommendation: `Start a Substack newsletter on ${industryContext} topics for thought leadership citations.` },
 
           // ============ MEDIUM PRIORITY - Social & Professional ============
-          { source: "Twitter/X", type: "social", category: "Social Media", status: "missing", priority: "medium", effort: "low", url: "https://twitter.com", aiRecommendation: `Share ${industryContext} insights. Viral Twitter threads get cited in AI responses.` },
-          { source: "GitHub", type: "social", category: "Developer Platform", status: "missing", priority: "medium", effort: "medium", url: "https://github.com", aiRecommendation: `Maintain active GitHub presence if ${brand.name} has open-source components.` },
-          { source: "AngelList/Wellfound", type: "directory", category: "Startup Directory", status: "missing", priority: "medium", effort: "low", url: "https://wellfound.com", aiRecommendation: `Complete Wellfound profile for startup ecosystem visibility.` },
-          { source: "Glassdoor", type: "review_site", category: "Employer Review", status: "missing", priority: "medium", effort: "low", url: "https://glassdoor.com", aiRecommendation: `Claim Glassdoor profile - AI cites company culture and employer info from here.` },
+          { source: "Twitter/X", type: "social", category: "Social Media", priority: "medium", effort: "low", url: "https://twitter.com", aiRecommendation: `Share ${industryContext} insights. Viral Twitter threads get cited in AI responses.` },
+          { source: "GitHub", type: "social", category: "Developer Platform", priority: "medium", effort: "medium", url: "https://github.com", aiRecommendation: `Maintain active GitHub presence if ${brand.name} has open-source components.` },
+          { source: "AngelList/Wellfound", type: "directory", category: "Startup Directory", priority: "medium", effort: "low", url: "https://wellfound.com", aiRecommendation: `Complete Wellfound profile for startup ecosystem visibility.` },
+          { source: "Glassdoor", type: "review_site", category: "Employer Review", priority: "medium", effort: "low", url: "https://glassdoor.com", aiRecommendation: `Claim Glassdoor profile - AI cites company culture and employer info from here.` },
 
           // ============ MEDIUM PRIORITY - Industry & Analyst ============
-          { source: "Gartner", type: "industry_report", category: "Analyst Report", status: "missing", priority: "medium", effort: "high", url: "https://gartner.com", aiRecommendation: `Get listed in Gartner Magic Quadrants or Market Guides for your category.` },
-          { source: "Forrester", type: "industry_report", category: "Analyst Report", status: "missing", priority: "medium", effort: "high", url: "https://forrester.com", aiRecommendation: `Seek inclusion in Forrester Wave reports for enterprise credibility.` },
-          { source: "CB Insights", type: "industry_report", category: "Research Platform", status: "missing", priority: "medium", effort: "medium", url: "https://cbinsights.com", aiRecommendation: `Get featured in CB Insights research and trend reports.` },
-          { source: "HackerNews", type: "social", category: "Tech Community", status: "missing", priority: "medium", effort: "medium", url: "https://news.ycombinator.com", aiRecommendation: `Share on HN - high-engagement posts become AI training data.` },
+          { source: "Gartner", type: "industry_report", category: "Analyst Report", priority: "medium", effort: "high", url: "https://gartner.com", aiRecommendation: `Get listed in Gartner Magic Quadrants or Market Guides for your category.` },
+          { source: "Forrester", type: "industry_report", category: "Analyst Report", priority: "medium", effort: "high", url: "https://forrester.com", aiRecommendation: `Seek inclusion in Forrester Wave reports for enterprise credibility.` },
+          { source: "CB Insights", type: "industry_report", category: "Research Platform", priority: "medium", effort: "medium", url: "https://cbinsights.com", aiRecommendation: `Get featured in CB Insights research and trend reports.` },
+          { source: "HackerNews", type: "social", category: "Tech Community", priority: "medium", effort: "medium", url: "https://news.ycombinator.com", aiRecommendation: `Share on HN - high-engagement posts become AI training data.` },
 
           // ============ INDUSTRY-SPECIFIC & NICHE ============
-          { source: "Industry Publications", type: "industry_report", category: "Trade Publications", status: "missing", priority: "medium", effort: "medium", url: "", aiRecommendation: `Get featured in ${industryContext} trade publications and industry blogs.` },
-          { source: "Podcast Appearances", type: "content", category: "Audio Content", status: "missing", priority: "medium", effort: "medium", url: "", aiRecommendation: `Appear on ${industryContext} podcasts - transcripts become citeable content.` },
-          { source: "Industry Conferences", type: "content", category: "Events", status: "missing", priority: "medium", effort: "high", url: "", aiRecommendation: `Speak at ${industryContext} conferences - talks get indexed and cited.` },
+          { source: "Industry Publications", type: "industry_report", category: "Trade Publications", priority: "medium", effort: "medium", url: "", aiRecommendation: `Get featured in ${industryContext} trade publications and industry blogs.` },
+          { source: "Podcast Appearances", type: "content", category: "Audio Content", priority: "medium", effort: "medium", url: "", aiRecommendation: `Appear on ${industryContext} podcasts - transcripts become citeable content.` },
+          { source: "Industry Conferences", type: "content", category: "Events", priority: "medium", effort: "high", url: "", aiRecommendation: `Speak at ${industryContext} conferences - talks get indexed and cited.` },
 
           // ============ LOWER PRIORITY - Additional Coverage ============
-          { source: "Bloomberg", type: "news", category: "Financial News", status: "missing", priority: "low", effort: "high", url: "https://bloomberg.com", aiRecommendation: `Pursue Bloomberg coverage for financial and enterprise credibility.` },
-          { source: "The Verge", type: "news", category: "Tech News", status: "missing", priority: "low", effort: "high", url: "https://theverge.com", aiRecommendation: `Pitch consumer tech angles to The Verge for mainstream tech coverage.` },
-          { source: "Wired", type: "news", category: "Tech News", status: "missing", priority: "low", effort: "high", url: "https://wired.com", aiRecommendation: `Target Wired for in-depth technology stories and trend pieces.` },
-          { source: "VentureBeat", type: "news", category: "Tech News", status: "missing", priority: "low", effort: "medium", url: "https://venturebeat.com", aiRecommendation: `Pitch to VentureBeat for AI/ML and enterprise tech coverage.` },
-          { source: "Hacker Noon", type: "content", category: "Tech Blog", status: "missing", priority: "low", effort: "low", url: "https://hackernoon.com", aiRecommendation: `Publish technical content on Hacker Noon for developer community reach.` },
-          { source: "Facebook/Meta", type: "social", category: "Social Media", status: "missing", priority: "low", effort: "low", url: "https://facebook.com", aiRecommendation: `Maintain active Facebook business page for social signal coverage.` },
-          { source: "Instagram", type: "social", category: "Social Media", status: "missing", priority: "low", effort: "medium", url: "https://instagram.com", aiRecommendation: `Use Instagram for visual brand presence if applicable to ${industryContext}.` },
-          { source: "Yelp", type: "review_site", category: "Local Review", status: "missing", priority: "low", effort: "low", url: "https://yelp.com", aiRecommendation: `Claim Yelp listing if ${brand.name} has local/physical presence.` },
-          { source: "Better Business Bureau", type: "directory", category: "Trust Directory", status: "missing", priority: "low", effort: "low", url: "https://bbb.org", aiRecommendation: `Get BBB accreditation for trust signals in AI recommendations.` },
-        ];
+          { source: "Bloomberg", type: "news", category: "Financial News", priority: "low", effort: "high", url: "https://bloomberg.com", aiRecommendation: `Pursue Bloomberg coverage for financial and enterprise credibility.` },
+          { source: "The Verge", type: "news", category: "Tech News", priority: "low", effort: "high", url: "https://theverge.com", aiRecommendation: `Pitch consumer tech angles to The Verge for mainstream tech coverage.` },
+          { source: "Wired", type: "news", category: "Tech News", priority: "low", effort: "high", url: "https://wired.com", aiRecommendation: `Target Wired for in-depth technology stories and trend pieces.` },
+          { source: "VentureBeat", type: "news", category: "Tech News", priority: "low", effort: "medium", url: "https://venturebeat.com", aiRecommendation: `Pitch to VentureBeat for AI/ML and enterprise tech coverage.` },
+          { source: "Hacker Noon", type: "content", category: "Tech Blog", priority: "low", effort: "low", url: "https://hackernoon.com", aiRecommendation: `Publish technical content on Hacker Noon for developer community reach.` },
+          { source: "Facebook/Meta", type: "social", category: "Social Media", priority: "low", effort: "low", url: "https://facebook.com", aiRecommendation: `Maintain active Facebook business page for social signal coverage.` },
+          { source: "Instagram", type: "social", category: "Social Media", priority: "low", effort: "medium", url: "https://instagram.com", aiRecommendation: `Use Instagram for visual brand presence if applicable to ${industryContext}.` },
+          { source: "Yelp", type: "review_site", category: "Local Review", priority: "low", effort: "low", url: "https://yelp.com", aiRecommendation: `Claim Yelp listing if ${brand.name} has local/physical presence.` },
+          { source: "Better Business Bureau", type: "directory", category: "Trust Directory", priority: "low", effort: "low", url: "https://bbb.org", aiRecommendation: `Get BBB accreditation for trust signals in AI recommendations.` },
+        ].map((entry) => ({ ...entry, status: detectionStatus(entry.source) }));
       })(),
       // =============================================
       // Improvement plan summary

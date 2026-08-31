@@ -136,21 +136,49 @@ Please provide a helpful response, mentioning ${brand.name} by name if relevant.
           },
         });
 
-        await prisma.mention.create({
-          data: {
-            brandId: brand.id,
-            simulationId: simulation.id,
-            aiSystem: "gemini",
-            prompt,
-            response: response.slice(0, 2000),
-            context: wasMentioned
-              ? brandMentions[0].context
-              : `Brand "${brand.name}" was NOT mentioned`,
-            sentiment,
-            position: wasMentioned ? position : null,
-            isCompetitor: false,
-          },
-        });
+        // Only persist a Mention row when the brand was actually found — a
+        // row is used downstream as the numerator for presence (mentions /
+        // simulations); a "not mentioned" placeholder row would inflate it.
+        if (wasMentioned) {
+          await prisma.mention.create({
+            data: {
+              brandId: brand.id,
+              simulationId: simulation.id,
+              aiSystem: "gemini",
+              prompt,
+              response: response.slice(0, 2000),
+              context: brandMentions[0].context,
+              sentiment,
+              position,
+              isCompetitor: false,
+            },
+          });
+        }
+
+        // Persist competitor mentions detected in this response — previously
+        // computed then discarded, same as the fix in api/simulate/route.ts.
+        if (brand.competitors && brand.competitors.length > 0) {
+          const mentionedCompetitorNames = new Set(
+            mentions.filter((m) => m.isCompetitor && m.competitorName).map((m) => m.competitorName!)
+          );
+          for (const competitorName of mentionedCompetitorNames) {
+            const entries = mentions.filter((m) => m.competitorName === competitorName);
+            await prisma.mention.create({
+              data: {
+                brandId: brand.id,
+                simulationId: simulation.id,
+                aiSystem: "gemini",
+                prompt,
+                response: response.slice(0, 2000),
+                context: entries[0].context,
+                sentiment: analyzeSentiment(response, competitorName),
+                position: detectPosition(response, competitorName),
+                isCompetitor: true,
+                competitorName,
+              },
+            });
+          }
+        }
 
         totalMentions += wasMentioned ? 1 : 0;
         totalSentiment += sentiment;

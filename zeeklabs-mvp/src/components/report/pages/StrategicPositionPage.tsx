@@ -263,10 +263,13 @@ export function StrategicPositionPage({ meta, strategicPosition }: StrategicPosi
             letterSpacing: '0.5px',
             marginBottom: '8px'
           }}>
-            Recommendation Likelihood
+            AI Recommendation Signal
           </div>
           <div style={{ fontSize: '28px', fontWeight: 900, color: '#1d4ed8' }}>
             {strategicPosition.recommendationLikelihood}
+          </div>
+          <div style={{ fontSize: '10px', color: '#64748b', marginTop: '6px' }}>
+            AI estimate, not a measured probability
           </div>
         </div>
       </div>

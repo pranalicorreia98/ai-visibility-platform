@@ -1,8 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   CheckCircle2,
   XCircle,
@@ -12,24 +16,30 @@ import {
   Globe,
   Star,
   Users,
-  MessageSquare,
-  MapPin,
-  TrendingUp,
-  Shield,
-  Target,
+  Info,
+  Pencil,
 } from "lucide-react";
+import { useBrand } from "@/contexts/brand-context";
 
-// Backreference platforms data
-const PLATFORMS = [
+// Real, legitimate platforms worth tracking — but we don't crawl them, so we
+// carry no status/rating data here. Status only comes from the user's own
+// self-report (BackreferenceStatus) or from citations actually detected in
+// AI responses (below).
+const SUGGESTED_PLATFORMS: Array<{
+  tier: string;
+  icon: typeof Globe;
+  description: string;
+  platforms: Array<{ name: string; url: string; priority: "high" | "medium" | "low" }>;
+}> = [
   {
     tier: "Entity Foundation",
     icon: Globe,
     description: "Core platforms that establish your digital identity",
     platforms: [
-      { name: "Google Business Profile", status: "present", details: "Claimed, 4.2★ (12 reviews)", url: "https://business.google.com", priority: "high" },
-      { name: "LinkedIn Company Page", status: "present", details: "Complete, 500 followers", url: "https://linkedin.com", priority: "high" },
-      { name: "Crunchbase", status: "missing", details: "NOT FOUND", url: "https://crunchbase.com/add-new", priority: "high" },
-      { name: "Wikipedia", status: "missing", details: "NOT FOUND", url: "https://wikipedia.org", priority: "low" },
+      { name: "Google Business Profile", url: "https://business.google.com", priority: "high" },
+      { name: "LinkedIn Company Page", url: "https://linkedin.com", priority: "high" },
+      { name: "Crunchbase", url: "https://crunchbase.com/add-new", priority: "high" },
+      { name: "Wikipedia", url: "https://wikipedia.org", priority: "low" },
     ],
   },
   {
@@ -37,10 +47,10 @@ const PLATFORMS = [
     icon: Star,
     description: "Where customers share their experiences",
     platforms: [
-      { name: "G2", status: "missing", details: "NOT FOUND", url: "https://g2.com/products/new", priority: "high", competitorGap: "Competitors have 2500+ reviews" },
-      { name: "Capterra", status: "missing", details: "NOT FOUND", url: "https://capterra.com", priority: "high" },
-      { name: "Trustpilot", status: "present", details: "3.8★ (28 reviews)", url: "https://trustpilot.com", priority: "medium" },
-      { name: "TrustRadius", status: "missing", details: "NOT FOUND", url: "https://trustradius.com", priority: "medium" },
+      { name: "G2", url: "https://g2.com/products/new", priority: "high" },
+      { name: "Capterra", url: "https://capterra.com", priority: "high" },
+      { name: "Trustpilot", url: "https://trustpilot.com", priority: "medium" },
+      { name: "TrustRadius", url: "https://trustradius.com", priority: "medium" },
     ],
   },
   {
@@ -48,71 +58,118 @@ const PLATFORMS = [
     icon: Users,
     description: "Build presence in discussion communities",
     platforms: [
-      { name: "Reddit", status: "missing", details: "No presence", url: "https://reddit.com", priority: "medium", competitorGap: "Mentioned in r/SaaS 15 times" },
-      { name: "Quora", status: "present", details: "5 answers by team", url: "https://quora.com", priority: "medium" },
-      { name: "Product Hunt", status: "missing", details: "NOT FOUND", url: "https://producthunt.com/posts/new", priority: "medium" },
-      { name: "Stack Overflow", status: "missing", details: "No presence", url: "https://stackoverflow.com", priority: "low" },
-    ],
-  },
-  {
-    tier: "India-Specific",
-    icon: MapPin,
-    description: "Regional platforms for India market",
-    platforms: [
-      { name: "YourStory", status: "missing", details: "No coverage", url: "https://yourstory.com", priority: "medium" },
-      { name: "Inc42", status: "missing", details: "No coverage", url: "https://inc42.com", priority: "medium" },
-      { name: "JustDial", status: "present", details: "Listed, verified", url: "https://justdial.com", priority: "low" },
-      { name: "IndiaMART", status: "missing", details: "NOT FOUND", url: "https://indiamart.com", priority: "low" },
+      { name: "Reddit", url: "https://reddit.com", priority: "medium" },
+      { name: "Quora", url: "https://quora.com", priority: "medium" },
+      { name: "Product Hunt", url: "https://producthunt.com/posts/new", priority: "medium" },
+      { name: "Stack Overflow", url: "https://stackoverflow.com", priority: "low" },
     ],
   },
 ];
 
+interface BackreferenceStatusRow {
+  id: string;
+  platform: string;
+  tier: string;
+  status: "present" | "missing" | "incomplete";
+  details: string | null;
+  profileUrl: string | null;
+  priority: string;
+}
+
+interface CitationWithContext {
+  source: string;
+  type: string;
+  url?: string;
+  aiSystem: string;
+  date: string;
+  prompt: string;
+}
+
 export default function BackreferencesPage() {
-  const totalPlatforms = PLATFORMS.reduce((sum, tier) => sum + tier.platforms.length, 0);
-  const presentPlatforms = PLATFORMS.reduce(
-    (sum, tier) => sum + tier.platforms.filter((p) => p.status === "present").length,
-    0
-  );
-  const missingPlatforms = totalPlatforms - presentPlatforms;
-  const presencePercent = Math.round((presentPlatforms / totalPlatforms) * 100);
-  const highPriorityMissing = PLATFORMS.reduce(
-    (sum, tier) => sum + tier.platforms.filter((p) => p.status !== "present" && p.priority === "high").length,
-    0
-  );
+  const { selectedBrand, loading } = useBrand();
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "present":
-        return <CheckCircle2 className="h-5 w-5 text-emerald-600" />;
-      case "incomplete":
-        return <AlertCircle className="h-5 w-5 text-amber-600" />;
-      default:
-        return <XCircle className="h-5 w-5 text-red-600" />;
+  const [statuses, setStatuses] = useState<BackreferenceStatusRow[]>([]);
+  const [citations, setCitations] = useState<CitationWithContext[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [editingPlatform, setEditingPlatform] = useState<string | null>(null);
+  const [draftStatus, setDraftStatus] = useState<"present" | "missing" | "incomplete">("present");
+  const [draftDetails, setDraftDetails] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!selectedBrand?.id) {
+      return;
+    }
+    let cancelled = false;
+    setDataLoading(true);
+    Promise.all([
+      fetch(`/api/backreferences?brandId=${selectedBrand.id}`).then((r) => (r.ok ? r.json() : { statuses: [] })),
+      fetch(`/api/citations?brandId=${selectedBrand.id}`).then((r) => (r.ok ? r.json() : { citations: [] })),
+    ])
+      .then(([statusData, citationData]) => {
+        if (cancelled) return;
+        setStatuses(statusData.statuses || []);
+        setCitations(citationData.citations || []);
+      })
+      .finally(() => {
+        if (!cancelled) setDataLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBrand?.id]);
+
+  const startEditing = (platform: string, existing?: BackreferenceStatusRow) => {
+    setEditingPlatform(platform);
+    setDraftStatus(existing?.status || "present");
+    setDraftDetails(existing?.details || "");
+  };
+
+  const saveStatus = async (platform: string, tier: string, priority: string) => {
+    if (!selectedBrand?.id) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/backreferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brandId: selectedBrand.id,
+          platform,
+          tier,
+          priority,
+          status: draftStatus,
+          details: draftDetails || null,
+        }),
+      });
+      if (res.ok) {
+        const { status: saved } = await res.json();
+        setStatuses((prev) => [...prev.filter((s) => s.platform !== platform), saved]);
+        setEditingPlatform(null);
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return (
-          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/30">
-            High Priority
-          </span>
-        );
-      case "medium":
-        return (
-          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 border border-amber-500/30">
-            Medium
-          </span>
-        );
-      default:
-        return (
-          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
-            Low
-          </span>
-        );
-    }
-  };
+  // Empty when no brand is selected, even if stale fetch state lingers —
+  // avoids showing a previous brand's data after switching away from it.
+  const effectiveStatuses = selectedBrand?.id ? statuses : [];
+  const effectiveCitations = selectedBrand?.id ? citations : [];
+
+  const trackedCount = effectiveStatuses.length;
+  const presentCount = effectiveStatuses.filter((s) => s.status === "present").length;
+
+  if (loading) {
+    return (
+      <div className="space-y-8 fade-in">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid gap-4 md:grid-cols-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-[100px]" />)}
+        </div>
+        <Skeleton className="h-[300px] w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 fade-in">
@@ -125,265 +182,184 @@ export default function BackreferencesPage() {
           Citation Tracker
         </h1>
         <p className="text-muted-foreground mt-2">
-          Track your presence across platforms that AI systems reference for answers
+          Real citations detected in AI responses, plus your own self-reported platform presence
         </p>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Summary Stats — built from real data only */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-border overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground font-medium">Coverage</p>
-                <p className="text-4xl font-bold mt-1 text-primary">{presencePercent}%</p>
-              </div>
-              <div className="h-14 w-14 rounded-2xl gradient-bg flex items-center justify-center">
-                <Target className="h-7 w-7 text-white" />
-              </div>
-            </div>
-            {/* Progress bar */}
-            <div className="mt-4 h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-500"
-                style={{ width: `${presencePercent}%` }}
-              />
-            </div>
+            <p className="text-sm text-muted-foreground font-medium">Citations Detected</p>
+            <p className="text-4xl font-bold mt-1 text-primary">{effectiveCitations.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">in analyzed AI responses</p>
           </CardContent>
         </Card>
-
         <Card className="border-border overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground font-medium">Present</p>
-                <p className="text-4xl font-bold mt-1 text-emerald-600">{presentPlatforms}</p>
-                <p className="text-xs text-muted-foreground mt-1">of {totalPlatforms} platforms</p>
-              </div>
-              <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-                <CheckCircle2 className="h-7 w-7 text-emerald-600" />
-              </div>
-            </div>
+            <p className="text-sm text-muted-foreground font-medium">Self-Reported Present</p>
+            <p className="text-4xl font-bold mt-1 text-emerald-600">{presentCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">of {trackedCount} platforms you&apos;ve tracked</p>
           </CardContent>
         </Card>
-
         <Card className="border-border overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground font-medium">Missing</p>
-                <p className="text-4xl font-bold mt-1 text-red-600">{missingPlatforms}</p>
-                <p className="text-xs text-muted-foreground mt-1">opportunities</p>
-              </div>
-              <div className="h-14 w-14 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center">
-                <XCircle className="h-7 w-7 text-red-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground font-medium">High Priority</p>
-                <p className="text-4xl font-bold mt-1 text-amber-600">{highPriorityMissing}</p>
-                <p className="text-xs text-muted-foreground mt-1">actions needed</p>
-              </div>
-              <div className="h-14 w-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-                <AlertCircle className="h-7 w-7 text-amber-600" />
-              </div>
-            </div>
+            <p className="text-sm text-muted-foreground font-medium">Not Yet Tracked</p>
+            <p className="text-4xl font-bold mt-1 text-muted-foreground">
+              {SUGGESTED_PLATFORMS.flatMap((t) => t.platforms).length - trackedCount}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">suggested platforms with no status set</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Platform Tiers */}
-      {PLATFORMS.map((tier) => {
-        const TierIcon = tier.icon;
-        const tierPresent = tier.platforms.filter((p) => p.status === "present").length;
-        const tierTotal = tier.platforms.length;
-
-        return (
-          <Card key={tier.tier} className="border-border">
-            <CardHeader className="border-b border-border bg-muted/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <TierIcon className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">{tier.tier}</CardTitle>
-                    <CardDescription>{tier.description}</CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-medium ${
-                    tierPresent === tierTotal ? "text-emerald-600" :
-                    tierPresent > 0 ? "text-amber-600" : "text-red-600"
-                  }`}>
-                    {tierPresent}/{tierTotal}
-                  </span>
-                  <span className="text-sm text-muted-foreground">platforms</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              {tier.platforms.map((platform) => (
-                <div
-                  key={platform.name}
-                  className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
-                    platform.status === "present"
-                      ? "bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10"
-                      : "bg-red-500/5 border-red-500/20 hover:bg-red-500/10"
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    {getStatusIcon(platform.status)}
-                    <div>
-                      <div className="font-medium">{platform.name}</div>
-                      <div className={`text-sm ${
-                        platform.status === "present" ? "text-emerald-600" : "text-muted-foreground"
-                      }`}>
-                        {platform.details}
-                      </div>
-                      {platform.competitorGap && (
-                        <div className="flex items-center gap-1.5 mt-1.5 text-xs text-amber-600">
-                          <TrendingUp className="h-3 w-3" />
-                          {platform.competitorGap}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {platform.status !== "present" && getPriorityBadge(platform.priority)}
-                    {platform.status !== "present" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl border-primary/30 text-primary hover:bg-primary/10"
-                        asChild
-                      >
-                        <a href={platform.url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Claim Now
-                        </a>
-                      </Button>
-                    )}
-                    {platform.status === "present" && (
-                      <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Active
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        );
-      })}
-
-      {/* Recommended Next Steps */}
-      <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-transparent to-accent/5">
-        <CardHeader className="border-b border-border/50">
+      {/* Real citations detected in AI responses */}
+      <Card className="border-border">
+        <CardHeader className="border-b border-border bg-muted/30">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl gradient-bg flex items-center justify-center">
-              <Shield className="h-5 w-5 text-white" />
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <CardTitle>Priority Action Plan</CardTitle>
-              <CardDescription>Complete these steps for maximum AI visibility impact</CardDescription>
+              <CardTitle>Citations Found in AI Responses</CardTitle>
+              <CardDescription>
+                Sources and URLs actually detected in the AI responses this brand&apos;s simulations collected — <Badge variant="outline" className="text-emerald-600 border-emerald-400/30 ml-1">Measured</Badge>
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="space-y-4">
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-background/50 border border-border hover:border-primary/30 transition-colors">
-              <div className="h-8 w-8 rounded-lg gradient-bg flex items-center justify-center text-white font-bold text-sm shrink-0">
-                1
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Claim G2 Profile</span>
-                  <span className="text-xs text-muted-foreground">~2 hours</span>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Highest impact on AI citations. G2 is the #1 cited software review platform.
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30 text-xs">
-                    +8-12% visibility
-                  </Badge>
-                </div>
-              </div>
-              <Button size="sm" className="rounded-xl" asChild>
-                <a href="https://g2.com/products/new" target="_blank" rel="noopener noreferrer">
-                  Start
-                </a>
-              </Button>
+          {dataLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12" />)}
             </div>
-
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-background/50 border border-border hover:border-primary/30 transition-colors">
-              <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                2
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Create Crunchbase Profile</span>
-                  <span className="text-xs text-muted-foreground">~1 hour</span>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Establishes entity recognition in AI knowledge graphs.
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30 text-xs">
-                    +4-6% visibility
-                  </Badge>
-                </div>
-              </div>
-              <Button size="sm" variant="outline" className="rounded-xl" asChild>
-                <a href="https://crunchbase.com/add-new" target="_blank" rel="noopener noreferrer">
-                  Start
-                </a>
-              </Button>
+          ) : effectiveCitations.length === 0 ? (
+            <div className="text-center py-10">
+              <Info className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="font-medium">Citation tracking is not available for this analysis yet</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                No citations or platform mentions have been detected in this brand&apos;s AI responses so far.
+                Run the Prompt Simulator or Analysis to collect responses we can scan for real citations.
+              </p>
             </div>
-
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-background/50 border border-border hover:border-primary/30 transition-colors">
-              <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground font-bold text-sm shrink-0">
-                3
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Claim Capterra Profile</span>
-                  <span className="text-xs text-muted-foreground">~2 hours</span>
+          ) : (
+            <div className="space-y-2">
+              {effectiveCitations.map((c, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
+                  <div>
+                    <div className="font-medium text-sm">{c.source}</div>
+                    <div className="text-xs text-muted-foreground">
+                      via {c.aiSystem} · {new Date(c.date).toLocaleDateString()}
+                    </div>
+                  </div>
+                  {c.url && (
+                    <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-primary text-sm flex items-center gap-1 hover:underline">
+                      View <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Major review platform frequently cited by AI assistants.
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30 text-xs">
-                    +5-8% visibility
-                  </Badge>
-                </div>
-              </div>
-              <Button size="sm" variant="outline" className="rounded-xl" asChild>
-                <a href="https://capterra.com" target="_blank" rel="noopener noreferrer">
-                  Start
-                </a>
-              </Button>
+              ))}
             </div>
-          </div>
-
-          <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-border">
-            <div className="flex items-center gap-2 text-sm">
-              <TrendingUp className="h-4 w-4 text-emerald-600" />
-              <span className="text-muted-foreground">Completing all 3 steps could increase your AI visibility by</span>
-              <span className="font-bold text-emerald-600">+17-26%</span>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Self-reported platform presence */}
+      {SUGGESTED_PLATFORMS.map((tier) => {
+        const TierIcon = tier.icon;
+        return (
+          <Card key={tier.tier} className="border-border">
+            <CardHeader className="border-b border-border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <TierIcon className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{tier.tier}</CardTitle>
+                  <CardDescription>{tier.description} — <Badge variant="outline" className="ml-1">Self-reported</Badge></CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {tier.platforms.map((platform) => {
+                const existing = effectiveStatuses.find((s) => s.platform === platform.name);
+                const isEditing = editingPlatform === platform.name;
+
+                return (
+                  <div key={platform.name} className="p-4 rounded-xl border border-border bg-muted/20 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {existing?.status === "present" ? (
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                        ) : existing?.status === "incomplete" ? (
+                          <AlertCircle className="h-5 w-5 text-amber-600" />
+                        ) : existing?.status === "missing" ? (
+                          <XCircle className="h-5 w-5 text-red-600" />
+                        ) : (
+                          <div className="h-5 w-5 rounded-full border-2 border-dashed border-muted-foreground/40" />
+                        )}
+                        <div>
+                          <div className="font-medium">{platform.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {existing ? (existing.details || existing.status) : "Not yet tracked"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={platform.url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-4 w-4 mr-1" /> Visit
+                          </a>
+                        </Button>
+                        <Button
+                          variant={existing ? "outline" : "default"}
+                          size="sm"
+                          onClick={() => startEditing(platform.name, existing)}
+                        >
+                          <Pencil className="h-4 w-4 mr-1" /> {existing ? "Edit" : "Set status"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {isEditing && (
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border">
+                        <Select value={draftStatus} onValueChange={(v) => setDraftStatus(v as typeof draftStatus)}>
+                          <SelectTrigger className="sm:w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="present">Present</SelectItem>
+                            <SelectItem value="incomplete">Incomplete</SelectItem>
+                            <SelectItem value="missing">Missing</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          placeholder='e.g. "Claimed, 4.2 stars, 12 reviews"'
+                          value={draftDetails}
+                          onChange={(e) => setDraftDetails(e.target.value)}
+                          className="flex-1"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            disabled={saving}
+                            onClick={() => saveStatus(platform.name, tier.tier.toLowerCase().replace(/\s+/g, "_"), platform.priority)}
+                          >
+                            Save
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingPlatform(null)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

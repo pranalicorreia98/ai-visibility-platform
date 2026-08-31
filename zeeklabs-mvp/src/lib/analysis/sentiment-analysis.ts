@@ -39,10 +39,36 @@ const ADDITIONAL_NEGATIVE = {
   "better alternatives": -3,
 };
 
-// Register additional words with the analyzer
-sentimentAnalyzer.registerLanguage("en", {
-  labels: { ...ADDITIONAL_POSITIVE, ...ADDITIONAL_NEGATIVE },
-});
+// Passed as `extras` on every analyze() call below (see analyzeSentiment).
+// IMPORTANT: this must NOT be registered via `sentimentAnalyzer.registerLanguage("en", { labels })`
+// — registerLanguage *replaces* the language entirely (`languages[code] = language`
+// in the underlying library), which silently discarded the entire built-in
+// AFINN-165 dictionary, leaving only these ~29 words as the whole vocabulary
+// (this was a real bug here — sentiment scores were effectively always 0/neutral
+// for any response that didn't happen to contain one of these words).
+// `extras` merges onto the base AFINN labels instead, which is what we want,
+// and also preserves the base library's built-in one-word negation handling
+// (languages/en/scoring-strategy.js — replacing the language object was
+// silently disabling that too).
+const CUSTOM_LABELS = { ...ADDITIONAL_POSITIVE, ...ADDITIONAL_NEGATIVE };
+
+// The base library's negation handling only inverts a word's score when the
+// negator is the *immediately preceding* token ("not bad" works, "not a bad
+// option" doesn't, since "a" sits in between). Rather than re-implementing
+// negation scoring ourselves (risking double-negation on top of the library's
+// own), we collapse short filler words out of the gap before analysis, e.g.
+// "not a bad option" -> "not bad option", so the library's own one-word
+// lookback catches it.
+const NEGATION_FILLERS = ["a", "an", "the", "really", "very", "so", "quite", "too", "that", "actually", "particularly"];
+const NEGATORS = ["not", "cant", "can't", "dont", "don't", "doesnt", "doesn't", "isnt", "isn't", "wont", "won't", "non"];
+const NEGATION_FILLER_REGEX = new RegExp(
+  `\\b(${NEGATORS.join("|")})\\s+(?:(?:${NEGATION_FILLERS.join("|")})\\s+){1,2}`,
+  "gi"
+);
+
+function collapseNegationFillers(text: string): string {
+  return text.replace(NEGATION_FILLER_REGEX, (_match, negator: string) => `${negator} `);
+}
 
 /**
  * Analyzes sentiment of the response towards a brand using the 'sentiment' library.
@@ -60,8 +86,8 @@ export function analyzeSentiment(response: string, brandName: string | null): nu
 
     // If brand is mentioned, analyze only the brand-related sentences
     if (brandSentences.length > 0) {
-      const brandContext = brandSentences.join(". ");
-      const result = sentimentAnalyzer.analyze(brandContext);
+      const brandContext = collapseNegationFillers(brandSentences.join(". "));
+      const result = sentimentAnalyzer.analyze(brandContext, { extras: CUSTOM_LABELS });
 
       // Normalize comparative score to [-1, 1] range
       // comparative is score / word count, typically ranges from -5 to +5
@@ -72,7 +98,7 @@ export function analyzeSentiment(response: string, brandName: string | null): nu
   }
 
   // Analyze the full response if no brand or brand not mentioned
-  const result = sentimentAnalyzer.analyze(response);
+  const result = sentimentAnalyzer.analyze(collapseNegationFillers(response), { extras: CUSTOM_LABELS });
 
   // Normalize comparative score to [-1, 1] range
   const normalizedScore = Math.max(-1, Math.min(1, result.comparative * 0.2));

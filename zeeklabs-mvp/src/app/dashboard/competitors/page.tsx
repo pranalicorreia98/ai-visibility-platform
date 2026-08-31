@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,16 +19,55 @@ import {
   Shield,
   Zap,
   ArrowRight,
+  Info,
+  Sparkles,
 } from "lucide-react";
 import { useBrand } from "@/contexts/brand-context";
+
+interface CompetitorMetric {
+  name: string;
+  domain: string | null;
+  hasData: boolean;
+  score: number | null;
+  mentions: number;
+  avgPosition: number | null;
+  avgSentiment: number | null;
+  simulationsCount: number;
+}
 
 export default function CompetitorsPage() {
   const {
     brands,
     selectedBrand,
     visibilityData,
+    analysisData,
     loading,
   } = useBrand();
+
+  const [competitorMetrics, setCompetitorMetrics] = useState<CompetitorMetric[]>([]);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedBrand?.id) {
+      return;
+    }
+    let cancelled = false;
+    setMetricsLoading(true);
+    fetch(`/api/competitors/metrics?brandId=${selectedBrand.id}`)
+      .then((res) => (res.ok ? res.json() : { competitors: [] }))
+      .then((data) => {
+        if (!cancelled) setCompetitorMetrics(data.competitors || []);
+      })
+      .catch(() => {
+        if (!cancelled) setCompetitorMetrics([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMetricsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBrand?.id]);
 
   // Your brand data from the shared context
   const yourScore = visibilityData?.score?.overall || 0;
@@ -331,41 +371,108 @@ export default function CompetitorsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {competitorData.map((competitor, idx) => (
-                <div
-                  key={competitor.name}
-                  className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-                      <span className="text-sm font-bold text-red-600">{idx + 1}</span>
-                    </div>
-                    <div>
-                      <div className="font-semibold">{competitor.name}</div>
-                      {competitor.domain && (
-                        <div className="text-xs text-muted-foreground">{competitor.domain}</div>
+              {competitorData.map((competitor, idx) => {
+                const metric = competitorMetrics.find((m) => m.name === competitor.name);
+                const insight = analysisData?.competitorComparison?.find((c) => c.name === competitor.name);
+
+                return (
+                  <div
+                    key={competitor.name}
+                    className="p-4 rounded-xl bg-muted/30 border border-border space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                          <span className="text-sm font-bold text-red-600">{idx + 1}</span>
+                        </div>
+                        <div>
+                          <div className="font-semibold">{competitor.name}</div>
+                          {competitor.domain && (
+                            <div className="text-xs text-muted-foreground">{competitor.domain}</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {metricsLoading ? (
+                        <Skeleton className="h-8 w-24" />
+                      ) : metric?.hasData ? (
+                        <div className="text-right">
+                          <div className="text-2xl font-bold">{metric.score}<span className="text-sm text-muted-foreground">/100</span></div>
+                          <Badge variant="outline" className="text-emerald-600 border-emerald-400/30 mt-1">
+                            Measured
+                          </Badge>
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Insufficient data
+                        </Badge>
                       )}
                     </div>
+
+                    {metric?.hasData ? (
+                      <div className="grid grid-cols-3 gap-3 text-sm border-t border-border pt-3">
+                        <div>
+                          <div className="text-muted-foreground text-xs">Mentions</div>
+                          <div className="font-medium">{metric.mentions} of {metric.simulationsCount} prompts</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground text-xs">Avg. Position</div>
+                          <div className="font-medium">{metric.avgPosition !== null ? `#${metric.avgPosition}` : "Not detected"}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground text-xs">Sentiment</div>
+                          <div className="font-medium">
+                            {metric.avgSentiment !== null
+                              ? metric.avgSentiment > 0.2 ? "Positive" : metric.avgSentiment < -0.2 ? "Negative" : "Neutral"
+                              : "Not detected"}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      !metricsLoading && (
+                        <div className="flex items-start gap-2 text-sm text-muted-foreground border-t border-border pt-3">
+                          <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                          <span>
+                            No comparison prompts have been run against {competitor.name} yet. Run analysis for
+                            this brand to start measuring real mention data.
+                          </span>
+                        </div>
+                      )
+                    )}
+
+                    {insight && (insight.strengths?.length > 0 || insight.weaknesses?.length > 0) && (
+                      <div className="flex items-start gap-2 text-xs bg-primary/5 border border-primary/20 rounded-lg p-3">
+                        <Sparkles className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                        <div>
+                          <span className="font-medium text-primary">AI Insight</span>
+                          <span className="text-muted-foreground"> (qualitative, not a measured score)</span>
+                          {insight.strengths?.length > 0 && (
+                            <p className="mt-1"><strong>Strengths:</strong> {insight.strengths.slice(0, 2).join(", ")}</p>
+                          )}
+                          {insight.weaknesses?.length > 0 && (
+                            <p className="mt-1"><strong>Weaknesses:</strong> {insight.weaknesses.slice(0, 2).join(", ")}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <Badge variant="outline" className="text-amber-600 border-amber-400/30">
-                    Configured
-                  </Badge>
-                </div>
-              ))}
+                );
+              })}
 
               <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 mt-6">
                 <div className="flex items-start gap-3">
                   <Zap className="h-5 w-5 text-primary mt-0.5" />
                   <div>
-                    <p className="font-medium text-sm">How to track competitor visibility</p>
+                    <p className="font-medium text-sm">How competitor scores are measured</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Use the <strong>Prompt Simulator</strong> to run queries that mention your competitors.
-                      When competitors appear in AI responses alongside your brand, we&apos;ll track and compare the data.
+                      Running <strong>Analysis</strong> queries AI platforms with comparison prompts and detects
+                      real mentions of each competitor — the same way your own score is measured. Scores only
+                      appear once real comparison data exists; nothing here is estimated.
                     </p>
                     <Button size="sm" className="mt-3" asChild>
-                      <Link href="/dashboard/simulator">
+                      <Link href="/dashboard/analysis">
                         <Zap className="mr-2 h-4 w-4" />
-                        Open Prompt Simulator
+                        Run Analysis
                       </Link>
                     </Button>
                   </div>

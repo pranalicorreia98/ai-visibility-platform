@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateScoreFromMentions } from "@/lib/scoring";
 
 export async function GET(req: NextRequest) {
   try {
@@ -112,37 +113,12 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Calculate scores
-    const calculateScore = (mentionsList: typeof mentions, totalSims: number) => {
-      if (totalSims === 0) return 0;
-
-      // CRITICAL: No mentions = 0% score. Don't award neutral sentiment/position scores
-      // This fixes the bug where 0 mentions showed 27% (due to neutral scores)
-      if (mentionsList.length === 0) return 0;
-
-      const presenceScore = Math.min((mentionsList.length / totalSims) * 100, 100);
-
-      const sentiments = mentionsList.filter((m) => m.sentiment !== null).map((m) => m.sentiment!);
-      const avgSentiment = sentiments.length > 0
-        ? sentiments.reduce((a, b) => a + b, 0) / sentiments.length
-        : 0;
-      const sentimentScore = ((avgSentiment + 1) / 2) * 100;
-
-      const positions = mentionsList.filter((m) => m.position !== null).map((m) => m.position!);
-      // Use null when no position data, with neutral score instead of artificial penalty
-      const avgPosition = positions.length > 0
-        ? positions.reduce((a, b) => a + b, 0) / positions.length
-        : null;
-      const positionScore = avgPosition !== null
-        ? Math.max(0, 100 - (avgPosition - 1) * 15)
-        : 50; // Neutral score when no position data
-
-      return Math.round(presenceScore * 0.4 + sentimentScore * 0.25 + positionScore * 0.35);
-    };
-
-    const chatgptScore = calculateScore(chatgptMentions, simulations);
-    const geminiScore = calculateScore(geminiMentions, simulations);
-    const perplexityScore = calculateScore(perplexityMentions, simulations);
+    // Calculate scores using the canonical formula (src/lib/scoring.ts) — the
+    // same function reports/generate/route.ts and the PDF mapper use, so the
+    // dashboard, reports, and PDFs can never disagree on a brand's score.
+    const chatgptScore = calculateScoreFromMentions(chatgptMentions, simulations);
+    const geminiScore = calculateScoreFromMentions(geminiMentions, simulations);
+    const perplexityScore = calculateScoreFromMentions(perplexityMentions, simulations);
 
     // Calculate overall score (average of all active engines)
     const activeScores = [chatgptScore, geminiScore, perplexityScore].filter(s => s > 0);
@@ -267,86 +243,56 @@ export async function GET(req: NextRequest) {
       perplexity: calculatePlatformSentiment(perplexityMentions),
     };
 
-    // If we have cached analysis data, use those scores as primary source
-    // The AI analysis provides more accurate visibility scores than mention-counting
+    // Trust model: once real simulations exist for this brand/period, measured
+    // data is authoritative and is never overridden by the LLM's one-shot
+    // analysis guess. The AI analysis blob is only used as an explicitly
+    // labeled fallback when there is no measured data at all — it is never
+    // blended field-by-field into "measured-looking" numbers.
     const hasAnalysisData = cachedAnalysis?.scores?.overall !== undefined;
+    const hasMeasuredData = simulations > 0;
+    const dataSource: "measured" | "ai_estimate" | "none" = hasMeasuredData
+      ? "measured"
+      : hasAnalysisData
+        ? "ai_estimate"
+        : "none";
 
-    // Calculate scores: prefer AI analysis, fallback to mention-based calculation
-    const finalOverallScore = hasAnalysisData
-      ? cachedAnalysis!.scores!.overall!
-      : overallScore;
+    const finalOverallScore = hasMeasuredData
+      ? overallScore
+      : (hasAnalysisData ? cachedAnalysis!.scores!.overall! : 0);
 
-    // For platform scores, distribute the overall score if we have AI data
-    // AI analysis doesn't provide per-platform breakdown, so we estimate based on overall
-    const finalChatgptScore = hasAnalysisData
-      ? Math.round(cachedAnalysis!.scores!.overall! * (chatgptMentions.length > 0 ? 1 : 0.8))
-      : chatgptScore;
-    const finalGeminiScore = hasAnalysisData
-      ? Math.round(cachedAnalysis!.scores!.overall! * (geminiMentions.length > 0 ? 1 : 0.8))
-      : geminiScore;
-    const finalPerplexityScore = hasAnalysisData
-      ? Math.round(cachedAnalysis!.scores!.overall! * (perplexityMentions.length > 0 ? 1 : 0.8))
-      : perplexityScore;
+    // Per-platform breakdown is only ever real measurement — a real zero
+    // (queried, brand wasn't mentioned) is a legitimate result and is never
+    // replaced with a number derived from the LLM's overall guess.
+    const finalChatgptScore = hasMeasuredData ? chatgptScore : 0;
+    const finalGeminiScore = hasMeasuredData ? geminiScore : 0;
+    const finalPerplexityScore = hasMeasuredData ? perplexityScore : 0;
+    // True only when we're showing an AI-estimated overall score with no
+    // per-platform measurement behind it at all.
+    const platformScoresEstimated = !hasMeasuredData && hasAnalysisData;
 
-    // Calculate total mentions: use AI mention frequency if available
-    const aiMentionFrequency = cachedAnalysis?.aiVisibility?.mentionFrequency;
-    const aiBasedMentions = aiMentionFrequency === "high" ? 15 :
-                            aiMentionFrequency === "medium" ? 8 :
-                            aiMentionFrequency === "low" ? 3 : 0;
-    const finalTotalMentions = hasAnalysisData && mentions.length === 0
-      ? aiBasedMentions
-      : mentions.length > 0 ? mentions.length : aiBasedMentions;
+    // Mentions/position/sentiment are always the real measured values — no
+    // synthesized counts from a qualitative AI label ("high" -> 15, etc.).
+    const finalTotalMentions = mentions.length;
+    const mentionFrequencyPerWeek = Math.round(mentions.length / Math.max(1, days / 7));
+    const finalPosition = avgPosition;
+    const finalSentimentPercentages = sentimentPercentages;
+    const finalAvgSentiment = hasMeasuredData
+      ? avgSentiment
+      : (cachedAnalysis?.sentimentAnalysis?.brandSentiment?.score !== undefined
+          ? (cachedAnalysis.sentimentAnalysis.brandSentiment.score - 50) / 50
+          : 0);
+    const finalPlatformSentiment = platformSentiment;
 
-    // Mention frequency per week based on analysis
-    const mentionFrequencyPerWeek = hasAnalysisData
-      ? Math.round(finalTotalMentions / Math.max(1, days / 7))
-      : Math.round(mentions.length / Math.max(1, days / 7));
-
-    // Get position from AI analysis if available
-    const aiPosition = cachedAnalysis?.aiVisibility?.typicalPosition;
-    const finalPosition = aiPosition !== null && aiPosition !== undefined
-      ? aiPosition
-      : avgPosition;
-
-    // Calculate sentiment percentages from AI analysis
-    const aiSentimentScore = cachedAnalysis?.sentimentAnalysis?.brandSentiment?.score;
-    const aiSentimentOverall = cachedAnalysis?.sentimentAnalysis?.brandSentiment?.overall;
-
-    // If AI analysis provided sentiment, convert to percentages
-    let finalSentimentPercentages = sentimentPercentages;
-    if (hasAnalysisData && aiSentimentOverall) {
-      if (aiSentimentOverall === "positive") {
-        finalSentimentPercentages = { positive: 65, neutral: 25, negative: 10 };
-      } else if (aiSentimentOverall === "negative") {
-        finalSentimentPercentages = { positive: 15, neutral: 25, negative: 60 };
-      } else {
-        finalSentimentPercentages = { positive: 30, neutral: 50, negative: 20 };
-      }
-    }
-
-    // Use AI sentiment score if available
-    const finalAvgSentiment = aiSentimentScore !== undefined
-      ? (aiSentimentScore - 50) / 50 // Convert 0-100 to -1 to 1
-      : avgSentiment;
-
-    // Platform sentiment: use AI data if available
-    const finalPlatformSentiment = hasAnalysisData ? {
-      chatgpt: {
-        positive: finalSentimentPercentages.positive,
-        neutral: finalSentimentPercentages.neutral,
-        negative: finalSentimentPercentages.negative,
-      },
-      gemini: {
-        positive: finalSentimentPercentages.positive,
-        neutral: finalSentimentPercentages.neutral,
-        negative: finalSentimentPercentages.negative,
-      },
-      perplexity: {
-        positive: finalSentimentPercentages.positive,
-        neutral: finalSentimentPercentages.neutral,
-        negative: finalSentimentPercentages.negative,
-      },
-    } : platformSentiment;
+    // AI estimate values, kept separate from measured fields so the frontend
+    // can render them as a clearly labeled "AI Estimate" panel instead of
+    // silently substituting them into measured-looking numbers.
+    const aiEstimate = !hasMeasuredData && cachedAnalysis?.aiVisibility
+      ? {
+          mentionFrequency: cachedAnalysis.aiVisibility.mentionFrequency ?? null,
+          typicalPosition: cachedAnalysis.aiVisibility.typicalPosition ?? null,
+          recommendationLikelihood: cachedAnalysis.aiVisibility.recommendationLikelihood ?? null,
+        }
+      : null;
 
     return NextResponse.json({
       score: {
@@ -357,24 +303,24 @@ export async function GET(req: NextRequest) {
       },
       mentions: {
         total: finalTotalMentions,
-        chatgpt: chatgptMentions.length > 0 ? chatgptMentions.length : (hasAnalysisData ? Math.ceil(aiBasedMentions / 3) : 0),
-        gemini: geminiMentions.length > 0 ? geminiMentions.length : (hasAnalysisData ? Math.ceil(aiBasedMentions / 3) : 0),
-        perplexity: perplexityMentions.length > 0 ? perplexityMentions.length : (hasAnalysisData ? Math.ceil(aiBasedMentions / 3) : 0),
+        chatgpt: chatgptMentions.length,
+        gemini: geminiMentions.length,
+        perplexity: perplexityMentions.length,
       },
       sentiment: {
         average: finalAvgSentiment,
-        positive: hasAnalysisData ? Math.round(finalTotalMentions * finalSentimentPercentages.positive / 100) : positiveCount,
-        neutral: hasAnalysisData ? Math.round(finalTotalMentions * finalSentimentPercentages.neutral / 100) : neutralCount,
-        negative: hasAnalysisData ? Math.round(finalTotalMentions * finalSentimentPercentages.negative / 100) : negativeCount,
+        positive: positiveCount,
+        neutral: neutralCount,
+        negative: negativeCount,
         percentages: finalSentimentPercentages,
       },
       platformSentiment: finalPlatformSentiment,
-      simulations: simulations > 0 ? simulations : (hasAnalysisData ? 1 : 0),
+      simulations,
       trend,
-      // Trend metrics for frontend
+      // Trend metrics for frontend - use actual calculated values only
       trends: {
-        mentions: hasAnalysisData && mentionsTrend === 0 ? 12 : mentionsTrend, // Default positive trend for fresh analysis
-        frequency: hasAnalysisData && frequencyTrend === 0 ? 8 : frequencyTrend,
+        mentions: mentionsTrend,
+        frequency: frequencyTrend,
         position: positionTrend,
       },
       position: {
@@ -385,6 +331,14 @@ export async function GET(req: NextRequest) {
       mentionFrequency: mentionFrequencyPerWeek,
       // Flag to indicate if data is from AI analysis
       fromAnalysis: hasAnalysisData,
+      // Flag to indicate if platform scores are estimated (not measured from actual mentions)
+      platformScoresEstimated,
+      // 'measured' = real simulations exist this period; 'ai_estimate' = no
+      // simulations yet, showing the LLM's one-shot guess; 'none' = nothing.
+      dataSource,
+      // AI-estimated values, kept separate from the measured fields above so
+      // the UI can render them as an explicitly labeled estimate.
+      aiEstimate,
     });
   } catch (error) {
     console.error("Error fetching visibility data:", error);

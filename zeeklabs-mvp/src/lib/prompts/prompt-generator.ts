@@ -53,8 +53,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type BrandScale = "small" | "mid" | "large";
-
 export interface PromptItem {
   id: string;
   category: string;
@@ -68,58 +66,15 @@ export interface PromptItem {
 }
 
 /**
- * Determine brand scale based on available data
- * - Small: < 3 competitors, no domain, low visibility score
- * - Mid: 3-6 competitors, has domain, moderate visibility
- * - Large: > 6 competitors, established domain, high visibility
- */
-export function determineBrandScale(
-  competitors: Array<{ id: string; name: string; domain?: string }> | string[],
-  domain?: string,
-  visibilityScore?: number
-): BrandScale {
-  const competitorCount = competitors?.length || 0;
-  const hasDomain = !!domain && domain.length > 0;
-  const score = visibilityScore || 0;
-
-  // Large scale indicators
-  if (competitorCount > 6 || (competitorCount >= 4 && score > 70) || (hasDomain && score > 80)) {
-    return "large";
-  }
-
-  // Mid scale indicators
-  if (competitorCount >= 3 || (hasDomain && competitorCount >= 2) || score > 50) {
-    return "mid";
-  }
-
-  // Default to small
-  return "small";
-}
-
-/**
- * Get prompt count based on brand scale
- */
-export function getPromptCount(scale: BrandScale): number {
-  switch (scale) {
-    case "small":
-      return 20;
-    case "mid":
-      return 35;
-    case "large":
-      return 60;
-    default:
-      return 20;
-  }
-}
-
-/**
- * Generate comprehensive prompts for a brand
+ * Generate the full set of prompts for a brand — a fixed 60 for every
+ * brand, regardless of size/industry. Previously this scaled down to 20/35
+ * prompts for smaller brands based on determineBrandScale(); that's no
+ * longer used here.
  */
 export function generateBrandPrompts(
   brandName: string,
   industryContext: string,
-  competitorNames: string[],
-  scale: BrandScale
+  competitorNames: string[]
 ): PromptItem[] {
   const primaryCompetitor = competitorNames[0] || "competitors";
   const secondaryCompetitor = competitorNames[1] || "other brands";
@@ -813,18 +768,8 @@ export function generateBrandPrompts(
     },
   ];
 
-  // Build the prompt list based on scale
-  let allPrompts = [...basePrompts];
-
-  if (scale === "mid" || scale === "large") {
-    allPrompts = [...allPrompts, ...midScalePrompts];
-  }
-
-  if (scale === "large") {
-    allPrompts = [...allPrompts, ...largeScalePrompts];
-  }
-
-  return allPrompts;
+  // Fixed set: all 60 prompts (20 base + 15 mid + 25 large-tier), every brand.
+  return [...basePrompts, ...midScalePrompts, ...largeScalePrompts];
 }
 
 /**

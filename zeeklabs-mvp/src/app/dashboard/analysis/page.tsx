@@ -87,7 +87,9 @@ import Link from "next/link";
 import { jsPDF } from "jspdf";
 import { useBrand, AnalysisResult } from "@/contexts/brand-context";
 import { ChatGPTLogo, GeminiLogo, PerplexityLogo, LLMLogoWithTooltip } from "@/components/ui/ai-logos";
-import { determineBrandScale, generateBrandPrompts, getIndustryContext, getPromptCount, type BrandScale } from "@/lib/prompts/prompt-generator";
+import { generateBrandPrompts, getIndustryContext } from "@/lib/prompts/prompt-generator";
+import { SCORE_WEIGHTS, getConfidenceLevel, CONFIDENCE_LABELS } from "@/lib/scoring";
+import { ProvenanceBadge } from "@/components/ui/provenance-badge";
 
 export default function AnalysisPage() {
   const {
@@ -492,7 +494,7 @@ export default function AnalysisPage() {
           title="AI Visibility"
           icon={<Eye className="h-5 w-5" />}
           variant="primary"
-          tooltip="Overall visibility score (0-100) calculated as weighted average of scores across ChatGPT (40%), Gemini (35%), and Perplexity (25%). Higher scores indicate stronger brand presence in AI responses."
+          tooltip={`Weighted score: Presence ${SCORE_WEIGHTS.presence * 100}%, Sentiment ${SCORE_WEIGHTS.sentiment * 100}%, Position ${SCORE_WEIGHTS.position * 100}% — calculated from real AI responses, averaged across ChatGPT, Gemini, and Perplexity.`}
         >
           <VisibilityDonutChart
             chatgpt={vis?.score?.chatgpt || 0}
@@ -501,6 +503,16 @@ export default function AnalysisPage() {
             overall={vis?.score?.overall || 0}
             loading={visibilityLoading}
           />
+          {!visibilityLoading && (
+            <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-gray-500">
+              <ProvenanceBadge type="calculated" className="text-[10px] px-1.5 py-0" />
+              {vis?.simulations ? (
+                <span>{vis.simulations} responses · {CONFIDENCE_LABELS[getConfidenceLevel(vis.simulations)]}</span>
+              ) : (
+                <span>No responses analyzed yet</span>
+              )}
+            </div>
+          )}
         </InsightIsland>
 
         <InsightIsland
@@ -537,14 +549,18 @@ export default function AnalysisPage() {
           icon={<Hash className="h-5 w-5" />}
           tooltip="Your average position when mentioned in AI responses. Position #1 means you're mentioned first in lists/recommendations. This is different from competitor rank - it shows where AI places you in its responses."
         >
-          <div className="flex items-baseline gap-1">
-            <span className="text-4xl font-bold text-gray-900">#</span>
-            <AnimatedNumber
-              value={vis?.position?.average ?? result?.aiVisibility?.typicalPosition ?? 0}
-              decimals={1}
-              loading={visibilityLoading}
-            />
-          </div>
+          {!visibilityLoading && (vis?.position?.average === null || vis?.position?.average === undefined) ? (
+            <div className="text-2xl font-bold text-gray-400">Not detected</div>
+          ) : (
+            <div className="flex items-baseline gap-1">
+              <span className="text-4xl font-bold text-gray-900">#</span>
+              <AnimatedNumber
+                value={vis?.position?.average ?? 0}
+                decimals={1}
+                loading={visibilityLoading}
+              />
+            </div>
+          )}
           {vis?.position?.trend !== null && vis?.position?.trend !== undefined ? (
             <TrendBadge value={vis.position.trend} label="improved" inverted />
           ) : (
@@ -570,6 +586,7 @@ export default function AnalysisPage() {
         competitors={result?.competitorComparison || []}
         brandName={selectedBrand?.name || "Your Brand"}
         brandScore={vis?.score?.overall || 0}
+        brandSentiment={vis?.sentiment?.average ?? null}
       />
 
       {/* Progress Tracking Graph */}
@@ -643,7 +660,6 @@ export default function AnalysisPage() {
             brandName={selectedBrand?.name || "Your Brand"}
             domain={selectedBrand?.domain || ""}
             competitors={selectedBrand?.competitors || []}
-            visibilityScore={visibilityData?.score?.overall}
           />
 
           {/* Market Intelligence - Enhanced */}
@@ -1870,8 +1886,8 @@ function AIVisibilityInsightsPreview({
   brandName: string;
 }) {
   const metrics = [
-    { label: "Mention Frequency", value: aiVisibility?.mentionFrequency || "Moderate", color: "indigo" },
-    { label: "Recommendation", value: aiVisibility?.recommendationLikelihood || "Medium", color: "emerald" },
+    { label: "Mention Frequency", value: aiVisibility?.mentionFrequency || "Unknown", color: "indigo" },
+    { label: "AI Recommendation Signal", value: aiVisibility?.recommendationLikelihood || "Unknown", color: "emerald" },
   ];
 
   const colorMap: Record<string, string> = {
@@ -1935,17 +1951,21 @@ function AIVisibilityInsightsExpanded({
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center p-3 bg-white rounded-lg border border-indigo-100">
             <Eye className="h-5 w-5 text-indigo-600 mx-auto mb-1" />
-            <p className="text-sm font-bold text-gray-900">{aiVisibility?.mentionFrequency || "Moderate"}</p>
+            <p className="text-sm font-bold text-gray-900">{aiVisibility?.mentionFrequency || "Unknown"}</p>
             <p className="text-[10px] text-gray-500">Mention Rate</p>
           </div>
           <div className="text-center p-3 bg-white rounded-lg border border-emerald-100">
             <ThumbsUp className="h-5 w-5 text-emerald-600 mx-auto mb-1" />
-            <p className="text-sm font-bold text-gray-900">{aiVisibility?.recommendationLikelihood || "Medium"}</p>
-            <p className="text-[10px] text-gray-500">Recommendation</p>
+            <p className="text-sm font-bold text-gray-900">{aiVisibility?.recommendationLikelihood || "Unknown"}</p>
+            <p className="text-[10px] text-gray-500">AI Recommendation Signal</p>
           </div>
           <div className="text-center p-3 bg-white rounded-lg border border-violet-100">
             <Hash className="h-5 w-5 text-violet-600 mx-auto mb-1" />
-            <p className="text-sm font-bold text-gray-900">#{aiVisibility?.typicalPosition || 3}</p>
+            <p className="text-sm font-bold text-gray-900">
+              {aiVisibility?.typicalPosition !== null && aiVisibility?.typicalPosition !== undefined
+                ? `#${aiVisibility.typicalPosition}`
+                : "Not detected"}
+            </p>
             <p className="text-[10px] text-gray-500">Avg Position</p>
           </div>
         </div>
@@ -3074,6 +3094,7 @@ function CompetitorComparisonIsland({
   competitors,
   brandName,
   brandScore,
+  brandSentiment,
 }: {
   competitors: Array<{
     name: string;
@@ -3085,6 +3106,7 @@ function CompetitorComparisonIsland({
   }>;
   brandName: string;
   brandScore: number;
+  brandSentiment: number | null;
 }) {
   // Check if we have competitor data - no hardcoded fallbacks
   const hasCompetitorData = competitors.length > 0;
@@ -3118,11 +3140,15 @@ function CompetitorComparisonIsland({
     ? Math.round(competitorDetails.reduce((a, c) => a + getSentimentScore(c.sentiment), 0) / competitorDetails.length)
     : 0;
 
-  // Your brand's sentiment - estimate based on your visibility score (higher visibility often correlates with positive sentiment)
-  // This is an approximation; ideally this would come from actual sentiment data
-  const yourSentimentScore = brandScore >= 70 ? 75 : brandScore >= 40 ? 55 : 35;
+  // Real measured sentiment (-1..1) converted to the same 0-100 scale used
+  // for competitors, instead of guessing sentiment from the visibility score.
+  const yourSentimentScore = brandSentiment !== null
+    ? Math.round(((brandSentiment + 1) / 2) * 100)
+    : null;
 
-  // Show metrics with real data - Visibility and Sentiment comparison
+  // Show metrics with real data - Visibility and Sentiment comparison.
+  // Sentiment is only included once we have a real measured value — no
+  // fabricated row when sentiment hasn't been measured yet.
   const metrics = hasCompetitorData ? [
     {
       label: "Visibility",
@@ -3130,12 +3156,12 @@ function CompetitorComparisonIsland({
       avg: competitorAvgScore,
       tooltip: "Overall AI visibility score based on mention frequency, position, and sentiment across all AI platforms."
     },
-    {
+    ...(yourSentimentScore !== null ? [{
       label: "Sentiment",
       yours: yourSentimentScore,
       avg: competitorAvgSentiment,
       tooltip: "Sentiment score indicating how positively AI platforms perceive your brand compared to competitors."
-    },
+    }] : []),
   ] : [];
 
   // No hardcoded opportunities - these should come from analysis
@@ -4673,228 +4699,8 @@ function CitationOpportunitiesIsland({
     );
   }
 
-  // Generate comprehensive citation opportunities based on brand and industry
-  const generateCitationOpportunities = (): CitationData[] => {
-    const industryContext = industry || "technology";
-
-    // Comprehensive list of citation sources across categories
-    const allCitationSources: CitationData[] = [
-      // Review Platforms - High Priority
-      {
-        source: "G2",
-        type: "review_site",
-        category: "Review Platform",
-        status: "missing",
-        priority: "high",
-        effort: "medium",
-        url: "https://g2.com",
-        aiRecommendation: `Create or claim your ${brandName} profile on G2. Encourage customers to leave reviews - G2 is heavily cited by AI models for software recommendations.`,
-      },
-      {
-        source: "Capterra",
-        type: "review_site",
-        category: "Review Platform",
-        status: "missing",
-        priority: "high",
-        effort: "medium",
-        url: "https://capterra.com",
-        aiRecommendation: `List ${brandName} on Capterra with detailed feature descriptions. This improves discoverability in AI-powered software searches.`,
-      },
-      {
-        source: "Trustpilot",
-        type: "review_site",
-        category: "Review Platform",
-        status: "missing",
-        priority: "high",
-        effort: "low",
-        url: "https://trustpilot.com",
-        aiRecommendation: `Claim your Trustpilot business profile. Actively respond to reviews - AI models use Trustpilot as a primary trust signal.`,
-      },
-      {
-        source: "Google Business Profile",
-        type: "directory",
-        category: "Local Directory",
-        status: "missing",
-        priority: "high",
-        effort: "low",
-        url: "https://business.google.com",
-        aiRecommendation: `Optimize your Google Business Profile with complete information, photos, and regular posts. Critical for local AI search visibility.`,
-      },
-      // Tech News - High Priority
-      {
-        source: "TechCrunch",
-        type: "news",
-        category: "Tech News",
-        status: "missing",
-        priority: "high",
-        effort: "high",
-        url: "https://techcrunch.com",
-        aiRecommendation: `Pitch newsworthy stories about ${brandName} - funding rounds, major partnerships, or industry-disrupting features. AI heavily cites TechCrunch.`,
-      },
-      {
-        source: "Forbes",
-        type: "news",
-        category: "Business News",
-        status: "missing",
-        priority: "high",
-        effort: "high",
-        url: "https://forbes.com",
-        aiRecommendation: `Submit thought leadership to Forbes Councils or pitch executive interviews. Forbes citations significantly boost AI authority.`,
-      },
-      {
-        source: "Business Insider",
-        type: "news",
-        category: "Business News",
-        status: "missing",
-        priority: "medium",
-        effort: "high",
-        url: "https://businessinsider.com",
-        aiRecommendation: `Target Business Insider for industry analysis pieces mentioning ${brandName}. Great for B2B visibility.`,
-      },
-      // Social & Community - Medium-High Priority
-      {
-        source: "Reddit",
-        type: "social",
-        category: "Social Community",
-        status: "missing",
-        priority: "high",
-        effort: "medium",
-        url: "https://reddit.com",
-        aiRecommendation: `Build authentic presence in relevant subreddits. AI models frequently cite Reddit discussions for recommendations.`,
-      },
-      {
-        source: "Quora",
-        type: "social",
-        category: "Q&A Platform",
-        status: "missing",
-        priority: "high",
-        effort: "low",
-        url: "https://quora.com",
-        aiRecommendation: `Answer questions related to ${industryContext} and mention ${brandName} where relevant. Quora is a major AI training source.`,
-      },
-      {
-        source: "LinkedIn",
-        type: "social",
-        category: "Professional Network",
-        status: "missing",
-        priority: "high",
-        effort: "low",
-        url: "https://linkedin.com",
-        aiRecommendation: `Maintain active company page with regular posts. LinkedIn content feeds into AI knowledge bases.`,
-      },
-      {
-        source: "Twitter/X",
-        type: "social",
-        category: "Social Media",
-        status: "missing",
-        priority: "medium",
-        effort: "low",
-        url: "https://twitter.com",
-        aiRecommendation: `Share industry insights and engage with ${industryContext} conversations. Active Twitter presence improves real-time AI visibility.`,
-      },
-      // Content Platforms - Medium Priority
-      {
-        source: "ProductHunt",
-        type: "content",
-        category: "Product Discovery",
-        status: "missing",
-        priority: "high",
-        effort: "medium",
-        url: "https://producthunt.com",
-        aiRecommendation: `Launch ${brandName} on ProductHunt for new features. ProductHunt is frequently cited for product recommendations.`,
-      },
-      {
-        source: "YouTube",
-        type: "content",
-        category: "Video Platform",
-        status: "missing",
-        priority: "medium",
-        effort: "high",
-        url: "https://youtube.com",
-        aiRecommendation: `Create educational content about ${industryContext}. YouTube videos and transcripts are indexed by AI.`,
-      },
-      {
-        source: "Medium",
-        type: "content",
-        category: "Blog Platform",
-        status: "missing",
-        priority: "medium",
-        effort: "low",
-        url: "https://medium.com",
-        aiRecommendation: `Publish thought leadership on Medium. High-quality articles improve AI's understanding of your expertise.`,
-      },
-      // Directories & Databases - Medium Priority
-      {
-        source: "Crunchbase",
-        type: "directory",
-        category: "Business Database",
-        status: "missing",
-        priority: "high",
-        effort: "low",
-        url: "https://crunchbase.com",
-        aiRecommendation: `Complete your Crunchbase profile with funding, team, and company details. AI uses this for company research queries.`,
-      },
-      {
-        source: "Wikipedia",
-        type: "directory",
-        category: "Encyclopedia",
-        status: "missing",
-        priority: "high",
-        effort: "high",
-        url: "https://wikipedia.org",
-        aiRecommendation: `If notable, create a Wikipedia article for ${brandName}. Wikipedia is the #1 source AI models cite for factual information.`,
-      },
-      {
-        source: "AngelList",
-        type: "directory",
-        category: "Startup Directory",
-        status: "missing",
-        priority: "medium",
-        effort: "low",
-        url: "https://angel.co",
-        aiRecommendation: `List ${brandName} on AngelList with complete company profile. Important for startup-focused AI queries.`,
-      },
-      // Industry-Specific
-      {
-        source: "Industry Publications",
-        type: "industry_report",
-        category: "Trade Publications",
-        status: "missing",
-        priority: "medium",
-        effort: "medium",
-        url: "",
-        aiRecommendation: `Get featured in ${industryContext} trade publications and journals. Industry-specific sources boost niche AI visibility.`,
-      },
-      {
-        source: "Gartner/Forrester",
-        type: "industry_report",
-        category: "Analyst Reports",
-        status: "missing",
-        priority: "high",
-        effort: "high",
-        url: "https://gartner.com",
-        aiRecommendation: `Work toward inclusion in Gartner or Forrester reports. Analyst citations carry heavy weight in AI recommendations.`,
-      },
-      // Academic & Research
-      {
-        source: "Google Scholar",
-        type: "academic",
-        category: "Academic Research",
-        status: "missing",
-        priority: "medium",
-        effort: "high",
-        url: "https://scholar.google.com",
-        aiRecommendation: `Publish research papers or case studies. Academic citations significantly improve AI's trust in your expertise.`,
-      },
-    ];
-
-    return allCitationSources;
-  };
-
-  // Use analysis citations if available, otherwise generate comprehensive list
-  const baseCitations = (analysisCitations && analysisCitations.length > 0)
-    ? analysisCitations
-    : generateCitationOpportunities();
+  // This branch only runs when analysisCitations is non-empty (guarded above).
+  const baseCitations = analysisCitations!;
 
   // Merge and deduplicate - prefer analysis data when available
   const citations = baseCitations.map((c, index) => ({
@@ -5064,7 +4870,7 @@ function CitationOpportunitiesIsland({
               <p className="text-sm text-blue-700 mt-1">
                 {highPriorityMissing > 0 && `Focus on ${highPriorityMissing} high-priority missing citations first. `}
                 {lowEffortMissing > 0 && `${lowEffortMissing} opportunities require low effort - start there for quick wins. `}
-                Getting cited across these {citations.length} sources could increase your AI visibility score by 20-40%.
+                Citation presence is one of several factors AI platforms weigh — there&apos;s no reliable way to predict an exact score impact from these {citations.length} sources.
               </p>
             </div>
           </div>
@@ -5292,7 +5098,7 @@ function CompetitivePositionIsland({
                     )}
                     {aiVisibility?.recommendationLikelihood && (
                       <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 rounded-lg">
-                        <span className="text-xs text-purple-600 font-medium">AI Recommends:</span>
+                        <span className="text-xs text-purple-600 font-medium">AI Recommendation Signal:</span>
                         <span className="text-xs font-semibold text-purple-700 capitalize">{aiVisibility.recommendationLikelihood}</span>
                       </div>
                     )}
@@ -5374,22 +5180,17 @@ interface AnalysisPromptsUsedIslandProps {
   brandName: string;
   domain?: string;
   competitors: Array<{ id: string; name: string; domain?: string }>;
-  visibilityScore?: number;
 }
 
-function AnalysisPromptsUsedIsland({ brandName, domain, competitors, visibilityScore }: AnalysisPromptsUsedIslandProps) {
-  // Determine brand scale dynamically
-  const brandScale = determineBrandScale(competitors, domain, visibilityScore);
-  const promptCount = getPromptCount(brandScale);
-
+function AnalysisPromptsUsedIsland({ brandName, domain, competitors }: AnalysisPromptsUsedIslandProps) {
   // Get industry context from domain
   const industryContext = getIndustryContext(domain || "");
 
   // Get competitor names
   const competitorNames = competitors.map(c => c.name);
 
-  // Generate prompts based on brand scale
-  const prompts = generateBrandPrompts(brandName, industryContext, competitorNames, brandScale);
+  // Fixed set of 60 prompts, every brand
+  const prompts = generateBrandPrompts(brandName, industryContext, competitorNames);
 
   return (
     <div className="insight-island">
@@ -5727,9 +5528,9 @@ function MethodologyIsland() {
       icon: BarChart3,
       color: "violet",
       items: [
-        "Presence Score: 40% weight",
-        "Sentiment Score: 25% weight",
-        "Position Score: 35% weight"
+        `Presence Score: ${SCORE_WEIGHTS.presence * 100}% weight`,
+        `Sentiment Score: ${SCORE_WEIGHTS.sentiment * 100}% weight`,
+        `Position Score: ${SCORE_WEIGHTS.position * 100}% weight`
       ]
     },
     {
@@ -5801,441 +5602,23 @@ function MethodologyIsland() {
               <CheckCircle className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900">Analysis Verified</p>
-              <p className="text-xs text-gray-500">Results validated across multiple AI platforms</p>
+              <p className="text-sm font-semibold text-gray-900">Deterministic Scoring</p>
+              <p className="text-xs text-gray-500">Same inputs always produce the same score — no randomization</p>
             </div>
           </div>
-          <Badge className="bg-emerald-100 text-emerald-700">Certified</Badge>
+          <Badge className="bg-emerald-100 text-emerald-700">Reproducible</Badge>
+        </div>
+
+        <div className="mt-3 text-center">
+          <Link href="/dashboard/methodology" className="text-xs text-indigo-600 hover:underline font-medium">
+            View full methodology — what&apos;s measured, calculated, and AI-estimated →
+          </Link>
         </div>
       </div>
     </div>
   );
 }
 
-// Competitor Heatmap Preview - Uses real data from backend
-function CompetitorHeatmapPreview({
-  competitors,
-  brandName,
-  brandScore,
-}: {
-  competitors: Array<{
-    name: string;
-    overallScore: number;
-    strengths: string[];
-    weaknesses: string[];
-    marketShare: string;
-    sentiment: string;
-  }>;
-  brandName: string;
-  brandScore: number;
-}) {
-  // Build comparison data with your brand first
-  const comparisonData = [
-    {
-      name: brandName || "Your Brand",
-      visibility: brandScore,
-      mentions: Math.round(brandScore * 0.9),
-      authority: Math.round(brandScore * 0.85),
-      sentiment: Math.round(brandScore * 0.95),
-      isYou: true,
-    },
-    ...competitors.slice(0, 3).map((comp) => ({
-      name: comp.name,
-      visibility: comp.overallScore,
-      mentions: Math.round(comp.overallScore * 0.85),
-      authority: Math.round(comp.overallScore * 0.9),
-      sentiment: comp.sentiment === "positive" ? Math.round(comp.overallScore * 1.1) :
-                 comp.sentiment === "negative" ? Math.round(comp.overallScore * 0.7) :
-                 comp.overallScore,
-      isYou: false,
-    })),
-  ];
-
-  // Use demo data if no competitors
-  const displayData = comparisonData.length > 1 ? comparisonData : [
-    { name: brandName || "Your Brand", visibility: brandScore || 72, mentions: 85, authority: 68, sentiment: 78, isYou: true },
-    { name: "Competitor A", visibility: 65, mentions: 70, authority: 72, sentiment: 60, isYou: false },
-    { name: "Competitor B", visibility: 58, mentions: 55, authority: 65, sentiment: 55, isYou: false },
-    { name: "Competitor C", visibility: 52, mentions: 48, authority: 58, sentiment: 62, isYou: false },
-  ];
-
-  // Sort by visibility score (your brand stays first)
-  const sortedData = [displayData[0], ...displayData.slice(1).sort((a, b) => b.visibility - a.visibility)];
-
-  // Calculate your rank
-  const yourRank = sortedData.findIndex(d => d.isYou) + 1;
-  const leadingBy = yourRank === 1 ? sortedData[1]?.visibility ? brandScore - sortedData[1].visibility : 0 : 0;
-  const trailingBy = yourRank > 1 ? sortedData[0].visibility - brandScore : 0;
-
-  return (
-    <div className="space-y-3">
-      {/* Competitive Position Summary */}
-      <div className={`p-2.5 rounded-lg ${yourRank === 1 ? "bg-emerald-50 border border-emerald-100" : "bg-amber-50 border border-amber-100"}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`p-1.5 rounded-full ${yourRank === 1 ? "bg-emerald-100" : "bg-amber-100"}`}>
-              <Trophy className={`h-3.5 w-3.5 ${yourRank === 1 ? "text-emerald-600" : "text-amber-600"}`} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-800">
-                Rank #{yourRank} of {sortedData.length}
-              </p>
-              <p className="text-[10px] text-gray-600">
-                {yourRank === 1
-                  ? `Leading by ${leadingBy} points`
-                  : `${trailingBy} points behind leader`}
-              </p>
-            </div>
-          </div>
-          <Badge className={`text-[10px] ${yourRank === 1 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-            {yourRank === 1 ? "Market Leader" : yourRank <= 2 ? "Close Second" : "Challenger"}
-          </Badge>
-        </div>
-      </div>
-
-      {/* Heatmap Grid */}
-      <div className="space-y-1.5">
-        {sortedData.map((comp, i) => (
-          <div key={i} className={`flex items-center gap-2 ${comp.isYou ? "bg-indigo-50/50 rounded-lg p-1 -mx-1" : ""}`}>
-            <div className="w-24 flex items-center gap-1.5">
-              {comp.isYou && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
-              <span className={`text-xs truncate ${comp.isYou ? "font-semibold text-indigo-700" : "text-gray-600"}`}>
-                {comp.name}
-              </span>
-            </div>
-            <div className="flex-1 flex gap-1">
-              <HeatmapCell value={comp.visibility} highlight={comp.isYou} label="Visibility" />
-              <HeatmapCell value={comp.mentions} highlight={comp.isYou} label="Mentions" />
-              <HeatmapCell value={comp.authority} highlight={comp.isYou} label="Authority" />
-              <HeatmapCell value={Math.min(comp.sentiment, 100)} highlight={comp.isYou} label="Sentiment" />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-        <div className="flex items-center gap-2 text-[10px] text-gray-400">
-          <span className="w-24" />
-          <div className="flex-1 flex gap-1">
-            <span className="flex-1 text-center">Visibility</span>
-            <span className="flex-1 text-center">Mentions</span>
-            <span className="flex-1 text-center">Authority</span>
-            <span className="flex-1 text-center">Sentiment</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Insight */}
-      <div className="text-[10px] text-gray-500 flex items-center gap-1">
-        <Info className="h-3 w-3" />
-        <span>Higher scores = better AI visibility. Click expand for detailed analysis.</span>
-      </div>
-    </div>
-  );
-}
-
-function HeatmapCell({ value, highlight = false, label }: { value: number; highlight?: boolean; label?: string }) {
-  const getColor = () => {
-    if (value >= 75) return highlight ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-800";
-    if (value >= 60) return highlight ? "bg-emerald-400 text-white" : "bg-emerald-50 text-emerald-700";
-    if (value >= 45) return highlight ? "bg-amber-400 text-white" : "bg-amber-50 text-amber-700";
-    if (value >= 30) return highlight ? "bg-orange-400 text-white" : "bg-orange-50 text-orange-700";
-    return highlight ? "bg-red-400 text-white" : "bg-red-50 text-red-700";
-  };
-
-  return (
-    <div
-      className={`flex-1 h-6 ${getColor()} flex items-center justify-center text-[10px] font-medium rounded transition-colors`}
-      title={label ? `${label}: ${value}` : `${value}`}
-    >
-      {value}
-    </div>
-  );
-}
-
-// Competitor Heatmap Expanded - Uses real data from backend
-function CompetitorHeatmapExpanded({
-  competitors,
-  brandName,
-  brandScore,
-}: {
-  competitors: Array<{
-    name: string;
-    overallScore: number;
-    strengths: string[];
-    weaknesses: string[];
-    marketShare: string;
-    sentiment: string;
-  }>;
-  brandName: string;
-  brandScore: number;
-}) {
-  // Enhanced competitor data with detailed metrics
-  const competitorDetails = competitors.length > 0 ? competitors : [
-    {
-      name: "Competitor A",
-      overallScore: 78,
-      strengths: ["Strong content marketing", "High domain authority", "Active social presence"],
-      weaknesses: ["Limited local SEO", "Fewer citations", "Slower content updates"],
-      marketShare: "32%",
-      sentiment: "positive"
-    },
-    {
-      name: "Competitor B",
-      overallScore: 65,
-      strengths: ["Good pricing", "Strong reviews", "Fast support"],
-      weaknesses: ["Outdated content", "Poor backlinks", "Limited AI presence"],
-      marketShare: "24%",
-      sentiment: "neutral"
-    },
-    {
-      name: "Competitor C",
-      overallScore: 52,
-      strengths: ["Niche expertise", "Loyal customer base"],
-      weaknesses: ["Low visibility", "Few mentions", "Weak authority"],
-      marketShare: "15%",
-      sentiment: "neutral"
-    }
-  ];
-
-  // Your competitive advantages
-  const yourAdvantages = [
-    { metric: "AI Mention Rate", yours: brandScore, avgCompetitor: Math.round(competitorDetails.reduce((acc, c) => acc + c.overallScore, 0) / competitorDetails.length), better: brandScore > Math.round(competitorDetails.reduce((acc, c) => acc + c.overallScore, 0) / competitorDetails.length) },
-    { metric: "Content Freshness", yours: 85, avgCompetitor: 62, better: true },
-    { metric: "Citation Coverage", yours: 72, avgCompetitor: 58, better: true },
-    { metric: "Review Sentiment", yours: 78, avgCompetitor: 71, better: true },
-  ];
-
-  // Opportunities from competitor weaknesses
-  const opportunities = [
-    { area: "Content Gap", description: "Competitors lack in-depth guides on trending topics", potential: "+15% visibility" },
-    { area: "Citation Sources", description: "3 high-authority sites citing competitors but not you", potential: "+8% authority" },
-    { area: "Query Coverage", description: "Missing from 12 comparison queries where competitors appear", potential: "+20% mentions" },
-  ];
-
-  // Threats from competitor strengths
-  const threats = competitorDetails.flatMap(c => c.strengths.slice(0, 1).map(s => ({ competitor: c.name, strength: s })));
-
-  return (
-    <div className="space-y-5">
-      {/* Competitive Position Overview */}
-      <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100">
-        <h4 className="text-sm font-semibold text-gray-800 mb-3">Your Competitive Position</h4>
-        <div className="grid grid-cols-4 gap-3">
-          {yourAdvantages.map((adv, i) => (
-            <div key={i} className="text-center">
-              <div className={`text-lg font-bold ${adv.better ? "text-emerald-600" : "text-amber-600"}`}>
-                {adv.yours}
-                <span className="text-[10px] text-gray-400 font-normal"> vs {adv.avgCompetitor}</span>
-              </div>
-              <p className="text-[10px] text-gray-600 mt-0.5">{adv.metric}</p>
-              {adv.better ? (
-                <span className="inline-flex items-center gap-0.5 text-[9px] text-emerald-600">
-                  <ArrowUpRight className="h-2.5 w-2.5" /> Leading
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-0.5 text-[9px] text-amber-600">
-                  <ArrowDownRight className="h-2.5 w-2.5" /> Trailing
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* SWOT-style Analysis */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Opportunities */}
-        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100">
-          <h5 className="text-xs font-semibold text-emerald-800 mb-2 flex items-center gap-1.5">
-            <TrendingUp className="h-3.5 w-3.5" /> Opportunities to Capture
-          </h5>
-          <div className="space-y-2">
-            {opportunities.map((opp, i) => (
-              <div key={i} className="p-2 rounded bg-white/60">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-gray-800">{opp.area}</span>
-                  <Badge className="bg-emerald-100 text-emerald-700 text-[9px]">{opp.potential}</Badge>
-                </div>
-                <p className="text-[10px] text-gray-600">{opp.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Threats */}
-        <div className="p-3 rounded-lg bg-red-50 border border-red-100">
-          <h5 className="text-xs font-semibold text-red-800 mb-2 flex items-center gap-1.5">
-            <AlertCircle className="h-3.5 w-3.5" /> Competitor Advantages
-          </h5>
-          <div className="space-y-2">
-            {threats.slice(0, 3).map((threat, i) => (
-              <div key={i} className="p-2 rounded bg-white/60">
-                <span className="text-[10px] text-red-600 font-medium">{threat.competitor}</span>
-                <p className="text-xs text-gray-700 mt-0.5">{threat.strength}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Detailed Competitor Breakdown */}
-      <div>
-        <h4 className="text-sm font-semibold text-gray-800 mb-3">Detailed Competitor Analysis</h4>
-        <div className="space-y-3">
-          {competitorDetails.slice(0, 3).map((comp, i) => (
-            <div key={i} className="p-4 rounded-xl bg-gray-50 border border-gray-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                    comp.overallScore >= 70 ? "bg-emerald-500" :
-                    comp.overallScore >= 50 ? "bg-amber-500" : "bg-gray-400"
-                  }`}>
-                    {comp.overallScore}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-sm text-gray-900">{comp.name}</span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] text-gray-500">Market share: {comp.marketShare}</span>
-                      <Badge className={`text-[9px] ${
-                        comp.sentiment === "positive" ? "bg-emerald-100 text-emerald-700" :
-                        comp.sentiment === "negative" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"
-                      }`}>
-                        {comp.sentiment} sentiment
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className={`text-xs font-medium ${brandScore > comp.overallScore ? "text-emerald-600" : "text-red-600"}`}>
-                    {brandScore > comp.overallScore ? `You lead by ${brandScore - comp.overallScore}` : `Behind by ${comp.overallScore - brandScore}`}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[10px] text-gray-500 mb-1.5">Their Strengths</p>
-                  <ul className="space-y-1">
-                    {comp.strengths.slice(0, 3).map((s, j) => (
-                      <li key={j} className="text-xs text-gray-700 flex items-center gap-1.5">
-                        <div className="w-1 h-1 rounded-full bg-red-400" />
-                        {s}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-[10px] text-gray-500 mb-1.5">Their Weaknesses (Your Opportunity)</p>
-                  <ul className="space-y-1">
-                    {comp.weaknesses.slice(0, 3).map((w, j) => (
-                      <li key={j} className="text-xs text-gray-700 flex items-center gap-1.5">
-                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                        {w}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Actionable Summary */}
-      <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-        <div className="flex items-start gap-2">
-          <Lightbulb className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-xs font-semibold text-blue-800">Competitive Strategy Recommendation</p>
-            <p className="text-xs text-blue-700 mt-1">
-              Focus on the 3 content gaps identified above. Creating targeted content for these areas could help you
-              overtake Competitor A in AI visibility within 30-60 days.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Market Overview Preview - Uses analysis data
-function MarketOverviewPreview({
-  marketIntelligence,
-}: {
-  marketIntelligence?: {
-    marketSize: string;
-    growthRate: string;
-    industryTrends: string[];
-    futureOutlook: string;
-  };
-}) {
-  const metrics = [
-    { label: "Market Size", value: marketIntelligence?.marketSize || "$4.2B", trend: "+12%" },
-    { label: "Growth Rate", value: marketIntelligence?.growthRate || "15% YoY", trend: "+5%" },
-    { label: "Industry Maturity", value: "Growing", trend: null },
-    { label: "Opportunity Score", value: "78/100", trend: "+5" },
-  ];
-
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {metrics.map((metric, i) => (
-        <div key={i} className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-          <p className="text-xs text-gray-500 mb-1">{metric.label}</p>
-          <div className="flex items-baseline gap-2">
-            <span className="text-lg font-bold text-gray-900">{metric.value}</span>
-            {metric.trend && (
-              <span className="text-xs text-emerald-600 font-medium">{metric.trend}</span>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Industry Trends Preview - Uses analysis data
-function IndustryTrendsPreview({
-  trends: analysisTrends,
-}: {
-  trends?: string[];
-}) {
-  // Use analysis trends if available, otherwise show default
-  const defaultTrends = [
-    { title: "AI-powered CRM comparisons rising", change: "+45%", hot: true },
-    { title: "Voice search optimization queries", change: "+32%", hot: true },
-    { title: "Enterprise software alternatives", change: "+28%", hot: false },
-    { title: "Pricing comparison requests", change: "+22%", hot: false },
-  ];
-
-  // Convert analysis trends to display format
-  const displayTrends = analysisTrends && analysisTrends.length > 0
-    ? analysisTrends.slice(0, 4).map((trend, i) => ({
-        title: trend,
-        change: i < 2 ? `+${30 + i * 8}%` : `+${20 + i * 4}%`,
-        hot: i < 2,
-      }))
-    : defaultTrends;
-
-  return (
-    <div className="space-y-3">
-      {displayTrends.map((trend, i) => (
-        <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100 hover:bg-gray-100 transition-colors">
-          <div className="flex items-center gap-3">
-            {trend.hot && (
-              <span className="px-2 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-600 rounded-full">
-                HOT
-              </span>
-            )}
-            <span className="text-sm text-gray-700">{trend.title}</span>
-          </div>
-          <span className="text-sm font-medium text-emerald-600">{trend.change}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
 function AnalysisSkeleton() {
   return (
     <div className="p-6 space-y-6">

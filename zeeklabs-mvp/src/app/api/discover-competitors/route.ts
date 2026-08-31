@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
-import { callGeminiWithRetry, callPerplexityWithRetry, callOpenRouterGeminiWithRetry } from "@/lib/ai-providers";
+import { callGeminiWithRetry, callPerplexityWithRetry, callOpenRouterFamily } from "@/lib/ai-providers";
 
 export async function POST(req: NextRequest) {
   try {
@@ -79,8 +79,8 @@ Important:
     // Fallback to OpenRouter (Gemini models via OpenRouter)
     if (competitors.length === 0 && process.env.OPENROUTER_API_KEY) {
       try {
-        console.log("Discovering competitors via OpenRouter Gemini...");
-        const response = await callOpenRouterGeminiWithRetry(prompt);
+        console.log("Discovering competitors via OpenRouter Gemini (web search on)...");
+        const { content: response } = await callOpenRouterFamily(prompt, "gemini", 3500, { webSearch: true });
         provider = "openrouter-gemini";
 
         // Extract JSON from response

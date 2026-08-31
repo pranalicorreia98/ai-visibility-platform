@@ -12,6 +12,11 @@ export interface Brand {
   competitors?: Array<{ name: string }>;
 }
 
+// Escape special regex characters in a string to prevent regex injection
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function detectMentions(response: string, brand: Brand | null): Mention[] {
   if (!brand) return [];
 
@@ -23,7 +28,9 @@ export function detectMentions(response: string, brand: Brand | null): Mention[]
 
   // Detect brand mentions
   for (const term of brandTerms) {
-    const regex = new RegExp(term, "gi");
+    // Escape regex special characters to prevent crashes on brand names like "C++" or "AT&T"
+    const escapedTerm = escapeRegex(term);
+    const regex = new RegExp(escapedTerm, "gi");
     let match;
     while ((match = regex.exec(response)) !== null) {
       mentions.push({
@@ -41,7 +48,9 @@ export function detectMentions(response: string, brand: Brand | null): Mention[]
   // Detect competitor mentions
   if (brand.competitors) {
     for (const competitor of brand.competitors) {
-      const regex = new RegExp(competitor.name, "gi");
+      // Escape regex special characters for competitor names too
+      const escapedName = escapeRegex(competitor.name);
+      const regex = new RegExp(escapedName, "gi");
       let match;
       while ((match = regex.exec(response)) !== null) {
         mentions.push({

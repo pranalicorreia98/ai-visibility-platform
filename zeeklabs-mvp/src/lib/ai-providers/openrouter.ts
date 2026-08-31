@@ -86,10 +86,22 @@ function getClient(): OpenAI {
  * - Automatically fallback on 404 (model unavailable), rate limits, downtime
  * - Bill only for the model that actually succeeds
  */
+export interface OpenRouterCallOptions {
+  /**
+   * Attaches OpenRouter's web search plugin (Exa-backed) so the model
+   * answers grounded in live search results instead of training data alone —
+   * cuts down on the LLM inventing market intel/citations/competitor facts
+   * for content that's supposed to be a real-world answer, not a guess.
+   * See: https://openrouter.ai/docs/features/web-search
+   */
+  webSearch?: boolean;
+}
+
 export async function callOpenRouterWithFallbacks(
   prompt: string,
   models: string[],
-  maxTokens: number = 3500
+  maxTokens: number = 3500,
+  options?: OpenRouterCallOptions
 ): Promise<{ content: string; modelUsed: string }> {
   const openrouter = getClient();
 
@@ -98,7 +110,7 @@ export async function callOpenRouterWithFallbacks(
     setTimeout(() => reject(new Error(`OpenRouter API timeout after 60 seconds`)), 60000);
   });
 
-  console.log(`OpenRouter: Calling with fallback chain [${models.join(" -> ")}]`);
+  console.log(`OpenRouter: Calling with fallback chain [${models.join(" -> ")}]${options?.webSearch ? " (web search on)" : ""}`);
 
   const response = await Promise.race([
     openrouter.chat.completions.create({
@@ -107,6 +119,7 @@ export async function callOpenRouterWithFallbacks(
       messages: [{ role: "user", content: prompt }],
       max_tokens: maxTokens,
       temperature: 0,
+      ...(options?.webSearch && { plugins: [{ id: "web" }] }),
     }),
     timeoutPromise
   ]) as OpenAI.Chat.Completions.ChatCompletion;
@@ -131,22 +144,29 @@ export async function callOpenRouterAuto(
   options?: {
     costTier?: "low" | "medium" | "high" | "xhigh" | "max";
     allowedModels?: string[];  // e.g., ["google/*", "anthropic/*"]
-  }
+  } & OpenRouterCallOptions
 ): Promise<{ content: string; modelUsed: string }> {
   const openrouter = getClient();
 
-  console.log(`OpenRouter Auto: Letting router select best model (tier: ${options?.costTier || "default"})`);
+  console.log(`OpenRouter Auto: Letting router select best model (tier: ${options?.costTier || "default"})${options?.webSearch ? " (web search on)" : ""}`);
 
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error(`OpenRouter Auto timeout after 60 seconds`)), 60000);
   });
 
-  // Build plugins config for auto-router
-  const plugins = options?.costTier || options?.allowedModels ? [{
-    id: "auto-router",
-    ...(options?.costTier && { cost_tier: options.costTier }),
-    ...(options?.allowedModels && { allowed_models: options.allowedModels })
-  }] : undefined;
+  // Build plugins config: auto-router tuning and/or the web search plugin,
+  // each as a separate entry in the plugins array.
+  const plugins: Array<Record<string, unknown>> = [];
+  if (options?.costTier || options?.allowedModels) {
+    plugins.push({
+      id: "auto-router",
+      ...(options?.costTier && { cost_tier: options.costTier }),
+      ...(options?.allowedModels && { allowed_models: options.allowedModels }),
+    });
+  }
+  if (options?.webSearch) {
+    plugins.push({ id: "web" });
+  }
 
   const response = await Promise.race([
     openrouter.chat.completions.create({
@@ -154,7 +174,7 @@ export async function callOpenRouterAuto(
       messages: [{ role: "user", content: prompt }],
       max_tokens: maxTokens,
       temperature: 0,
-      ...(plugins && { plugins })
+      ...(plugins.length > 0 && { plugins })
     }),
     timeoutPromise
   ]) as OpenAI.Chat.Completions.ChatCompletion;
@@ -175,11 +195,12 @@ export async function callOpenRouterAuto(
 export async function callOpenRouterFamily(
   prompt: string,
   family: ModelFamily = "gemini",
-  maxTokens: number = 3500
+  maxTokens: number = 3500,
+  options?: OpenRouterCallOptions
 ): Promise<{ content: string; modelUsed: string }> {
   const config = MODEL_CONFIGS[family];
   console.log(`OpenRouter ${family}: ${config.description}`);
-  return callOpenRouterWithFallbacks(prompt, [...config.models], maxTokens);
+  return callOpenRouterWithFallbacks(prompt, [...config.models], maxTokens, options);
 }
 
 // ============================================================================
