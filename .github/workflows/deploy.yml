@@ -65,7 +65,7 @@ jobs:
               "npm install",
               "aws ssm get-parameters-by-path --path /zeeklabs/ --with-decryption --query \"Parameters[*].[Name,Value]\" --output text > /tmp/params.tsv",
               "> .env",
-              "while IFS=$(printf \"\\t\") read -r name value; do key=$(basename \"$name\"); printf \"%s=%s\\n\" \"$key\" \"$value\" >> .env; done < /tmp/params.tsv",
+              "while IFS=$(printf \"\\t\") read -r name value; do key=$(basename \"$name\"); esc=${value//\\\"/\\\\\\\"}; printf \"%s=\\\"%s\\\"\\n\" \"$key\" \"$esc\" >> .env; done < /tmp/params.tsv",
               "set -a; . ./.env; set +a",
               "npx prisma generate",
               "npx prisma migrate deploy",
