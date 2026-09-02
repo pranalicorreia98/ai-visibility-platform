@@ -428,13 +428,19 @@ export function PlatformPerformancePage({ meta, platformPerformance }: PlatformP
           <div className="report-premium-stat-label">Mention Rate</div>
         </div>
         <div className="report-premium-stat">
-          <div className="report-premium-stat-value" style={{ color: '#059669' }}>
+          <div
+            className="report-premium-stat-value"
+            style={{ color: '#059669', fontSize: '17px', fontWeight: 700, lineHeight: 1.3 }}
+          >
             {platformPerformance.strongestPlatform}
           </div>
           <div className="report-premium-stat-label">Strongest Platform</div>
         </div>
         <div className="report-premium-stat">
-          <div className="report-premium-stat-value" style={{ color: '#dc2626' }}>
+          <div
+            className="report-premium-stat-value"
+            style={{ color: '#dc2626', fontSize: '17px', fontWeight: 700, lineHeight: 1.3 }}
+          >
             {platformPerformance.weakestPlatform}
           </div>
           <div className="report-premium-stat-label">Needs Attention</div>

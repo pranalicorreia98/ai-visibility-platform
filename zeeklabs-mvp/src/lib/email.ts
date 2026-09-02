@@ -91,7 +91,7 @@ export async function notifyUserApproved(user: { email: string }) {
           </div>
           <div style="border-top: 1px solid #e0e0e0; padding-top: 20px; margin-top: 20px;">
             <p style="color: #666; font-size: 14px; margin: 0;">
-              Questions? Reply to this email or reach out at <a href="mailto:support@zeeklabs.ai" style="color: #667eea;">support@zeeklabs.ai</a>
+              Questions? Reply to this email or reach out at <a href="mailto:founder@zeeklabs.ai" style="color: #667eea;">founder@zeeklabs.ai</a>
             </p>
           </div>
         </div>

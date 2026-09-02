@@ -243,19 +243,6 @@ export function MethodologyPage({ meta, methodology }: MethodologyPageProps) {
           }}>
             <span>✉️</span> founder@zeeklabs.ai
           </div>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '12px 28px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-            borderRadius: '24px',
-            fontSize: '15px',
-            fontWeight: 600,
-            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.4)'
-          }}>
-            <span>✉️</span> support@zeeklabs.ai
-          </div>
         </div>
       </div>
 

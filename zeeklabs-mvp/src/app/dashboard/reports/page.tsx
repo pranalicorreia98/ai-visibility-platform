@@ -1286,7 +1286,7 @@ export default function ReportsPage() {
       </div>
       <div style="margin-top: 16px; padding: 12px 24px; background: #f8fafc; border-radius: 8px; display: inline-block;">
         <span style="font-size: 10px; color: #6b7280;">Need help improving your AI visibility? Contact us at </span>
-        <span style="font-size: 10px; color: #6366f1; font-weight: 500;">support@zeeklabs.ai</span>
+        <span style="font-size: 10px; color: #6366f1; font-weight: 500;">founder@zeeklabs.ai</span>
       </div>
     </div>
   </div>
