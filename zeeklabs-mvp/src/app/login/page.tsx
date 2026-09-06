@@ -209,10 +209,23 @@ function PricingPlans() {
         </div>
       </div>
 
-      <div className="relative p-4 rounded-xl border-2 border-indigo-200 bg-indigo-50/50 mb-4">
-        <p className="text-sm font-medium text-gray-600 mb-1">100 credits</p>
-        <p className="text-2xl font-bold text-gray-900">₹299<span className="text-sm font-normal text-gray-500"> one-time</span></p>
-        <p className="text-xs text-gray-500 mt-1">10 credits per brand analysis - good for 10 full analyses</p>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        {/* Starter pack */}
+        <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50">
+          <p className="text-sm font-medium text-gray-600 mb-1">10 credits</p>
+          <p className="text-2xl font-bold text-gray-900">₹30<span className="text-sm font-normal text-gray-500"> one-time</span></p>
+          <p className="text-xs text-gray-500 mt-1">Good for 1 brand analysis</p>
+        </div>
+
+        {/* Bulk pack */}
+        <div className="relative p-4 rounded-xl border-2 border-indigo-200 bg-indigo-50/50">
+          <div className="absolute -top-2.5 left-3 px-2 py-0.5 bg-indigo-600 text-white text-xs font-medium rounded-full">
+            Most Popular
+          </div>
+          <p className="text-sm font-medium text-gray-600 mb-1 mt-1">100 credits</p>
+          <p className="text-2xl font-bold text-gray-900">₹299<span className="text-sm font-normal text-gray-500"> one-time</span></p>
+          <p className="text-xs text-gray-500 mt-1">Good for 10 brand analyses</p>
+        </div>
       </div>
 
       <div className="space-y-2 mb-4">

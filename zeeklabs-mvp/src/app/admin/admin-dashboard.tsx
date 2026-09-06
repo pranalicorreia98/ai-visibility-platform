@@ -103,6 +103,14 @@ export function AdminDashboard() {
     }
   };
 
+  // Known pack sizes shown on the login page's pricing card - used only to
+  // auto-fill a clearer ledger description when the granted amount matches
+  // one exactly; any other amount still works, just with a generic note.
+  const CREDIT_PACKS: Record<number, string> = {
+    10: "Manual purchase - Rs 30 / 10 credits",
+    100: "Manual purchase - Rs 299 / 100 credits",
+  };
+
   const handleGrantCredits = async (userId: string) => {
     const raw = creditDrafts[userId]?.trim();
     const amount = Number(raw);
@@ -116,10 +124,7 @@ export function AdminDashboard() {
         body: JSON.stringify({
           userId,
           amount,
-          description:
-            amount === 100
-              ? "Manual purchase - Rs 299 / 100 credits"
-              : `Manual credit grant (${amount} credits)`,
+          description: CREDIT_PACKS[amount] ?? `Manual credit grant (${amount} credits)`,
         }),
       });
       if (res.ok) {
