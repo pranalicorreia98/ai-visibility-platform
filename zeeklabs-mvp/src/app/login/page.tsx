@@ -137,7 +137,7 @@ function LoginMessages() {
   return null;
 }
 
-function BetaRequestForm() {
+function GetAccessForm() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -168,17 +168,11 @@ function BetaRequestForm() {
   };
 
   return (
-    <div className="relative bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden">
-      {/* Top accent gradient */}
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
-
-      <div className="flex items-center gap-3 mb-5">
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100">
-          <Gift className="h-5 w-5 text-indigo-600" />
-        </div>
+    <div className="bg-gray-50/80 rounded-xl p-5 border border-gray-100">
+      <div className="flex items-center gap-2.5 mb-4">
+        <Gift className="h-5 w-5 text-indigo-600" />
         <div>
-          <h3 className="font-semibold text-gray-900">Request Beta Access</h3>
-          <p className="text-sm text-gray-500">Free during beta period</p>
+          <p className="font-medium text-gray-900">New here? Get 20 free credits</p>
         </div>
       </div>
 
@@ -194,45 +188,28 @@ function BetaRequestForm() {
               {result.message}
             </p>
           </div>
-          {result.success && (
-            <button
-              onClick={() => setResult(null)}
-              className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
-            >
-              Request for another email
-            </button>
-          )}
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex gap-3">
           <Input
             type="email"
-            placeholder="Enter your work email"
+            placeholder="Enter your email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="h-12 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/20 bg-gray-50/50 placeholder:text-gray-400"
+            className="h-11 rounded-lg border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/20 bg-white placeholder:text-gray-400 flex-1"
             required
           />
           <Button
             type="submit"
             disabled={isLoading || !email.trim()}
-            className="w-full h-12 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-lg shadow-gray-900/10 transition-all duration-200 press-effect"
+            className="h-11 px-5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm transition-all duration-200"
           >
             {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Submitting...
-              </>
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <>
-                Request Beta Access
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
+              "Get Access"
             )}
           </Button>
-          <p className="text-xs text-gray-500 text-center">
-            We&apos;ll review and email you within 24 hours
-          </p>
         </form>
       )}
     </div>
@@ -353,7 +330,7 @@ function LoginForm() {
           if (result.error === "email-not-verified") {
             setError("Please verify your email before signing in. Check your inbox for the verification link.");
           } else if (result.error === "not-allowlisted") {
-            setError("You need beta access to sign in. Request beta access above.");
+            setError("You need beta access to sign in. Get access below first.");
           } else {
             setError("Invalid email or password. Please try again.");
           }
@@ -369,10 +346,46 @@ function LoginForm() {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-      <h3 className="font-semibold text-gray-900 mb-5">
-        {isSignup ? "Create an account" : "Already have access?"}
-      </h3>
+    <div className="relative bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden">
+      {/* Top accent gradient */}
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
+
+      {/* Tab Toggle */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg mb-6">
+        <button
+          type="button"
+          onClick={() => { setIsSignup(false); setError(null); setSuccess(null); }}
+          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
+            !isSignup ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Sign In
+        </button>
+        <button
+          type="button"
+          onClick={() => { setIsSignup(true); setError(null); setSuccess(null); }}
+          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
+            isSignup ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Create Account
+        </button>
+      </div>
+
+      {/* Error/Success Messages */}
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-2 mb-4">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-700 flex items-start gap-2 mb-4">
+          <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+          {success}
+        </div>
+      )}
 
       {/* Google OAuth */}
       <Button
@@ -400,26 +413,12 @@ function LoginForm() {
           <div className="w-full border-t border-gray-200" />
         </div>
         <div className="relative flex justify-center text-xs">
-          <span className="bg-white px-3 text-gray-400 uppercase tracking-wider">or</span>
+          <span className="bg-white px-3 text-gray-400 uppercase tracking-wider">or use email</span>
         </div>
       </div>
 
       {/* Email/Password Form */}
       <form onSubmit={handleEmailAuth} className="space-y-4">
-        {error && (
-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-700 flex items-start gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-            {success}
-          </div>
-        )}
-
         {isSignup && (
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -477,32 +476,12 @@ function LoginForm() {
         </Button>
       </form>
 
-      {/* Toggle Sign up / Sign in */}
-      <p className="text-sm text-gray-600 text-center mt-4">
-        {isSignup ? (
-          <>
-            Already have an account?{" "}
-            <button
-              type="button"
-              onClick={() => { setIsSignup(false); setError(null); setSuccess(null); }}
-              className="text-indigo-600 hover:text-indigo-700 font-medium"
-            >
-              Sign in
-            </button>
-          </>
-        ) : (
-          <>
-            Have beta access but no account?{" "}
-            <button
-              type="button"
-              onClick={() => { setIsSignup(true); setError(null); setSuccess(null); }}
-              className="text-indigo-600 hover:text-indigo-700 font-medium"
-            >
-              Create account
-            </button>
-          </>
-        )}
-      </p>
+      {/* Get Access Section - only show for non-signup */}
+      {!isSignup && (
+        <div className="mt-6">
+          <GetAccessForm />
+        </div>
+      )}
     </div>
   );
 }
@@ -564,9 +543,8 @@ export default function LoginPage() {
 
           {/* Main sections */}
           <div className="space-y-5">
-            <BetaRequestForm />
-            <PricingPlans />
             <LoginForm />
+            <PricingPlans />
           </div>
 
           {/* Footer */}

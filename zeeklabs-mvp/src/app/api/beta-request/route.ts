@@ -63,56 +63,69 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create new beta request
+    // Auto-approve beta request and add to allowlist with 20 credits
     await prisma.betaRequest.create({
       data: {
         email: normalizedEmail,
-        status: "PENDING",
+        status: "APPROVED",
       },
     });
 
-    // Send email to admin
-    if (ADMIN_EMAILS.length > 0) {
-      const approveUrl = `${APP_URL}/api/beta-request/approve?email=${encodeURIComponent(normalizedEmail)}&action=approve`;
-      const rejectUrl = `${APP_URL}/api/beta-request/approve?email=${encodeURIComponent(normalizedEmail)}&action=reject`;
+    // Add to allowlist (credits will be granted when user creates account)
+    await prisma.allowlist.create({
+      data: {
+        email: normalizedEmail,
+      },
+    });
 
+    // Send welcome email with instructions
+    await sendMail({
+      to: normalizedEmail,
+      subject: "Welcome to zeeklabs.ai - Your beta access is ready!",
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to zeeklabs.ai!</h1>
+          </div>
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
+            <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+              Great news! Your beta access has been approved. Create your account and you'll receive <strong>20 free credits</strong> to get started.
+            </p>
+            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #16a34a; margin-bottom: 25px;">
+              <p style="margin: 0 0 10px 0; font-size: 16px; color: #333;">
+                <strong>What's next?</strong>
+              </p>
+              <ol style="margin: 0; padding-left: 20px; color: #555;">
+                <li style="margin-bottom: 8px;">Go to <a href="${APP_URL}/login" style="color: #667eea;">zeeklabs.ai/login</a></li>
+                <li style="margin-bottom: 8px;">Create your account with email & password, or sign in with Google</li>
+                <li>Start analyzing your brand's AI visibility!</li>
+              </ol>
+            </div>
+            <div style="text-align: center; margin-bottom: 25px;">
+              <a href="${APP_URL}/login" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 40px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                Get Started Now
+              </a>
+            </div>
+            <p style="color: #666; font-size: 14px; text-align: center; margin: 0;">
+              Questions? Reply to this email or reach out at <a href="mailto:founder@zeeklabs.ai" style="color: #667eea;">founder@zeeklabs.ai</a>
+            </p>
+          </div>
+        </div>
+      `,
+    });
+
+    // Notify admin (optional, for tracking)
+    if (ADMIN_EMAILS.length > 0) {
       await sendMail({
         to: ADMIN_EMAILS,
-        subject: `🎁 Beta Access Request: ${normalizedEmail}`,
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 24px;">🎁 Beta Access Request</h1>
-            </div>
-            <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
-              <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
-                Someone wants beta access to <strong>zeeklabs.ai</strong>:
-              </p>
-              <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin-bottom: 25px;">
-                <p style="margin: 0; font-size: 18px; color: #333;">
-                  <strong>${normalizedEmail}</strong>
-                </p>
-              </div>
-              <div style="text-align: center; margin-bottom: 25px;">
-                <a href="${approveUrl}" style="display: inline-block; background: #16a34a; color: white; padding: 14px 35px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-right: 10px; font-size: 16px;">
-                  ✓ Approve & Send Magic Link
-                </a>
-                <a href="${rejectUrl}" style="display: inline-block; background: #dc2626; color: white; padding: 14px 35px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
-                  ✗ Reject
-                </a>
-              </div>
-              <p style="color: #666; font-size: 14px; text-align: center; margin: 0;">
-                Or manage all requests from the <a href="${APP_URL}/admin" style="color: #667eea;">admin dashboard</a>.
-              </p>
-            </div>
-          </div>
-        `,
+        subject: `New beta user auto-approved: ${normalizedEmail}`,
+        html: `<p>Auto-approved beta access for <strong>${normalizedEmail}</strong> with 20 credits.</p>`,
       });
     }
 
     return NextResponse.json({
       success: true,
-      message: "Thanks for your interest! We'll review your request and email you within 24 hours.",
+      message: "You're approved! Check your email for next steps. You can now sign in or create an account.",
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
