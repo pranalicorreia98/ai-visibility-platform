@@ -103,6 +103,7 @@ export default function AnalysisPage() {
     visibilityLoading,
     invalidateVisibilityCache,
     refreshVisibilityData,
+    refreshCredits,
   } = useBrand();
 
   const [analysisLoading, setAnalysisLoading] = useState(false);
@@ -221,6 +222,7 @@ export default function AnalysisPage() {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setAnalysisLoading(false);
+      refreshCredits();
     }
   };
 

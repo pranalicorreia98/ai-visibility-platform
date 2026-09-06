@@ -204,34 +204,21 @@ function PricingPlans() {
           <CreditCard className="h-5 w-5 text-gray-600" />
         </div>
         <div>
-          <h3 className="font-semibold text-gray-900">Subscribe</h3>
+          <h3 className="font-semibold text-gray-900">Credit Packs</h3>
           <p className="text-sm text-gray-500">Coming soon</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {/* Yearly Plan */}
-        <div className="relative p-4 rounded-xl border-2 border-indigo-200 bg-indigo-50/50">
-          <div className="absolute -top-2.5 left-3 px-2 py-0.5 bg-indigo-600 text-white text-xs font-medium rounded-full">
-            Save 40%
-          </div>
-          <p className="text-sm font-medium text-gray-600 mb-1">Yearly</p>
-          <p className="text-2xl font-bold text-gray-900">₹299<span className="text-sm font-normal text-gray-500">/mo</span></p>
-          <p className="text-xs text-gray-500">Billed ₹3,588/year</p>
-        </div>
-
-        {/* Monthly Plan */}
-        <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50">
-          <p className="text-sm font-medium text-gray-600 mb-1 mt-2">Monthly</p>
-          <p className="text-2xl font-bold text-gray-900">₹499<span className="text-sm font-normal text-gray-500">/mo</span></p>
-          <p className="text-xs text-gray-500">Billed monthly</p>
-        </div>
+      <div className="relative p-4 rounded-xl border-2 border-indigo-200 bg-indigo-50/50 mb-4">
+        <p className="text-sm font-medium text-gray-600 mb-1">100 credits</p>
+        <p className="text-2xl font-bold text-gray-900">₹299<span className="text-sm font-normal text-gray-500"> one-time</span></p>
+        <p className="text-xs text-gray-500 mt-1">10 credits per brand analysis - good for 10 full analyses</p>
       </div>
 
       <div className="space-y-2 mb-4">
         {[
-          "5 brands",
-          "8 competitors per brand",
+          "10 credits = 1 full brand analysis",
+          "Credits never expire",
           "ChatGPT, Gemini & Perplexity",
           "PDF reports",
           "Action recommendations",

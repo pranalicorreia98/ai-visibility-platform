@@ -17,6 +17,7 @@ export async function GET() {
       status: true,
       createdAt: true,
       approvedAt: true,
+      credits: true,
     },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
   });

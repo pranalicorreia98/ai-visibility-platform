@@ -185,6 +185,12 @@ interface BrandContextValue {
   refreshVisibilityData: (forceRefresh?: boolean) => Promise<void>;
   fetchBrands: () => Promise<void>;
   invalidateVisibilityCache: () => void;
+
+  // Credits - null while not yet loaded. unlimitedCredits is true for admin
+  // accounts, which api/analyze never actually charges.
+  credits: number | null;
+  unlimitedCredits: boolean;
+  refreshCredits: () => Promise<void>;
 }
 
 const BrandContext = createContext<BrandContextValue | null>(null);
@@ -370,6 +376,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [visibilityLoading, setVisibilityLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [unlimitedCredits, setUnlimitedCredits] = useState(false);
 
   // Track the previous brand ID to detect changes
   const prevBrandIdRef = useRef<string>("");
@@ -453,6 +461,21 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       console.error("Failed to fetch brands:", err);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  // Refresh credit balance - called on mount and after any action that
+  // spends/refunds credits (e.g. running analysis) so the header stays live.
+  const refreshCredits = useCallback(async () => {
+    try {
+      const response = await fetch("/api/credits");
+      if (response.ok) {
+        const data = await response.json();
+        setCredits(data.balance);
+        setUnlimitedCredits(data.unlimited);
+      }
+    } catch (err) {
+      console.error("Failed to fetch credits:", err);
     }
   }, []);
 
@@ -541,8 +564,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (initialized) {
       fetchBrands();
+      refreshCredits();
     }
-  }, [initialized, fetchBrands]);
+  }, [initialized, fetchBrands, refreshCredits]);
 
   // Fetch visibility when brand changes
   useEffect(() => {
@@ -599,6 +623,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     refreshVisibilityData,
     fetchBrands,
     invalidateVisibilityCache,
+    credits,
+    unlimitedCredits,
+    refreshCredits,
   };
 
   return (

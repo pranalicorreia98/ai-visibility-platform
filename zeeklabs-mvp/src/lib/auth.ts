@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "./prisma";
 import { isAdminEmail, generateApprovalToken } from "./admin";
 import { notifyAdminOfNewSignup } from "./email";
+import { ensureInitialCreditsGranted } from "./credits";
 
 // Custom error classes for better error handling
 class PendingApprovalError extends CredentialsSignin {
@@ -59,6 +60,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             throw new RejectedError();
           }
           if (user.status === "APPROVED") {
+            await ensureInitialCreditsGranted(user.id, user.accessType);
             return {
               id: user.id,
               email: user.email,
@@ -77,6 +79,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 approvedAt: new Date(),
               },
             });
+            await ensureInitialCreditsGranted(user.id, user.accessType);
             return {
               id: user.id,
               email: user.email,
@@ -97,6 +100,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               status: "APPROVED",
             },
           });
+          await ensureInitialCreditsGranted(user.id, user.accessType);
           return {
             id: user.id,
             email: user.email,
@@ -121,6 +125,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             where: { email },
             data: { usedAt: new Date() },
           });
+          await ensureInitialCreditsGranted(user.id, user.accessType);
           return {
             id: user.id,
             email: user.email,
@@ -157,11 +162,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       // Admin emails are always allowed
       if (isAdminEmail(email)) {
-        await prisma.user.upsert({
+        const adminUser = await prisma.user.upsert({
           where: { email },
           update: { status: "APPROVED" },
           create: { email, name: user.name, status: "APPROVED" },
         });
+        await ensureInitialCreditsGranted(adminUser.id, adminUser.accessType);
         return true;
       }
 
@@ -170,12 +176,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (dbUser) {
         // Existing user
-        if (dbUser.status === "APPROVED") return true;
+        if (dbUser.status === "APPROVED") {
+          await ensureInitialCreditsGranted(dbUser.id, dbUser.accessType);
+          return true;
+        }
         if (dbUser.status === "REJECTED") return false;
 
         // PENDING - check if now allowlisted
         if (await isAllowlisted(email)) {
-          await prisma.user.update({
+          dbUser = await prisma.user.update({
             where: { id: dbUser.id },
             data: {
               status: "APPROVED",
@@ -183,6 +192,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               approvedAt: new Date(),
             },
           });
+          await ensureInitialCreditsGranted(dbUser.id, dbUser.accessType);
           return true;
         }
 
@@ -192,7 +202,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       // New user - check allowlist
       if (await isAllowlisted(email)) {
-        await prisma.user.create({
+        const newUser = await prisma.user.create({
           data: {
             email,
             name: user.name,
@@ -206,6 +216,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: { email },
           data: { usedAt: new Date() },
         });
+        await ensureInitialCreditsGranted(newUser.id, newUser.accessType);
         return true;
       }
 

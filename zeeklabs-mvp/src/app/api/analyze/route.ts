@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isAdminEmail } from "@/lib/admin";
+import { CREDITS_PER_ANALYSIS, spendCredits, grantCredits, InsufficientCreditsError } from "@/lib/credits";
 
 // Cache duration: 24 hours in milliseconds
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -205,6 +207,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // A real new run is about to happen (cache hit already returned above) -
+    // this is the billable moment. Admin accounts are exempt so testing
+    // never locks the founder out. Spend before creating the job so a
+    // failed/insufficient spend never queues work; refund if the job
+    // creation below still somehow fails (e.g. a race condition).
+    const isAdmin = isAdminEmail(session.user.email);
+    if (!isAdmin) {
+      try {
+        await spendCredits(
+          session.user.id,
+          CREDITS_PER_ANALYSIS,
+          "ANALYSIS_SPEND",
+          `Analysis run for ${brand.name}`,
+          brandId
+        );
+      } catch (err) {
+        if (err instanceof InsufficientCreditsError) {
+          return NextResponse.json(
+            {
+              error: `Not enough credits. This analysis costs ${CREDITS_PER_ANALYSIS} credits and you have ${err.balance}. Contact founder@zeeklabs.ai to top up.`,
+              insufficientCredits: true,
+              balance: err.balance,
+              required: err.required,
+            },
+            { status: 402 }
+          );
+        }
+        throw err;
+      }
+    }
+
     // Create a pending cache entry before starting analysis
     const expiresAt = new Date(Date.now() + CACHE_DURATION_MS);
     let cacheEntry;
@@ -220,7 +253,17 @@ export async function POST(req: NextRequest) {
       });
       console.log(`Analysis cache entry created (pending) for brand ${brand.name}`);
     } catch {
-      // Handle race condition - another request might have created the entry
+      // Handle race condition - another request might have created the entry.
+      // Refund since no job actually got queued for the credits just spent.
+      if (!isAdmin) {
+        await grantCredits(
+          session.user.id,
+          CREDITS_PER_ANALYSIS,
+          "ANALYSIS_REFUND",
+          "Refund: analysis already in progress (race condition)",
+          brandId
+        );
+      }
       console.log("Cache entry creation failed - possibly due to race condition");
       return NextResponse.json(
         {

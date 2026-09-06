@@ -28,11 +28,31 @@ model User {
   approvalTokenExpires DateTime?
   approvedAt           DateTime?
 
-  accounts        Account[]
-  sessions        Session[]
-  brands          Brand[]
-  simulations     Simulation[]
-  emailPreference EmailPreference?
+  credits Int @default(0) // Current balance - keep in sync with CreditTransaction ledger
+
+  accounts           Account[]
+  sessions           Session[]
+  brands             Brand[]
+  simulations        Simulation[]
+  emailPreference    EmailPreference?
+  creditTransactions CreditTransaction[]
+}
+
+// Append-only ledger of every credit grant/spend/refund - the source of
+// truth for how a user's `credits` balance was arrived at. Never mutate
+// User.credits directly outside of lib/credits.ts, which writes both the
+// balance and the matching ledger row in the same transaction.
+model CreditTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Int      // positive = grant/purchase/refund, negative = spend
+  type        String   // "BETA_GRANT" | "GRANDFATHER_GRANT" | "PURCHASE" | "ANALYSIS_SPEND" | "ANALYSIS_REFUND" | "ADMIN_ADJUSTMENT"
+  brandId     String?  // which brand triggered a spend/refund, if applicable
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Account {

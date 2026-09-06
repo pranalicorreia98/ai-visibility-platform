@@ -26,6 +26,7 @@ interface AdminUser {
   accessType: string | null;
   createdAt: string;
   approvedAt: string | null;
+  credits: number;
 }
 
 interface BetaRequest {
@@ -52,6 +53,8 @@ export function AdminDashboard() {
   const [newEmail, setNewEmail] = useState("");
   const [addingEmail, setAddingEmail] = useState(false);
   const [addResult, setAddResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [creditDrafts, setCreditDrafts] = useState<Record<string, string>>({});
+  const [grantingId, setGrantingId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -97,6 +100,34 @@ export function AdminDashboard() {
       }
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const handleGrantCredits = async (userId: string) => {
+    const raw = creditDrafts[userId]?.trim();
+    const amount = Number(raw);
+    if (!raw || !Number.isInteger(amount) || amount <= 0) return;
+
+    setGrantingId(userId);
+    try {
+      const res = await fetch("/api/admin/credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          amount,
+          description:
+            amount === 100
+              ? "Manual purchase - Rs 299 / 100 credits"
+              : `Manual credit grant (${amount} credits)`,
+        }),
+      });
+      if (res.ok) {
+        setCreditDrafts((prev) => ({ ...prev, [userId]: "" }));
+        await loadData();
+      }
+    } finally {
+      setGrantingId(null);
     }
   };
 
@@ -416,6 +447,31 @@ export function AdminDashboard() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
+                        <Badge variant="outline" title="Credit balance">
+                          {user.credits} credits
+                        </Badge>
+                        <Input
+                          type="number"
+                          min={1}
+                          placeholder="Amount"
+                          value={creditDrafts[user.id] ?? ""}
+                          onChange={(e) =>
+                            setCreditDrafts((prev) => ({ ...prev, [user.id]: e.target.value }))
+                          }
+                          className="h-8 w-20 text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleGrantCredits(user.id)}
+                          disabled={grantingId === user.id || !creditDrafts[user.id]?.trim()}
+                        >
+                          {grantingId === user.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            "Grant"
+                          )}
+                        </Button>
                         <Badge
                           variant={
                             user.status === "PENDING"

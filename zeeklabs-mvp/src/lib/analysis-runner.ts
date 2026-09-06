@@ -16,6 +16,8 @@ import {
 } from "@/lib/prompts/visibility-analysis-prompt";
 import { recordUsage } from "@/lib/rate-limit";
 import { runCompetitorMeasurement } from "@/lib/competitor-measurement";
+import { isAdminEmail } from "@/lib/admin";
+import { CREDITS_PER_ANALYSIS, grantCredits } from "@/lib/credits";
 import type { AnalysisCache, Competitor } from "@prisma/client";
 
 /**
@@ -205,6 +207,17 @@ export async function runAnalysisJob(
   const prompt = generateAnalysisPrompt(analysisRequest);
   console.log(`Analysis prompt generated for ${brand.name}, calling AI...`);
 
+  // Refund the run's credits on any failure below - the user paid for a
+  // result, not an attempt. Admins were never charged (see api/analyze),
+  // so skip refunding them to avoid a confusing no-matching-spend ledger
+  // entry.
+  const refundOnFailure = async (reason: string) => {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (user && !isAdminEmail(user.email)) {
+      await grantCredits(userId, CREDITS_PER_ANALYSIS, "ANALYSIS_REFUND", reason, brand.id);
+    }
+  };
+
   let response: string;
   let actualProvider: string;
   let duration: number;
@@ -224,6 +237,7 @@ export async function runAnalysisJob(
         errorMessage: error instanceof Error ? error.message : "AI provider failed",
       },
     });
+    await refundOnFailure(`Refund: analysis failed for ${brand.name} (AI provider error)`);
     console.error(`Analysis failed for brand ${brand.name}:`, error);
     return;
   }
@@ -241,6 +255,7 @@ export async function runAnalysisJob(
         rawResponse: response.slice(0, 5000),
       },
     });
+    await refundOnFailure(`Refund: analysis failed for ${brand.name} (unparseable AI response)`);
     console.error("Failed to parse analysis response");
     return;
   }

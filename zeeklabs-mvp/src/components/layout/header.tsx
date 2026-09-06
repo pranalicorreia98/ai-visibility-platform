@@ -42,6 +42,7 @@ import {
   Check,
   ArrowRight,
   X,
+  Coins,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -57,6 +58,8 @@ export function Header() {
     setSelectedBrandId,
     visibilityData,
     analysisData,
+    credits,
+    unlimitedCredits,
   } = useBrand();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
@@ -223,6 +226,17 @@ export function Header() {
 
       {/* Right side actions */}
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        {/* Credit balance */}
+        {!unlimitedCredits && credits !== null && (
+          <div
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium"
+            title="Each analysis run costs 10 credits"
+          >
+            <Coins className="h-3.5 w-3.5" />
+            {credits} credits
+          </div>
+        )}
+
         {/* Prompt Simulator Button */}
         <Button
           onClick={() => setPromptSimulatorOpen(true)}
