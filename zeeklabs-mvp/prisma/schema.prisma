@@ -19,6 +19,7 @@ model User {
   email         String    @unique
   name          String?
   image         String?
+  password      String?   // Hashed password for email/password auth (null for OAuth-only users)
   emailVerified DateTime?
   createdAt     DateTime  @default(now())
 

@@ -14,6 +14,11 @@ import {
   CreditCard,
   Check,
   Loader2,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  User,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -31,6 +36,20 @@ function LoginMessages() {
           <p className="text-sm font-medium text-green-700">Account activated!</p>
           <p className="text-sm text-gray-600">
             Your account is ready. Sign in below to get started.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (message === "email-verified") {
+    return (
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-green-200 bg-green-50">
+        <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-green-700">Email verified!</p>
+          <p className="text-sm text-gray-600">
+            Your email has been verified. You can now sign in.
           </p>
         </div>
       </div>
@@ -71,7 +90,29 @@ function LoginMessages() {
     );
   }
 
-  if (error === "CredentialsSignin" || error === "AccessDenied" || error === "Callback") {
+  if (error === "invalid-credentials" || error === "CredentialsSignin") {
+    return (
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-red-200 bg-red-50">
+        <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+        <p className="text-sm text-gray-700">
+          Invalid email or password. Please check your credentials and try again.
+        </p>
+      </div>
+    );
+  }
+
+  if (error === "email-not-verified") {
+    return (
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-yellow-200 bg-yellow-50">
+        <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0 mt-0.5" />
+        <p className="text-sm text-gray-700">
+          Please verify your email address before signing in. Check your inbox for the verification link.
+        </p>
+      </div>
+    );
+  }
+
+  if (error === "AccessDenied" || error === "Callback") {
     return (
       <div className="flex items-start gap-3 p-4 rounded-xl border border-yellow-200 bg-yellow-50">
         <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0 mt-0.5" />
@@ -259,6 +300,15 @@ function PricingPlans() {
 
 function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignup, setIsSignup] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
@@ -266,10 +316,65 @@ function LoginForm() {
     setIsLoading(false);
   };
 
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.email || !formData.password) return;
+
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      if (isSignup) {
+        // Sign up
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          setError(data.error || "Failed to create account");
+        } else {
+          setSuccess(data.message);
+          setFormData({ name: "", email: "", password: "" });
+          setIsSignup(false);
+        }
+      } else {
+        // Sign in
+        const result = await signIn("credentials", {
+          email: formData.email,
+          password: formData.password,
+          redirect: false,
+        });
+
+        if (result?.error) {
+          if (result.error === "email-not-verified") {
+            setError("Please verify your email before signing in. Check your inbox for the verification link.");
+          } else if (result.error === "not-allowlisted") {
+            setError("You need beta access to sign in. Request beta access above.");
+          } else {
+            setError("Invalid email or password. Please try again.");
+          }
+        } else if (result?.ok) {
+          window.location.href = "/dashboard/analysis";
+        }
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-      <h3 className="font-semibold text-gray-900 mb-5">Already have access?</h3>
+      <h3 className="font-semibold text-gray-900 mb-5">
+        {isSignup ? "Create an account" : "Already have access?"}
+      </h3>
 
+      {/* Google OAuth */}
       <Button
         variant="outline"
         className="w-full h-12 rounded-xl border-gray-200 hover:border-gray-300 hover:bg-gray-50/80 font-medium transition-all duration-200"
@@ -289,8 +394,114 @@ function LoginForm() {
         Continue with Google
       </Button>
 
-      <p className="text-xs text-gray-500 text-center mt-4">
-        Secure sign-in via Google OAuth
+      {/* Divider */}
+      <div className="relative my-5">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-200" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-white px-3 text-gray-400 uppercase tracking-wider">or</span>
+        </div>
+      </div>
+
+      {/* Email/Password Form */}
+      <form onSubmit={handleEmailAuth} className="space-y-4">
+        {error && (
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-700 flex items-start gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+            {success}
+          </div>
+        )}
+
+        {isSignup && (
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Full name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="h-12 pl-10 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/20 bg-gray-50/50"
+            />
+          </div>
+        )}
+
+        <div className="relative">
+          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Input
+            type="email"
+            placeholder="Email address"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className="h-12 pl-10 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/20 bg-gray-50/50"
+            required
+          />
+        </div>
+
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Input
+            type={showPassword ? "text" : "password"}
+            placeholder={isSignup ? "Password (min 8 characters)" : "Password"}
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            className="h-12 pl-10 pr-10 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/20 bg-gray-50/50"
+            required
+            minLength={isSignup ? 8 : undefined}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          </button>
+        </div>
+
+        <Button
+          type="submit"
+          disabled={isLoading || !formData.email || !formData.password}
+          className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-lg shadow-indigo-500/20 transition-all duration-200 press-effect"
+        >
+          {isLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : null}
+          {isSignup ? "Create Account" : "Sign In"}
+        </Button>
+      </form>
+
+      {/* Toggle Sign up / Sign in */}
+      <p className="text-sm text-gray-600 text-center mt-4">
+        {isSignup ? (
+          <>
+            Already have an account?{" "}
+            <button
+              type="button"
+              onClick={() => { setIsSignup(false); setError(null); setSuccess(null); }}
+              className="text-indigo-600 hover:text-indigo-700 font-medium"
+            >
+              Sign in
+            </button>
+          </>
+        ) : (
+          <>
+            Have beta access but no account?{" "}
+            <button
+              type="button"
+              onClick={() => { setIsSignup(true); setError(null); setSuccess(null); }}
+              className="text-indigo-600 hover:text-indigo-700 font-medium"
+            >
+              Create account
+            </button>
+          </>
+        )}
       </p>
     </div>
   );
