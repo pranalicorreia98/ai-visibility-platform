@@ -184,19 +184,19 @@ export function Header() {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-gray-100 bg-white px-3 sm:px-6 gap-2">
+    <header className="flex h-16 items-center justify-between border-b border-gray-100 bg-white/95 backdrop-blur-xl px-3 sm:px-6 gap-2 sticky top-0 z-50">
       {/* Logo and Brand Selector */}
       <div className="flex items-center gap-2 sm:gap-4 min-w-0">
         {/* Logo */}
-        <Link href="/dashboard/analysis" className="flex items-center gap-2.5 shrink-0">
+        <Link href="/dashboard/analysis" className="flex items-center gap-2.5 shrink-0 group">
           <Image
             src="/zeeklabs-logo.svg"
             alt="zeeklabs.ai Logo"
             width={36}
             height={36}
-            className="h-8 w-8 sm:h-9 sm:w-9"
+            className="h-8 w-8 sm:h-9 sm:w-9 transition-transform duration-300 group-hover:scale-105"
           />
-          <span className="hidden sm:inline font-bold text-lg tracking-tight text-gray-900">
+          <span className="hidden sm:inline font-semibold text-lg tracking-tight text-gray-900">
             zeeklabs<span className="text-indigo-600">.ai</span>
           </span>
         </Link>
@@ -241,7 +241,7 @@ export function Header() {
         <Button
           onClick={() => setPromptSimulatorOpen(true)}
           size="icon"
-          className="sm:w-auto sm:px-5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-full shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40"
+          className="sm:w-auto sm:px-5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-full shadow-lg shadow-violet-500/25 transition-all duration-200 hover:shadow-violet-500/40 hover:scale-[1.02] press-effect"
         >
           <Search className="h-4 w-4 sm:mr-2" />
           <span className="hidden sm:inline">Prompt</span>
@@ -252,7 +252,7 @@ export function Header() {
           onClick={handleDownloadPDF}
           disabled={!hasReportData || downloadingPdf}
           size="icon"
-          className="sm:w-auto sm:px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40"
+          className="sm:w-auto sm:px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl shadow-lg shadow-indigo-500/25 transition-all duration-200 hover:shadow-indigo-500/40 hover:scale-[1.02] press-effect disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           title={hasReportData ? "Download PDF Report" : "Run analysis first to download report"}
         >
           {downloadingPdf ? (

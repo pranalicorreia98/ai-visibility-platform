@@ -128,9 +128,12 @@ function BetaRequestForm() {
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 p-6">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2.5 rounded-xl bg-indigo-100">
+    <div className="relative bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden">
+      {/* Top accent gradient */}
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
+
+      <div className="flex items-center gap-3 mb-5">
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100">
           <Gift className="h-5 w-5 text-indigo-600" />
         </div>
         <div>
@@ -140,40 +143,40 @@ function BetaRequestForm() {
       </div>
 
       {result ? (
-        <div className={`p-4 rounded-xl ${result.success ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
-          <div className="flex items-start gap-2">
+        <div className={`p-4 rounded-xl ${result.success ? "bg-emerald-50 border border-emerald-200" : "bg-red-50 border border-red-200"}`}>
+          <div className="flex items-start gap-2.5">
             {result.success ? (
-              <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
             ) : (
               <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
             )}
-            <p className={`text-sm ${result.success ? "text-green-700" : "text-red-700"}`}>
+            <p className={`text-sm ${result.success ? "text-emerald-700" : "text-red-700"}`}>
               {result.message}
             </p>
           </div>
           {result.success && (
             <button
               onClick={() => setResult(null)}
-              className="mt-3 text-sm text-indigo-600 hover:underline"
+              className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
             >
               Request for another email
             </button>
           )}
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             type="email"
-            placeholder="Enter your email"
+            placeholder="Enter your work email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="h-11 rounded-xl border-indigo-200 focus:border-indigo-500 focus:ring-indigo-500 bg-white"
+            className="h-12 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/20 bg-gray-50/50 placeholder:text-gray-400"
             required
           />
           <Button
             type="submit"
             disabled={isLoading || !email.trim()}
-            className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white"
+            className="w-full h-12 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-lg shadow-gray-900/10 transition-all duration-200 press-effect"
           >
             {isLoading ? (
               <>
@@ -198,37 +201,37 @@ function BetaRequestForm() {
 
 function PricingPlans() {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-6">
-      <div className="flex items-center gap-3 mb-4">
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+      <div className="flex items-center gap-3 mb-5">
         <div className="p-2.5 rounded-xl bg-gray-100">
           <CreditCard className="h-5 w-5 text-gray-600" />
         </div>
         <div>
           <h3 className="font-semibold text-gray-900">Credit Packs</h3>
-          <p className="text-sm text-gray-500">Coming soon</p>
+          <p className="text-sm text-gray-500">Pay as you go</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-5">
         {/* Starter pack */}
-        <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50">
+        <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 transition-all duration-200 hover:border-gray-300">
           <p className="text-sm font-medium text-gray-600 mb-1">10 credits</p>
-          <p className="text-2xl font-bold text-gray-900">₹30<span className="text-sm font-normal text-gray-500"> one-time</span></p>
-          <p className="text-xs text-gray-500 mt-1">Good for 1 brand analysis</p>
+          <p className="text-2xl font-bold text-gray-900">₹30<span className="text-sm font-normal text-gray-500 ml-1">one-time</span></p>
+          <p className="text-xs text-gray-500 mt-1.5">Good for 1 brand analysis</p>
         </div>
 
         {/* Bulk pack */}
-        <div className="relative p-4 rounded-xl border-2 border-indigo-200 bg-indigo-50/50">
-          <div className="absolute -top-2.5 left-3 px-2 py-0.5 bg-indigo-600 text-white text-xs font-medium rounded-full">
-            Most Popular
+        <div className="relative p-4 rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/80 to-violet-50/80 transition-all duration-200 hover:border-indigo-300 hover:shadow-md">
+          <div className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-medium rounded-full shadow-sm">
+            Best Value
           </div>
           <p className="text-sm font-medium text-gray-600 mb-1 mt-1">100 credits</p>
-          <p className="text-2xl font-bold text-gray-900">₹299<span className="text-sm font-normal text-gray-500"> one-time</span></p>
-          <p className="text-xs text-gray-500 mt-1">Good for 10 brand analyses</p>
+          <p className="text-2xl font-bold text-gray-900">₹299<span className="text-sm font-normal text-gray-500 ml-1">one-time</span></p>
+          <p className="text-xs text-gray-500 mt-1.5">Good for 10 brand analyses</p>
         </div>
       </div>
 
-      <div className="space-y-2 mb-4">
+      <div className="space-y-2.5 mb-5 py-4 px-4 bg-gray-50/80 rounded-xl">
         {[
           "10 credits = 1 full brand analysis",
           "Credits never expire",
@@ -236,8 +239,10 @@ function PricingPlans() {
           "PDF reports",
           "Action recommendations",
         ].map((feature, i) => (
-          <div key={i} className="flex items-center gap-2 text-sm text-gray-600">
-            <Check className="h-4 w-4 text-indigo-500 shrink-0" />
+          <div key={i} className="flex items-center gap-2.5 text-sm text-gray-600">
+            <div className="h-5 w-5 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+              <Check className="h-3 w-3 text-indigo-600" />
+            </div>
             <span>{feature}</span>
           </div>
         ))}
@@ -245,7 +250,7 @@ function PricingPlans() {
 
       <Button
         disabled
-        className="w-full h-11 rounded-xl bg-gray-100 text-gray-400 cursor-not-allowed"
+        className="w-full h-12 rounded-xl bg-gray-100 text-gray-400 cursor-not-allowed font-medium"
       >
         Coming Soon
       </Button>
@@ -280,17 +285,17 @@ function LoginForm() {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-6">
-      <h3 className="font-semibold text-gray-900 mb-4">Already have access?</h3>
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+      <h3 className="font-semibold text-gray-900 mb-5">Already have access?</h3>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <Button
           variant="outline"
-          className="w-full h-11 rounded-xl border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+          className="w-full h-12 rounded-xl border-gray-200 hover:border-gray-300 hover:bg-gray-50/80 font-medium transition-all duration-200"
           onClick={handleGoogleLogin}
           disabled={isLoading}
         >
-          <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+          <svg className="mr-2.5 h-5 w-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
@@ -304,7 +309,7 @@ function LoginForm() {
             <div className="w-full border-t border-gray-200" />
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="bg-white px-3 text-gray-500">or</span>
+            <span className="bg-white px-4 text-gray-400 uppercase tracking-wider font-medium">or</span>
           </div>
         </div>
 
@@ -315,12 +320,12 @@ function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="h-11 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
+            className="h-12 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/20 bg-gray-50/50 placeholder:text-gray-400"
           />
           <Button
             onClick={handleEmailLogin}
             disabled={isLoading || !email.trim()}
-            className="h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700"
+            className="h-12 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all duration-200 press-effect"
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
           </Button>
@@ -332,19 +337,25 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-indigo-50/50 via-white to-white">
+    <div className="min-h-screen flex flex-col bg-[#FAFAFB] relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/3 w-[600px] h-[600px] bg-indigo-100/40 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-violet-100/30 rounded-full blur-[100px]" />
+      </div>
+
       {/* Header */}
-      <header className="w-full py-4 px-6">
+      <header className="relative w-full py-6 px-6">
         <div className="max-w-lg mx-auto flex items-center justify-center">
-          <Link href="/home" className="flex items-center gap-2.5">
+          <Link href="/home" className="flex items-center gap-2.5 group">
             <Image
               src="/zeeklabs-logo.svg"
               alt="zeeklabs Logo"
               width={40}
               height={40}
-              className="h-10 w-10"
+              className="h-10 w-10 transition-transform duration-300 group-hover:scale-105"
             />
-            <span className="text-xl font-bold tracking-tight text-gray-900">
+            <span className="text-xl font-semibold tracking-tight text-gray-900">
               zeeklabs<span className="text-indigo-600">.ai</span>
             </span>
           </Link>
@@ -352,22 +363,22 @@ export default function LoginPage() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 flex items-center justify-center px-4 py-6 sm:py-10">
-        <div className="w-full max-w-lg">
+      <main className="relative flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
+        <div className="w-full max-w-lg animate-fade-in-up">
           {/* Badge */}
-          <div className="flex justify-center mb-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-sm text-indigo-700">
-              <Sparkles className="h-4 w-4" />
-              <span>AI Visibility Platform</span>
+          <div className="flex justify-center mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200/80 shadow-sm text-sm text-gray-700">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-medium">AI Engine Optimization Platform</span>
             </div>
           </div>
 
           {/* Header */}
-          <div className="text-center space-y-2 mb-6">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
-              Get Started with zeeklabs
+          <div className="text-center space-y-3 mb-8">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900">
+              Get started with zeeklabs
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 text-lg">
               Monitor your brand&apos;s AI visibility across ChatGPT, Gemini & Perplexity
             </p>
           </div>
@@ -380,18 +391,18 @@ export default function LoginPage() {
           </div>
 
           {/* Main sections */}
-          <div className="space-y-4">
+          <div className="space-y-5">
             <BetaRequestForm />
             <PricingPlans />
             <LoginForm />
           </div>
 
           {/* Footer */}
-          <p className="text-center text-xs text-gray-500 mt-6">
+          <p className="text-center text-sm text-gray-500 mt-8">
             By signing in, you agree to our{" "}
-            <Link href="/terms" className="text-indigo-600 hover:underline">Terms of Service</Link>
+            <Link href="/terms" className="text-indigo-600 hover:text-indigo-700 hover:underline transition-colors">Terms of Service</Link>
             {" "}and{" "}
-            <Link href="/privacy" className="text-indigo-600 hover:underline">Privacy Policy</Link>
+            <Link href="/privacy" className="text-indigo-600 hover:text-indigo-700 hover:underline transition-colors">Privacy Policy</Link>
           </p>
         </div>
       </main>

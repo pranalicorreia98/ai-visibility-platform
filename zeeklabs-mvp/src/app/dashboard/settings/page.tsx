@@ -344,21 +344,21 @@ export default function SettingsPage() {
     formData.competitors.every((c) => c.source === "manual");
 
   return (
-    <div className="p-6 lg:p-8 space-y-8 fade-in">
+    <div className="p-6 lg:p-8 space-y-8 animate-fade-in-up">
       {/* Back Navigation */}
       <Link
         href="/dashboard/analysis"
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
         Back to AI Visibility
       </Link>
 
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center">
-            <Settings className="h-5 w-5 text-primary" />
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center">
+            <Settings className="h-5 w-5 text-indigo-600" />
           </div>
           Settings
         </h1>
@@ -381,10 +381,10 @@ export default function SettingsPage() {
               <button
                 key={brand.id}
                 onClick={() => selectBrand(brand)}
-                className={`w-full text-left p-4 rounded-xl transition-all ${
+                className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
                   editingBrand?.id === brand.id
-                    ? "bg-primary/10 border-2 border-primary/50 text-foreground"
-                    : "bg-muted/50 hover:bg-muted border-2 border-transparent hover:border-border"
+                    ? "bg-indigo-50 border-2 border-indigo-200 text-foreground shadow-sm"
+                    : "bg-gray-50/50 hover:bg-gray-100/80 border-2 border-transparent hover:border-gray-200"
                 }`}
               >
                 <div className="font-semibold">{brand.name}</div>
@@ -689,7 +689,7 @@ export default function SettingsPage() {
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="btn-premium rounded-xl h-11 px-6"
+                className="rounded-xl h-11 px-6 bg-gray-900 hover:bg-gray-800 text-white shadow-lg shadow-gray-900/10 transition-all duration-200 hover:shadow-xl hover:shadow-gray-900/15 press-effect"
               >
                 {saving ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -703,7 +703,7 @@ export default function SettingsPage() {
                   variant="outline"
                   onClick={handleDelete}
                   disabled={saving}
-                  className="rounded-xl h-11 px-6 border-destructive/50 text-destructive hover:bg-destructive/10"
+                  className="rounded-xl h-11 px-6 border-destructive/50 text-destructive hover:bg-destructive/10 transition-colors"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete Brand
