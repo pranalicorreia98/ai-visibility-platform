@@ -307,9 +307,11 @@ export function Header() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-2" />
-            <DropdownMenuItem className="rounded-lg px-2 py-2 cursor-pointer">
-              <User className="mr-2 h-4 w-4 text-gray-500" />
-              Profile
+            <DropdownMenuItem asChild className="rounded-lg px-2 py-2 cursor-pointer">
+              <Link href="/dashboard/profile">
+                <User className="mr-2 h-4 w-4 text-gray-500" />
+                Profile
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="rounded-lg px-2 py-2 cursor-pointer">
               <Link href="/dashboard/settings">
