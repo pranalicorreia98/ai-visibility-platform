@@ -131,6 +131,14 @@ export interface CompetitorData {
   comparison: CompetitorComparison[];
   matrix: ComparisonMatrix;
   insights: CompetitorInsights;
+  shareOfVoice: ShareOfVoiceEntry[] | null;
+}
+
+export interface ShareOfVoiceEntry {
+  name: string;
+  isYou: boolean;
+  mentions: number;
+  sharePct: number | null;
 }
 
 export interface RankingItem {

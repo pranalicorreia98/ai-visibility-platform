@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateScoreFromMentions } from "@/lib/scoring";
-import { isBiasedPrompt } from "@/lib/biased-prompt";
+import { isBiasedPrompt, isOrganicPromptType } from "@/lib/biased-prompt";
 
 export async function GET(req: NextRequest) {
   try {
@@ -105,6 +105,7 @@ export async function GET(req: NextRequest) {
     const allMentions = await prisma.mention.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
+      include: { simulation: { select: { promptType: true } } },
     });
 
     // Exclude self-referential prompts ("Tell me about X", "Analyze X") from
@@ -112,10 +113,14 @@ export async function GET(req: NextRequest) {
     // "finds" it, which isn't a measurement of unprompted AI recall. This
     // matches api/reports/generate/route.ts exactly so the dashboard and
     // the PDF report can never disagree on a brand's score because one
-    // counted a self-test and the other didn't.
+    // counted a self-test and the other didn't. Also exclude
+    // competitor-comparison and manual-test (Prompt Lab) simulations, which
+    // deliberately name the brand or are a user-run sandbox test - neither
+    // measures unprompted organic recall either.
     const mentions = allMentions.filter((m) => {
       const brandName = brandNameById.get(m.brandId);
-      return !brandName || !isBiasedPrompt(m.prompt, brandName);
+      const isOrganicText = !brandName || !isBiasedPrompt(m.prompt, brandName);
+      return isOrganicText && isOrganicPromptType(m.simulation?.promptType);
     });
     const biasedMentionsExcluded = allMentions.length - mentions.length;
 
@@ -134,11 +139,12 @@ export async function GET(req: NextRequest) {
         createdAt: { gte: startDate },
         ...(brandId && { brandId }),
       },
-      select: { id: true, prompt: true, brandId: true },
+      select: { id: true, prompt: true, brandId: true, promptType: true },
     });
     const simulations = allSimulations.filter((s) => {
       const brandName = s.brandId ? brandNameById.get(s.brandId) : undefined;
-      return !brandName || !isBiasedPrompt(s.prompt, brandName);
+      const isOrganicText = !brandName || !isBiasedPrompt(s.prompt, brandName);
+      return isOrganicText && isOrganicPromptType(s.promptType);
     }).length;
 
     // Calculate scores using the canonical formula (src/lib/scoring.ts) — the
@@ -197,10 +203,12 @@ export async function GET(req: NextRequest) {
         },
         isCompetitor: false,
       },
+      include: { simulation: { select: { promptType: true } } },
     });
     const previousMentions = allPreviousMentions.filter((m) => {
       const brandName = brandNameById.get(m.brandId);
-      return !brandName || !isBiasedPrompt(m.prompt, brandName);
+      const isOrganicText = !brandName || !isBiasedPrompt(m.prompt, brandName);
+      return isOrganicText && isOrganicPromptType(m.simulation?.promptType);
     });
 
     const allPreviousSimulations = await prisma.simulation.findMany({
@@ -212,11 +220,12 @@ export async function GET(req: NextRequest) {
         },
         ...(brandId && { brandId }),
       },
-      select: { id: true, prompt: true, brandId: true },
+      select: { id: true, prompt: true, brandId: true, promptType: true },
     });
     const previousSimulations = allPreviousSimulations.filter((s) => {
       const brandName = s.brandId ? brandNameById.get(s.brandId) : undefined;
-      return !brandName || !isBiasedPrompt(s.prompt, brandName);
+      const isOrganicText = !brandName || !isBiasedPrompt(s.prompt, brandName);
+      return isOrganicText && isOrganicPromptType(s.promptType);
     }).length;
 
     // Calculate trend percentages (current vs previous period)

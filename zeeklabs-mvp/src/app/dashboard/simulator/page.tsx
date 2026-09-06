@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Users,
   FileText,
+  Link2,
 } from "lucide-react";
 import { useBrand } from "@/contexts/brand-context";
 import { ChatGPTLogo, GeminiLogo, PerplexityLogo } from "@/components/ui/ai-logos";
@@ -32,6 +33,12 @@ interface MentionData {
   context: string;
   isCompetitor: boolean;
   competitorName?: string;
+}
+
+interface CitationData {
+  source: string;
+  type: string;
+  url?: string;
 }
 
 interface SimulationResult {
@@ -59,7 +66,9 @@ interface SimulationResult {
       position: number | null;
     } | null;
   };
+  citations?: Record<string, CitationData[]>;
   errors?: string[];
+  refunded?: boolean;
 }
 
 // Suggested prompts - SEO agency style queries to test natural AI visibility
@@ -135,6 +144,7 @@ function AIResultCard({
   system,
   response,
   analysis,
+  citations,
   brandName,
   loading,
   error,
@@ -147,6 +157,7 @@ function AIResultCard({
     sentiment: number;
     position: number | null;
   } | null;
+  citations?: CitationData[];
   brandName: string | null;
   loading?: boolean;
   error?: string;
@@ -316,6 +327,39 @@ function AIResultCard({
                   <Badge key={i} variant="outline" className="text-xs">
                     {name}
                   </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sources cited in the response */}
+          {citations && citations.length > 0 && (
+            <div className="p-3 rounded-lg bg-muted/30 border border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">
+                  Sources cited ({citations.length})
+                </span>
+              </div>
+              <div className="space-y-1">
+                {citations.slice(0, 5).map((citation, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <Badge variant="outline" className="text-[10px] shrink-0">
+                      {citation.type.replace("_", " ")}
+                    </Badge>
+                    {citation.url ? (
+                      <a
+                        href={citation.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline truncate"
+                      >
+                        {citation.source}
+                      </a>
+                    ) : (
+                      <span className="truncate">{citation.source}</span>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -498,7 +542,7 @@ function BrandSummary({
 
 export default function SimulatorPage() {
   // Use shared brand context
-  const { selectedBrandId, selectedBrand, refreshVisibilityData } = useBrand();
+  const { selectedBrandId, selectedBrand, refreshVisibilityData, credits, unlimitedCredits, refreshCredits } = useBrand();
 
   const [prompt, setPrompt] = useState("");
   const [selectedSystems, setSelectedSystems] = useState<string[]>(["chatgpt", "gemini", "perplexity"]);
@@ -555,6 +599,7 @@ export default function SimulatorPage() {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
+      refreshCredits();
     }
   };
 
@@ -565,6 +610,9 @@ export default function SimulatorPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Prompt Simulator</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Test if AI assistants naturally mention your brand when users search for products or services
+        </p>
+        <p className="text-muted-foreground text-xs mt-1">
+          This is a sandbox for ad-hoc testing — results here never count toward your official visibility score.
         </p>
       </div>
 
@@ -688,23 +736,29 @@ export default function SimulatorPage() {
             </div>
 
             {/* Submit button */}
-            <Button
-              onClick={handleSimulate}
-              disabled={loading || !prompt.trim() || selectedSystems.length === 0}
-              className="ml-auto"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Asking AI...
-                </>
-              ) : (
-                <>
-                  <Zap className="mr-2 h-4 w-4" />
-                  Run Simulation
-                </>
+            <div className="ml-auto flex items-center gap-2">
+              {!unlimitedCredits && credits !== null && (
+                <span className="text-xs text-muted-foreground">
+                  Costs 2 credits · {credits} left
+                </span>
               )}
-            </Button>
+              <Button
+                onClick={handleSimulate}
+                disabled={loading || !prompt.trim() || selectedSystems.length === 0}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Asking AI...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="mr-2 h-4 w-4" />
+                    Run Simulation
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* Error message */}
@@ -727,6 +781,7 @@ export default function SimulatorPage() {
                 system="chatgpt"
                 response={result?.results.chatgpt || null}
                 analysis={result?.analysis.chatgpt || null}
+                citations={result?.citations?.chatgpt}
                 brandName={selectedBrand?.name || null}
                 loading={loading}
                 error={result?.errors?.find((e) => e.startsWith("chatgpt"))?.split(": ")[1]}
@@ -738,6 +793,7 @@ export default function SimulatorPage() {
                 system="gemini"
                 response={result?.results.gemini || null}
                 analysis={result?.analysis.gemini || null}
+                citations={result?.citations?.gemini}
                 brandName={selectedBrand?.name || null}
                 loading={loading}
                 error={result?.errors?.find((e) => e.startsWith("gemini"))?.split(": ")[1]}
@@ -749,6 +805,7 @@ export default function SimulatorPage() {
                 system="perplexity"
                 response={result?.results.perplexity || null}
                 analysis={result?.analysis.perplexity || null}
+                citations={result?.citations?.perplexity}
                 brandName={selectedBrand?.name || null}
                 loading={loading}
                 error={result?.errors?.find((e) => e.startsWith("perplexity"))?.split(": ")[1]}

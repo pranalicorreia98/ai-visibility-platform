@@ -26,3 +26,15 @@ export function isBiasedPrompt(prompt: string, brandName: string): boolean {
 
   return biasedPatterns.some((pattern) => normalizedPrompt.includes(pattern));
 }
+
+// Simulation.promptType values that must never count toward the *organic*
+// score, regardless of what the prompt text says: "competitor_comparison"
+// (deliberately names the brand + competitors) and "manual_test" (a
+// user-typed ad-hoc prompt run from the Prompt Lab/simulator). Both are real
+// AI calls worth showing the user, but neither is a measurement of
+// unprompted recall, and manual_test in particular would otherwise let a
+// user game their own score by typing a leading prompt until one "hits."
+// null/undefined/"organic" (the schema default) all count as organic.
+export function isOrganicPromptType(promptType: string | null | undefined): boolean {
+  return !promptType || promptType === "organic";
+}

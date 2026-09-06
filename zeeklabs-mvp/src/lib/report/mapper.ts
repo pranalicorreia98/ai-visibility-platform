@@ -123,6 +123,10 @@ interface ReportData {
     marketShare: string;
     sentiment: string;
   }> | null;
+  shareOfVoice?: {
+    hasData: boolean;
+    entries: Array<{ name: string; isYou: boolean; mentions: number; sharePct: number | null }>;
+  } | null;
   marketIntelligence?: {
     industryTrends: string[];
     marketSize: string;
@@ -454,6 +458,7 @@ function mapCompetitors(data: ReportData): CompetitorData {
         color: 'amber',
       },
     },
+    shareOfVoice: data.shareOfVoice?.hasData ? data.shareOfVoice.entries : null,
   };
 }
 

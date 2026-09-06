@@ -35,6 +35,79 @@ interface CompetitorMetric {
   simulationsCount: number;
 }
 
+interface ShareOfVoiceEntry {
+  name: string;
+  isYou: boolean;
+  mentions: number;
+  sharePct: number | null;
+}
+
+interface ShareOfVoice {
+  hasData: boolean;
+  entries: ShareOfVoiceEntry[];
+}
+
+// Ranked mentions-share leaderboard: bars scaled to the leader so a dominant
+// brand reads as a full bar while small shares stay visible, with the exact
+// % always shown alongside (nothing hidden behind bar length alone).
+function ShareOfVoiceCard({ shareOfVoice }: { shareOfVoice: ShareOfVoice }) {
+  const maxPct = Math.max(0, ...shareOfVoice.entries.map((e) => e.sharePct ?? 0));
+
+  return (
+    <Card className="border-border">
+      <CardHeader className="border-b border-border bg-muted/30">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
+            <BarChart3 className="h-5 w-5 text-violet-600" />
+          </div>
+          <div>
+            <CardTitle>Share of Voice</CardTitle>
+            <CardDescription>
+              Mention share across you and your measured competitors, from real comparison-prompt data
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-6">
+        <ul className="divide-y divide-border">
+          {shareOfVoice.entries.map((entry, index) => {
+            const barWidth = maxPct > 0 ? ((entry.sharePct ?? 0) / maxPct) * 100 : 0;
+            return (
+              <li key={entry.name} className="flex items-center gap-3 py-3">
+                <span className="w-5 text-xs tabular-nums text-muted-foreground shrink-0">
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium truncate">{entry.name}</span>
+                    {entry.isYou && (
+                      <Badge className="bg-primary/15 text-primary border-0 text-[10px] px-1.5 py-0">
+                        You
+                      </Badge>
+                    )}
+                    <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+                      {entry.mentions} mentions
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${entry.isYou ? "bg-primary" : "bg-muted-foreground/40"}`}
+                      style={{ width: `${barWidth}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="w-12 shrink-0 text-right text-sm font-semibold tabular-nums">
+                  {entry.sharePct !== null ? `${Math.round(entry.sharePct)}%` : "—"}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function CompetitorsPage() {
   const {
     brands,
@@ -45,6 +118,7 @@ export default function CompetitorsPage() {
   } = useBrand();
 
   const [competitorMetrics, setCompetitorMetrics] = useState<CompetitorMetric[]>([]);
+  const [shareOfVoice, setShareOfVoice] = useState<ShareOfVoice | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
 
   useEffect(() => {
@@ -54,12 +128,18 @@ export default function CompetitorsPage() {
     let cancelled = false;
     setMetricsLoading(true);
     fetch(`/api/competitors/metrics?brandId=${selectedBrand.id}`)
-      .then((res) => (res.ok ? res.json() : { competitors: [] }))
+      .then((res) => (res.ok ? res.json() : { competitors: [], shareOfVoice: null }))
       .then((data) => {
-        if (!cancelled) setCompetitorMetrics(data.competitors || []);
+        if (!cancelled) {
+          setCompetitorMetrics(data.competitors || []);
+          setShareOfVoice(data.shareOfVoice ?? null);
+        }
       })
       .catch(() => {
-        if (!cancelled) setCompetitorMetrics([]);
+        if (!cancelled) {
+          setCompetitorMetrics([]);
+          setShareOfVoice(null);
+        }
       })
       .finally(() => {
         if (!cancelled) setMetricsLoading(false);
@@ -329,6 +409,9 @@ export default function CompetitorsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Share of Voice */}
+      {shareOfVoice?.hasData && <ShareOfVoiceCard shareOfVoice={shareOfVoice} />}
 
       {/* Competitors List */}
       <Card className="border-border">

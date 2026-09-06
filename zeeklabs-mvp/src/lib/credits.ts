@@ -5,6 +5,15 @@ import { prisma } from "@/lib/prisma";
 // api/analyze/route.ts) is free since it does no new AI work.
 export const CREDITS_PER_ANALYSIS = 10;
 
+// One Prompt Lab run (api/simulate) - a single ad-hoc prompt across up to 3
+// providers, flat regardless of how many models are selected or whether a
+// given model's response comes from the per-system cache (that caching is
+// interleaved with execution, not a clean up-front check like api/analyze's
+// 24h cache, so it isn't worth the complexity of only charging fresh calls).
+// Cheap relative to a full analysis since it's one prompt, not the 60-prompt
+// sweep.
+export const CREDITS_PER_PROMPT_LAB = 2;
+
 // Granted once, idempotently, the first time an approved user is seen -
 // to brand-new beta signups as their welcome bonus, and retroactively to
 // every already-approved user from before this system existed (no
@@ -17,6 +26,8 @@ export type CreditTransactionType =
   | "PURCHASE"
   | "ANALYSIS_SPEND"
   | "ANALYSIS_REFUND"
+  | "PROMPT_LAB_SPEND"
+  | "PROMPT_LAB_REFUND"
   | "ADMIN_ADJUSTMENT";
 
 export class InsufficientCreditsError extends Error {

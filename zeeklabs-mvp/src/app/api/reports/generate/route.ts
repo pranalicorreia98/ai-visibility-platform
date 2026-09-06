@@ -5,7 +5,8 @@ import { getReportPromptSuggestions, type PromptSuggestion } from "@/lib/prompt-
 import { generateBrandPrompts, getIndustryContext } from "@/lib/prompts/prompt-generator";
 import { calculateScoreFromMentions, calculatePresenceScore, calculateSentimentScore, calculatePositionScore } from "@/lib/scoring";
 import { extractCitationsFromResponse } from "@/lib/citations";
-import { isBiasedPrompt } from "@/lib/biased-prompt";
+import { isBiasedPrompt, isOrganicPromptType } from "@/lib/biased-prompt";
+import { computeCompetitorMetrics } from "@/lib/competitor-metrics";
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,9 +49,15 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Filter out biased prompts for score calculation (but keep them for display)
-    const organicMentions = allMentions.filter(m => !isBiasedPrompt(m.prompt, brand.name));
-    const biasedMentions = allMentions.filter(m => isBiasedPrompt(m.prompt, brand.name));
+    // Filter out biased prompts, competitor-comparison, and manual-test
+    // (Prompt Lab) mentions for score calculation - none measure unprompted
+    // organic recall - but keep them all in allMentions for display/citations.
+    const organicMentions = allMentions.filter(
+      m => !isBiasedPrompt(m.prompt, brand.name) && isOrganicPromptType(m.simulation?.promptType)
+    );
+    const biasedMentions = allMentions.filter(
+      m => isBiasedPrompt(m.prompt, brand.name) || !isOrganicPromptType(m.simulation?.promptType)
+    );
 
     // Get all simulations with full data for citations
     const simulationsList = await prisma.simulation.findMany({
@@ -61,45 +68,31 @@ export async function POST(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Count only non-biased simulations for organic score
+    // Count only organic (non-biased, non-comparison, non-manual-test)
+    // simulations for the organic score denominator.
     const organicSimulationsCount = simulationsList.filter(
-      s => !isBiasedPrompt(s.prompt, brand.name)
+      s => !isBiasedPrompt(s.prompt, brand.name) && isOrganicPromptType(s.promptType)
     ).length;
 
-    // Real, measured competitor scores (same math + query shape as
+    // Real, measured competitor scores + Share of Voice (shared with
     // api/competitors/metrics/route.ts, which /dashboard/competitors already
-    // renders with a "Measured" badge). Without this, the PDF's competitor
-    // section fell back to the AI's one-shot guess even after real
-    // comparison-simulation data existed, so the report could show numbers
-    // that visibly disagreed with what the app itself now measures.
-    const comparisonSimulationsCount = await prisma.simulation.count({
-      where: { brandId, promptType: "competitor_comparison", createdAt: { gte: startDate } },
-    });
-    const competitorMentionsForMetrics = comparisonSimulationsCount > 0
-      ? await prisma.mention.findMany({
-          where: { brandId, isCompetitor: true, createdAt: { gte: startDate } },
-        })
-      : [];
-    const realCompetitorScores = new Map<
-      string,
-      { score: number; mentions: number; avgPosition: number | null; avgSentiment: number | null }
-    >();
-    for (const competitor of brand.competitors) {
-      const compMentions = competitorMentionsForMetrics.filter((m) => m.competitorName === competitor.name);
-      if (compMentions.length === 0) continue;
-      const compPositions = compMentions.filter((m) => m.position !== null).map((m) => m.position!);
-      const compSentiments = compMentions.filter((m) => m.sentiment !== null).map((m) => m.sentiment!);
-      realCompetitorScores.set(competitor.name.toLowerCase(), {
-        score: calculateScoreFromMentions(compMentions, comparisonSimulationsCount),
-        mentions: compMentions.length,
-        avgPosition: compPositions.length > 0
-          ? Number((compPositions.reduce((a, b) => a + b, 0) / compPositions.length).toFixed(1))
-          : null,
-        avgSentiment: compSentiments.length > 0
-          ? Number((compSentiments.reduce((a, b) => a + b, 0) / compSentiments.length).toFixed(2))
-          : null,
-      });
-    }
+    // renders with a "Measured" badge, so the PDF can never disagree with
+    // what the app itself measures - see lib/competitor-metrics.ts).
+    const competitorMetricsResult = await computeCompetitorMetrics(
+      brandId,
+      brand.name,
+      brand.competitors,
+      30
+    );
+    const realCompetitorScores = new Map(
+      competitorMetricsResult.competitors
+        .filter((c) => c.hasData)
+        .map((c) => [
+          c.name.toLowerCase(),
+          { score: c.score!, mentions: c.mentions, avgPosition: c.avgPosition, avgSentiment: c.avgSentiment },
+        ])
+    );
+    const shareOfVoice = competitorMetricsResult.shareOfVoice;
 
     // Calculate Perplexity mentions
     const organicPerplexityMentions = organicMentions.filter((m) => m.aiSystem === "perplexity");
@@ -663,6 +656,10 @@ export async function POST(req: NextRequest) {
           .filter((c): c is NonNullable<typeof c> => c !== null);
         return merged.length > 0 ? merged : null;
       })(),
+      // Share of Voice: real mention share across you + measured
+      // competitors from comparison-prompt data. Null when no comparison
+      // simulations have run yet.
+      shareOfVoice,
       // Market Intelligence
       marketIntelligence: fullAnalysisData?.marketIntelligence || null,
       // Sentiment Analysis (brand, customer, market)
@@ -806,7 +803,7 @@ export async function POST(req: NextRequest) {
         scoringFormula: "Visibility Score = (Presence × 40%) + (Sentiment × 25%) + (Position × 35%)",
         sentimentAnalysis: "Deterministic AFINN-based sentiment analysis",
         positionTracking: "Ranking position when brand appears in AI-generated lists",
-        dataQuality: `Organic mentions only - ${biasedMentions.length} biased prompts excluded from scoring`,
+        dataQuality: `Organic mentions only - ${biasedMentions.length} biased, comparison, or manual-test prompts excluded from scoring`,
         citationSources: `${allCitations.length} sources extracted from AI responses`,
       },
     };

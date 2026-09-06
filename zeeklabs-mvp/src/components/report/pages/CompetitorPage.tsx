@@ -177,6 +177,99 @@ export function CompetitorPage({ meta, competitors }: CompetitorPageProps) {
         />
       </div>
 
+      {/* Share of Voice - Premium */}
+      {competitors.shareOfVoice && competitors.shareOfVoice.length > 0 && (
+        <div className="report-keep-together" style={{
+          background: 'white',
+          border: '1px solid #e5e7eb',
+          borderRadius: '16px',
+          padding: '24px',
+          marginBottom: '24px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '20px'
+          }}>
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '20px'
+            }}>
+              🎯
+            </div>
+            <div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                Share of Voice
+              </div>
+              <div style={{ fontSize: '12px', color: '#64748b' }}>
+                Mention share across you and measured competitors, from real comparison-prompt data
+              </div>
+            </div>
+          </div>
+
+          {(() => {
+            const maxPct = Math.max(0, ...competitors.shareOfVoice!.map(e => e.sharePct ?? 0));
+            return competitors.shareOfVoice!.map((entry, i) => {
+              const barWidth = maxPct > 0 ? ((entry.sharePct ?? 0) / maxPct) * 100 : 0;
+              return (
+                <div key={entry.name} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '10px 0',
+                  borderTop: i > 0 ? '1px solid #f1f5f9' : 'none'
+                }}>
+                  <div style={{ width: '18px', fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>
+                    {i + 1}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
+                        {entry.name}
+                      </span>
+                      {entry.isYou && (
+                        <span style={{
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          color: 'white',
+                          background: '#6366f1',
+                          borderRadius: '999px',
+                          padding: '1px 8px'
+                        }}>
+                          YOU
+                        </span>
+                      )}
+                      <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#64748b' }}>
+                        {entry.mentions} mentions
+                      </span>
+                    </div>
+                    <div style={{ height: '6px', borderRadius: '999px', background: '#f1f5f9', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        borderRadius: '999px',
+                        width: `${barWidth}%`,
+                        background: entry.isYou ? '#6366f1' : '#cbd5e1'
+                      }} />
+                    </div>
+                  </div>
+                  <div style={{ width: '44px', textAlign: 'right', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                    {entry.sharePct !== null ? `${Math.round(entry.sharePct)}%` : '—'}
+                  </div>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
+
       {/* Detailed Competitor Analysis Table - Premium */}
       {competitors.comparison && competitors.comparison.length > 0 && (
         <div className="report-keep-together" style={{

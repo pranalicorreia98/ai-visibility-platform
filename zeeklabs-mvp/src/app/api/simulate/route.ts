@@ -14,6 +14,9 @@ import {
   setCachedResponse,
   findSimilarCachedPrompts,
 } from "@/lib/prompt-cache";
+import { extractCitationsFromResponse, type ExtractedCitation } from "@/lib/citations";
+import { isAdminEmail } from "@/lib/admin";
+import { CREDITS_PER_PROMPT_LAB, spendCredits, grantCredits, InsufficientCreditsError } from "@/lib/credits";
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,6 +36,36 @@ export async function POST(req: NextRequest) {
         { error: "At least one AI system must be selected" },
         { status: 400 }
       );
+    }
+
+    // Flat cost per submission regardless of model count or per-system cache
+    // hits within it (the caching below is per-system and interleaved with
+    // execution, so a clean "only charge for genuinely fresh calls" check
+    // isn't separable the way it is in api/analyze). Admins are exempt so
+    // testing never blocks on credits.
+    const isAdmin = isAdminEmail(session.user.email);
+    if (!isAdmin) {
+      try {
+        await spendCredits(
+          session.user.id,
+          CREDITS_PER_PROMPT_LAB,
+          "PROMPT_LAB_SPEND",
+          `Prompt Lab run: "${prompt.slice(0, 80)}"`
+        );
+      } catch (err) {
+        if (err instanceof InsufficientCreditsError) {
+          return NextResponse.json(
+            {
+              error: `Not enough credits. A Prompt Lab run costs ${CREDITS_PER_PROMPT_LAB} credits and you have ${err.balance}. Contact founder@zeeklabs.ai to top up.`,
+              insufficientCredits: true,
+              balance: err.balance,
+              required: err.required,
+            },
+            { status: 402 }
+          );
+        }
+        throw err;
+      }
     }
 
     // Get brand info for analysis (used to detect mentions, NOT to inject into prompt)
@@ -152,6 +185,8 @@ export async function POST(req: NextRequest) {
       position: number | null;
     } | null> = {};
 
+    const citations: Record<string, ExtractedCitation[]> = {};
+
     for (const system of ["chatgpt", "gemini", "perplexity"]) {
       const response = results[system];
       if (typeof response === "string") {
@@ -160,17 +195,22 @@ export async function POST(req: NextRequest) {
           sentiment: analyzeSentiment(response, brand?.name || null),
           position: detectPosition(response, brand?.name || null),
         };
+        citations[system] = extractCitationsFromResponse(response);
       } else {
         analysis[system] = null;
       }
     }
 
-    // Store simulation
+    // Tagged manual_test (not the "organic" default) so this ad-hoc,
+    // user-typed prompt never counts toward the brand's organic visibility
+    // score - see isOrganicPromptType in lib/biased-prompt.ts. Otherwise a
+    // user could type a leading prompt here to inflate their own score.
     const simulation = await prisma.simulation.create({
       data: {
         userId: session.user.id,
         brandId: brandId || null,
         prompt,
+        promptType: "manual_test",
         chatgptResponse: typeof results.chatgpt === "string" ? results.chatgpt : null,
         geminiResponse: typeof results.gemini === "string" ? results.gemini : null,
         perplexityResponse: typeof results.perplexity === "string" ? results.perplexity : null,
@@ -250,6 +290,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Nothing was delivered for the credits spent - refund in full. Partial
+    // failures (at least one system succeeded) keep the charge, since the
+    // user still got a real, usable comparison.
+    const allFailed = errors.length === systems.length;
+    if (!isAdmin && allFailed) {
+      await grantCredits(
+        session.user.id,
+        CREDITS_PER_PROMPT_LAB,
+        "PROMPT_LAB_REFUND",
+        "Refund: every provider failed for this Prompt Lab run"
+      );
+    }
+
     return NextResponse.json({
       id: simulation.id,
       prompt,
@@ -260,7 +313,9 @@ export async function POST(req: NextRequest) {
       },
       providers, // Which provider was actually used (e.g., "gemini (via OpenRouter)")
       cacheHits, // Whether response came from cache
+      citations, // URLs/known platforms extracted from each response
       errors: errors.length > 0 ? errors : undefined,
+      refunded: allFailed,
       analysis,
     });
   } catch (error) {
