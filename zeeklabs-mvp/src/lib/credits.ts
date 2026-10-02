@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // One full "Run Analysis" for a brand - metered per run, not per brand, so
 // re-running (force refresh) costs again but a 24h cache hit (see
@@ -41,8 +42,14 @@ export async function getCreditBalance(userId: string): Promise<number> {
   return user?.credits ?? 0;
 }
 
-/** Adds credits (grant/purchase/refund) and records the ledger row atomically. */
-export async function grantCredits(
+/**
+ * Adds credits and records the ledger row using a caller-supplied transaction
+ * client, so a grant can be composed atomically with other writes (e.g. the
+ * billing webhook records its idempotency row + upserts the subscription +
+ * grants credits in one transaction). Prefer grantCredits() for standalone grants.
+ */
+export async function grantCreditsTx(
+  tx: Prisma.TransactionClient,
   userId: string,
   amount: number,
   type: CreditTransactionType,
@@ -51,19 +58,26 @@ export async function grantCredits(
 ): Promise<number> {
   if (amount <= 0) throw new Error("grantCredits amount must be positive");
 
-  const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.update({
-      where: { id: userId },
-      data: { credits: { increment: amount } },
-      select: { credits: true },
-    });
-    await tx.creditTransaction.create({
-      data: { userId, amount, type, description, brandId },
-    });
-    return user.credits;
+  const user = await tx.user.update({
+    where: { id: userId },
+    data: { credits: { increment: amount } },
+    select: { credits: true },
   });
+  await tx.creditTransaction.create({
+    data: { userId, amount, type, description, brandId },
+  });
+  return user.credits;
+}
 
-  return result;
+/** Adds credits (grant/purchase/refund) and records the ledger row atomically. */
+export async function grantCredits(
+  userId: string,
+  amount: number,
+  type: CreditTransactionType,
+  description?: string,
+  brandId?: string
+): Promise<number> {
+  return prisma.$transaction((tx) => grantCreditsTx(tx, userId, amount, type, description, brandId));
 }
 
 /**
