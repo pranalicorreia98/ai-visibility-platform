@@ -547,11 +547,6 @@ export default function LandingPage() {
             <p className="text-sm text-gray-500">
               © {new Date().getFullYear()} zeeklabs.ai. All rights reserved.
             </p>
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1.5 rounded-full">
-                Made in India 🇮🇳
-              </span>
-            </div>
           </div>
         </div>
       </footer>
