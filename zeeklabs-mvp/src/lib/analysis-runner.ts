@@ -7,6 +7,8 @@ import {
   callOpenRouterGeminiWithRetry,
   callOpenRouterAuto,
   callOpenRouterFamily,
+  callOpenAIDirectWithRetry,
+  isOpenAIDirectConfigured,
 } from "@/lib/ai-providers";
 import {
   generateAnalysisPrompt,
@@ -41,16 +43,31 @@ export async function callAIWithFallback(
   // Auto provider - let OpenRouter pick the best model
   if (provider === "auto") {
     if (process.env.OPENROUTER_API_KEY) {
-      console.log("Analysis: Using OpenRouter Auto Router (intelligent model selection)...");
-      const result = await callOpenRouterAuto(prompt, 3500, {
-        costTier: "high",  // Use high-quality models
-        allowedModels: ["google/*", "anthropic/*", "openai/*"],  // Only major providers
-        webSearch: true,  // Ground market intel/competitor facts/citations in real search results instead of training-data guesses
-      });
-      return { response: result.content, actualProvider: `openrouter-auto:${result.modelUsed}` };
+      try {
+        console.log("Analysis: Using OpenRouter Auto Router (intelligent model selection)...");
+        const result = await callOpenRouterAuto(prompt, 3500, {
+          costTier: "high",  // Use high-quality models
+          allowedModels: ["google/*", "anthropic/*", "openai/*"],  // Only major providers
+          webSearch: true,  // Ground market intel/competitor facts/citations in real search results instead of training-data guesses
+        });
+        return { response: result.content, actualProvider: `openrouter-auto:${result.modelUsed}` };
+      } catch (error) {
+        console.log(`Analysis: OpenRouter Auto failed: ${error}`);
+        // Fall through to Direct OpenAI fallback below
+      }
     }
-    // Fallback to gemini logic if no OpenRouter key
-    console.log("Analysis: OpenRouter not configured, falling back to Gemini...");
+    // Fallback to Direct OpenAI if available
+    if (isOpenAIDirectConfigured()) {
+      try {
+        console.log("Analysis: Trying Direct OpenAI API (paid fallback)...");
+        const response = await callOpenAIDirectWithRetry(prompt);
+        return { response, actualProvider: "openai-direct" };
+      } catch (error) {
+        console.log(`Analysis: Direct OpenAI failed: ${error}`);
+      }
+    }
+    // Final fallback to gemini logic if no OpenRouter/OpenAI
+    console.log("Analysis: All auto providers failed, falling back to Gemini...");
     provider = "gemini";
   }
 
@@ -67,9 +84,19 @@ export async function callAIWithFallback(
     }
     // Fallback to OpenRouter with native fallback chain
     if (process.env.OPENROUTER_API_KEY) {
-      console.log("Analysis: Trying OpenRouter (ChatGPT family with auto-fallback)...");
-      const result = await callOpenRouterFamily(prompt, "chatgpt", 3500, { webSearch: true });
-      return { response: result.content, actualProvider: `openrouter:${result.modelUsed}` };
+      try {
+        console.log("Analysis: Trying OpenRouter (ChatGPT family with auto-fallback)...");
+        const result = await callOpenRouterFamily(prompt, "chatgpt", 3500, { webSearch: true });
+        return { response: result.content, actualProvider: `openrouter:${result.modelUsed}` };
+      } catch (error) {
+        console.log(`Analysis: OpenRouter ChatGPT failed: ${error}`);
+      }
+    }
+    // FINAL FALLBACK: Direct OpenAI API (paid, shared with ClikHire)
+    if (isOpenAIDirectConfigured()) {
+      console.log("Analysis: Trying Direct OpenAI API (paid fallback)...");
+      const response = await callOpenAIDirectWithRetry(prompt);
+      return { response, actualProvider: "openai-direct" };
     }
     throw new Error("No ChatGPT providers available");
   } else if (provider === "perplexity") {
@@ -97,9 +124,19 @@ export async function callAIWithFallback(
     }
     // Fallback to OpenRouter with native fallback chain
     if (process.env.OPENROUTER_API_KEY) {
-      console.log("Analysis: Trying OpenRouter (Gemini family with auto-fallback)...");
-      const result = await callOpenRouterFamily(prompt, "gemini", 3500, { webSearch: true });
-      return { response: result.content, actualProvider: `openrouter:${result.modelUsed}` };
+      try {
+        console.log("Analysis: Trying OpenRouter (Gemini family with auto-fallback)...");
+        const result = await callOpenRouterFamily(prompt, "gemini", 3500, { webSearch: true });
+        return { response: result.content, actualProvider: `openrouter:${result.modelUsed}` };
+      } catch (error) {
+        console.log(`Analysis: OpenRouter Gemini failed: ${error}`);
+      }
+    }
+    // FINAL FALLBACK: Direct OpenAI API (paid, shared with ClikHire)
+    if (isOpenAIDirectConfigured()) {
+      console.log("Analysis: Trying Direct OpenAI API (paid fallback)...");
+      const response = await callOpenAIDirectWithRetry(prompt);
+      return { response, actualProvider: "openai-direct" };
     }
     throw new Error("No Gemini providers available");
   }
