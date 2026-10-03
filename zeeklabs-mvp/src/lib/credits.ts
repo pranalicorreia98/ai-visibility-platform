@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { hasUnlimitedCredits } from "@/lib/admin";
 
 // One full "Run Analysis" for a brand - metered per run, not per brand, so
 // re-running (force refresh) costs again but a 24h cache hit (see
@@ -19,7 +20,7 @@ export const CREDITS_PER_PROMPT_LAB = 2;
 // to brand-new beta signups as their welcome bonus, and retroactively to
 // every already-approved user from before this system existed (no
 // separate migration script needed - see ensureInitialCreditsGranted).
-export const INITIAL_GRANT_CREDITS = 20;
+export const INITIAL_GRANT_CREDITS = 30;
 
 export type CreditTransactionType =
   | "BETA_GRANT"
@@ -84,6 +85,8 @@ export async function grantCredits(
  * Deducts credits for a billable action. Throws InsufficientCreditsError
  * without deducting anything if the balance is too low - callers should
  * check this before doing the expensive work, not after.
+ *
+ * Dev team and admin users bypass credit spending entirely (unlimited credits).
  */
 export async function spendCredits(
   userId: string,
@@ -95,7 +98,17 @@ export async function spendCredits(
   if (amount <= 0) throw new Error("spendCredits amount must be positive");
 
   return prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({ where: { id: userId }, select: { credits: true } });
+    const user = await tx.user.findUnique({ where: { id: userId }, select: { credits: true, email: true } });
+
+    // Dev team and admins have unlimited credits - don't deduct
+    if (hasUnlimitedCredits(user?.email)) {
+      // Still record the transaction for auditing, but don't deduct
+      await tx.creditTransaction.create({
+        data: { userId, amount: 0, type, description: `[UNLIMITED] ${description}`, brandId },
+      });
+      return user?.credits ?? 0;
+    }
+
     const balance = user?.credits ?? 0;
     if (balance < amount) {
       throw new InsufficientCreditsError(balance, amount);

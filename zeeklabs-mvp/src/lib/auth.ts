@@ -4,7 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
-import { isAdminEmail } from "./admin";
+import { isAdminEmail, isDevTeamEmail } from "./admin";
 import { ensureInitialCreditsGranted } from "./credits";
 
 // Custom error for invalid credentials
@@ -16,17 +16,7 @@ class EmailNotVerifiedError extends CredentialsSignin {
   code = "email-not-verified";
 }
 
-class NotAllowlistedError extends CredentialsSignin {
-  code = "not-allowlisted";
-}
-
-// Helper to check if email is allowlisted
-async function isAllowlisted(email: string): Promise<boolean> {
-  const entry = await prisma.allowlist.findUnique({
-    where: { email: email.toLowerCase() },
-  });
-  return !!entry;
-}
+// Note: Allowlist functionality removed - open signup for everyone
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true, // Trust localhost for development
@@ -78,21 +68,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           throw new EmailNotVerifiedError();
         }
 
-        // Check if user is approved
+        // Auto-approve if not already approved (open signup)
         if (user.status !== "APPROVED") {
-          // Check if now allowlisted
-          if (await isAllowlisted(email)) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: {
-                status: "APPROVED",
-                accessType: "BETA",
-                approvedAt: new Date(),
-              },
-            });
-          } else if (!isAdminEmail(email)) {
-            throw new NotAllowlistedError();
-          }
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              status: "APPROVED",
+              accessType: "BETA",
+              approvedAt: new Date(),
+            },
+          });
         }
 
         await ensureInitialCreditsGranted(user.id, user.accessType);
@@ -127,14 +112,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       const email = user.email.toLowerCase().trim();
 
-      // Admin emails are always allowed
-      if (isAdminEmail(email)) {
-        const adminUser = await prisma.user.upsert({
+      // Admin or dev team emails are always allowed with special handling
+      if (isAdminEmail(email) || isDevTeamEmail(email)) {
+        const specialUser = await prisma.user.upsert({
           where: { email },
           update: { status: "APPROVED" },
           create: { email, name: user.name, status: "APPROVED" },
         });
-        await ensureInitialCreditsGranted(adminUser.id, adminUser.accessType);
+        await ensureInitialCreditsGranted(specialUser.id, specialUser.accessType);
         return true;
       }
 
@@ -149,47 +134,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
         if (dbUser.status === "REJECTED") return false;
 
-        // PENDING - check if now allowlisted
-        if (await isAllowlisted(email)) {
-          dbUser = await prisma.user.update({
-            where: { id: dbUser.id },
-            data: {
-              status: "APPROVED",
-              accessType: "BETA",
-              approvedAt: new Date(),
-            },
-          });
-          await ensureInitialCreditsGranted(dbUser.id, dbUser.accessType);
-          return true;
-        }
-
-        // Still pending and not allowlisted
-        return false;
-      }
-
-      // New user - check allowlist
-      if (await isAllowlisted(email)) {
-        const newUser = await prisma.user.create({
+        // PENDING user - auto-approve them now (open signup)
+        dbUser = await prisma.user.update({
+          where: { id: dbUser.id },
           data: {
-            email,
-            name: user.name,
             status: "APPROVED",
             accessType: "BETA",
             approvedAt: new Date(),
           },
         });
-        // Mark allowlist entry as used
-        await prisma.allowlist.update({
-          where: { email },
-          data: { usedAt: new Date() },
-        });
-        await ensureInitialCreditsGranted(newUser.id, newUser.accessType);
+        await ensureInitialCreditsGranted(dbUser.id, dbUser.accessType);
         return true;
       }
 
-      // Not allowlisted - deny access
-      // We don't create a pending user anymore - they need to request beta access first
-      return false;
+      // New user - auto-approve (open signup, no allowlist required)
+      const newUser = await prisma.user.create({
+        data: {
+          email,
+          name: user.name,
+          status: "APPROVED",
+          accessType: "BETA",
+          approvedAt: new Date(),
+        },
+      });
+      await ensureInitialCreditsGranted(newUser.id, newUser.accessType);
+      return true;
     },
   },
   pages: {
