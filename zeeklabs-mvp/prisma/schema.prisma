@@ -33,10 +33,11 @@ model User {
 
   accounts           Account[]
   sessions           Session[]
-  brands             Brand[]
-  simulations        Simulation[]
-  emailPreference    EmailPreference?
-  creditTransactions CreditTransaction[]
+  brands               Brand[]
+  simulations          Simulation[]
+  emailPreference      EmailPreference?
+  creditTransactions   CreditTransaction[]
+  billingSubscriptions BillingSubscription[]
 }
 
 // Append-only ledger of every credit grant/spend/refund - the source of
@@ -433,4 +434,41 @@ model AnalysisCache {
   @@unique([brandId, provider, competitorIds])
   @@index([brandId, expiresAt])
   @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────
+// BILLING (Dodo Payments — Merchant of Record)
+// ─────────────────────────────────────────────────────────────
+
+// One row per Dodo subscription, attributed to a ZeekLabs user via the
+// `userId` we stamp into Dodo checkout metadata and read back on webhooks.
+// Credit grants are driven off the subscription lifecycle (see lib/billing).
+model BillingSubscription {
+  id                     String    @id @default(cuid())
+  product                String // "zeeklabs"
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider               String // "dodo"
+  providerSubscriptionId String
+  providerCustomerId     String?
+  planId                 String // internal plan key (see lib/billing/plans.ts)
+  status                 String // normalized SubStatus
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean   @default(false)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@unique([provider, providerSubscriptionId])
+  @@index([product, userId, status])
+}
+
+// Idempotency ledger: each Dodo webhook delivery (webhook-id) is recorded
+// exactly once, in the same transaction as its side effects, so retries and
+// concurrent deliveries can never double-grant credits.
+model BillingWebhookEvent {
+  provider        String
+  providerEventId String
+  processedAt     DateTime @default(now())
+
+  @@id([provider, providerEventId])
 }
