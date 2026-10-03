@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
-import { callGeminiWithRetry, callPerplexityWithRetry, callOpenRouterFamily } from "@/lib/ai-providers";
+import { callGeminiWithRetry, callPerplexityWithRetry, callOpenRouterFamily, callOpenAIDirectWithRetry, isOpenAIDirectConfigured } from "@/lib/ai-providers";
 
 export async function POST(req: NextRequest) {
   try {
@@ -90,6 +90,23 @@ Important:
         }
       } catch (error) {
         console.log("OpenRouter Gemini failed:", error);
+      }
+    }
+
+    // FINAL FALLBACK: Direct OpenAI API (paid, shared with ClikHire)
+    if (competitors.length === 0 && isOpenAIDirectConfigured()) {
+      try {
+        console.log("Discovering competitors via Direct OpenAI API (paid fallback)...");
+        const response = await callOpenAIDirectWithRetry(prompt);
+        provider = "openai-direct";
+
+        // Extract JSON from response
+        const jsonMatch = response.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          competitors = JSON.parse(jsonMatch[0]);
+        }
+      } catch (error) {
+        console.log("Direct OpenAI API failed:", error);
       }
     }
 
