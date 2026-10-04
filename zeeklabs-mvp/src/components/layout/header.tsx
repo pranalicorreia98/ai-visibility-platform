@@ -73,6 +73,7 @@ export function Header() {
     ));
   const [promptSimulatorOpen, setPromptSimulatorOpen] = useState(false);
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -182,6 +183,28 @@ export function Header() {
     } finally {
       // Reset downloading state after a short delay
       setTimeout(() => setDownloadingPdf(false), 2000);
+    }
+  };
+
+  const handleCheckout = async (planId: string) => {
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "Checkout failed");
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Failed to start checkout. Please try again.");
+    } finally {
+      setCheckoutLoading(false);
     }
   };
 
@@ -529,7 +552,7 @@ export function Header() {
 
       {/* Buy Credits Modal */}
       <Dialog open={buyCreditsOpen} onOpenChange={setBuyCreditsOpen}>
-        <DialogContent className="max-w-2xl p-0 rounded-2xl overflow-hidden">
+        <DialogContent className="max-w-md p-0 rounded-2xl overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 p-6">
             <DialogHeader>
@@ -539,136 +562,78 @@ export function Header() {
                 </div>
                 <div>
                   <DialogTitle className="text-xl font-bold text-white">
-                    Buy Credits
+                    Get More Credits
                   </DialogTitle>
                   <p className="text-sm text-white/80 mt-1">
-                    Choose a credit pack to continue analyzing your brand visibility
+                    Subscribe to continue analyzing your brand
                   </p>
                 </div>
               </div>
             </DialogHeader>
           </div>
 
-          {/* Pricing Plans */}
+          {/* Pro Plan */}
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Starter Pack */}
-              <div className="relative p-5 rounded-xl border-2 border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all cursor-pointer group">
-                <div className="text-center">
-                  <div className="inline-flex p-3 rounded-xl bg-gray-100 group-hover:bg-indigo-100 transition-colors mb-3">
-                    <Coins className="h-6 w-6 text-gray-600 group-hover:text-indigo-600" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-1">Starter</h3>
-                  <div className="flex items-baseline justify-center gap-1 mb-2">
-                    <span className="text-3xl font-bold text-gray-900">$9</span>
-                  </div>
-                  <p className="text-2xl font-bold text-indigo-600 mb-3">50 credits</p>
-                  <ul className="text-xs text-gray-500 space-y-1.5 mb-4">
-                    <li className="flex items-center gap-1.5 justify-center">
-                      <Check className="h-3.5 w-3.5 text-green-500" />
-                      5 full analyses
-                    </li>
-                    <li className="flex items-center gap-1.5 justify-center">
-                      <Check className="h-3.5 w-3.5 text-green-500" />
-                      25 prompt lab runs
-                    </li>
-                  </ul>
-                  <Button
-                    variant="outline"
-                    className="w-full rounded-lg border-gray-300 hover:border-indigo-500 hover:bg-indigo-50"
-                    onClick={() => window.open('mailto:founder@zeeklabs.ai?subject=Buy%20Starter%20Pack%20(50%20credits)', '_blank')}
-                  >
-                    Get Started
-                  </Button>
-                </div>
+            <div className="relative p-6 rounded-xl border-2 border-indigo-500 shadow-lg bg-gradient-to-b from-indigo-50/50 to-white">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <Badge className="bg-indigo-600 text-white text-xs px-3 py-1">Best Value</Badge>
               </div>
+              <div className="text-center">
+                <div className="inline-flex p-3 rounded-xl bg-indigo-100 mb-4">
+                  <Zap className="h-7 w-7 text-indigo-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">ZeekLabs Pro</h3>
+                <div className="flex items-baseline justify-center gap-1 mb-1">
+                  <span className="text-4xl font-bold text-gray-900">$9</span>
+                  <span className="text-gray-500">/month</span>
+                </div>
+                <p className="text-2xl font-bold text-indigo-600 mb-4">100 credits/month</p>
 
-              {/* Pro Pack - Most Popular */}
-              <div className="relative p-5 rounded-xl border-2 border-indigo-500 shadow-lg bg-gradient-to-b from-indigo-50/50 to-white">
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-indigo-600 text-white text-xs px-3 py-1">Most Popular</Badge>
-                </div>
-                <div className="text-center">
-                  <div className="inline-flex p-3 rounded-xl bg-indigo-100 mb-3">
-                    <Zap className="h-6 w-6 text-indigo-600" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-1">Pro</h3>
-                  <div className="flex items-baseline justify-center gap-1 mb-2">
-                    <span className="text-3xl font-bold text-gray-900">$19</span>
-                  </div>
-                  <p className="text-2xl font-bold text-indigo-600 mb-3">120 credits</p>
-                  <ul className="text-xs text-gray-500 space-y-1.5 mb-4">
-                    <li className="flex items-center gap-1.5 justify-center">
-                      <Check className="h-3.5 w-3.5 text-green-500" />
-                      12 full analyses
-                    </li>
-                    <li className="flex items-center gap-1.5 justify-center">
-                      <Check className="h-3.5 w-3.5 text-green-500" />
-                      60 prompt lab runs
-                    </li>
-                    <li className="flex items-center gap-1.5 justify-center">
-                      <Check className="h-3.5 w-3.5 text-green-500" />
-                      <span className="text-indigo-600 font-medium">Save 20%</span>
-                    </li>
-                  </ul>
-                  <Button
-                    className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700"
-                    onClick={() => window.open('mailto:founder@zeeklabs.ai?subject=Buy%20Pro%20Pack%20(120%20credits)', '_blank')}
-                  >
-                    Buy Pro
-                  </Button>
-                </div>
-              </div>
+                <ul className="text-sm text-gray-600 space-y-2.5 mb-6 text-left">
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span>10 full brand analyses per month</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span>50 prompt lab simulations</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span>Unlimited PDF report exports</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span>Credits refresh every month</span>
+                  </li>
+                </ul>
 
-              {/* Enterprise Pack */}
-              <div className="relative p-5 rounded-xl border-2 border-gray-200 hover:border-violet-300 hover:shadow-lg transition-all cursor-pointer group">
-                <div className="text-center">
-                  <div className="inline-flex p-3 rounded-xl bg-gray-100 group-hover:bg-violet-100 transition-colors mb-3">
-                    <Sparkles className="h-6 w-6 text-gray-600 group-hover:text-violet-600" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-1">Enterprise</h3>
-                  <div className="flex items-baseline justify-center gap-1 mb-2">
-                    <span className="text-3xl font-bold text-gray-900">$49</span>
-                  </div>
-                  <p className="text-2xl font-bold text-violet-600 mb-3">350 credits</p>
-                  <ul className="text-xs text-gray-500 space-y-1.5 mb-4">
-                    <li className="flex items-center gap-1.5 justify-center">
-                      <Check className="h-3.5 w-3.5 text-green-500" />
-                      35 full analyses
-                    </li>
-                    <li className="flex items-center gap-1.5 justify-center">
-                      <Check className="h-3.5 w-3.5 text-green-500" />
-                      175 prompt lab runs
-                    </li>
-                    <li className="flex items-center gap-1.5 justify-center">
-                      <Check className="h-3.5 w-3.5 text-green-500" />
-                      <span className="text-violet-600 font-medium">Save 30%</span>
-                    </li>
-                  </ul>
-                  <Button
-                    variant="outline"
-                    className="w-full rounded-lg border-gray-300 hover:border-violet-500 hover:bg-violet-50"
-                    onClick={() => window.open('mailto:founder@zeeklabs.ai?subject=Buy%20Enterprise%20Pack%20(350%20credits)', '_blank')}
-                  >
-                    Contact Sales
-                  </Button>
-                </div>
+                <Button
+                  className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold py-3 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all"
+                  onClick={() => handleCheckout("zeeklabs_pro_monthly")}
+                  disabled={checkoutLoading}
+                >
+                  {checkoutLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Redirecting to checkout...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Subscribe Now
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
 
-            {/* Footer Note */}
-            <div className="mt-6 p-4 rounded-xl bg-gray-50 border border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-white border border-gray-200">
-                  <CreditCard className="h-4 w-4 text-gray-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Secure Payment</p>
-                  <p className="text-xs text-gray-500">
-                    Contact us to complete your purchase. We&apos;ll add credits to your account within 24 hours.
-                  </p>
-                </div>
-              </div>
+            {/* Secure Payment Note */}
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <span>Secure payment powered by Dodo Payments</span>
             </div>
           </div>
         </DialogContent>
