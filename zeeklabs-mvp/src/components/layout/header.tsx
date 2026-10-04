@@ -33,8 +33,6 @@ import {
   User,
   Download,
   Loader2,
-  Bell,
-  HelpCircle,
   ChevronDown,
   Search,
   Sparkles,
@@ -43,6 +41,9 @@ import {
   ArrowRight,
   X,
   Coins,
+  CreditCard,
+  Plus,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -71,6 +72,7 @@ export function Header() {
       (visibilityData.mentions?.total && visibilityData.mentions.total > 0)
     ));
   const [promptSimulatorOpen, setPromptSimulatorOpen] = useState(false);
+  const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -226,15 +228,55 @@ export function Header() {
 
       {/* Right side actions */}
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-        {/* Credit balance */}
+        {/* Credit balance with Buy Credits dropdown */}
         {!unlimitedCredits && credits !== null && (
-          <div
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium"
-            title="Each analysis run costs 10 credits"
-          >
-            <Coins className="h-3.5 w-3.5" />
-            {credits} credits
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium hover:bg-amber-100 hover:border-amber-300 transition-colors cursor-pointer"
+                title="Click to buy more credits"
+              >
+                <Coins className="h-3.5 w-3.5" />
+                {credits} credits
+                <ChevronDown className="h-3 w-3 ml-0.5 text-amber-500" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-72 rounded-xl p-3" align="end">
+              {/* Current Balance */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 mb-3">
+                <div>
+                  <p className="text-xs text-amber-600 font-medium">Current Balance</p>
+                  <p className="text-2xl font-bold text-amber-700">{credits}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-amber-100">
+                  <Coins className="h-6 w-6 text-amber-600" />
+                </div>
+              </div>
+
+              {/* Credit Usage Info */}
+              <div className="text-xs text-gray-500 mb-3 px-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap className="h-3 w-3 text-indigo-500" />
+                  <span>1 Analysis = 10 credits</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-3 w-3 text-violet-500" />
+                  <span>1 Prompt Lab run = 2 credits</span>
+                </div>
+              </div>
+
+              <DropdownMenuSeparator className="my-2" />
+
+              {/* Buy Credits Button */}
+              <button
+                onClick={() => setBuyCreditsOpen(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-medium text-sm transition-all shadow-md hover:shadow-lg"
+              >
+                <Plus className="h-4 w-4" />
+                Buy More Credits
+              </button>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
 
         {/* Prompt Simulator Button */}
@@ -273,17 +315,6 @@ export function Header() {
             <Settings className="h-4 w-4 mr-2 text-gray-600" />
             Settings
           </Link>
-        </Button>
-
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="hidden sm:inline-flex rounded-xl hover:bg-gray-100 relative">
-          <Bell className="h-5 w-5 text-gray-500" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-indigo-600 rounded-full" />
-        </Button>
-
-        {/* Help */}
-        <Button variant="ghost" size="icon" className="hidden sm:inline-flex rounded-xl hover:bg-gray-100">
-          <HelpCircle className="h-5 w-5 text-gray-500" />
         </Button>
 
         {/* User Menu */}
@@ -488,6 +519,153 @@ export function Header() {
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     Copy these prompts and test them on ChatGPT, Gemini, and Perplexity.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Buy Credits Modal */}
+      <Dialog open={buyCreditsOpen} onOpenChange={setBuyCreditsOpen}>
+        <DialogContent className="max-w-2xl p-0 rounded-2xl overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 p-6">
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm">
+                  <CreditCard className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-bold text-white">
+                    Buy Credits
+                  </DialogTitle>
+                  <p className="text-sm text-white/80 mt-1">
+                    Choose a credit pack to continue analyzing your brand visibility
+                  </p>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+
+          {/* Pricing Plans */}
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Starter Pack */}
+              <div className="relative p-5 rounded-xl border-2 border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all cursor-pointer group">
+                <div className="text-center">
+                  <div className="inline-flex p-3 rounded-xl bg-gray-100 group-hover:bg-indigo-100 transition-colors mb-3">
+                    <Coins className="h-6 w-6 text-gray-600 group-hover:text-indigo-600" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Starter</h3>
+                  <div className="flex items-baseline justify-center gap-1 mb-2">
+                    <span className="text-3xl font-bold text-gray-900">$9</span>
+                  </div>
+                  <p className="text-2xl font-bold text-indigo-600 mb-3">50 credits</p>
+                  <ul className="text-xs text-gray-500 space-y-1.5 mb-4">
+                    <li className="flex items-center gap-1.5 justify-center">
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                      5 full analyses
+                    </li>
+                    <li className="flex items-center gap-1.5 justify-center">
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                      25 prompt lab runs
+                    </li>
+                  </ul>
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-lg border-gray-300 hover:border-indigo-500 hover:bg-indigo-50"
+                    onClick={() => window.open('mailto:founder@zeeklabs.ai?subject=Buy%20Starter%20Pack%20(50%20credits)', '_blank')}
+                  >
+                    Get Started
+                  </Button>
+                </div>
+              </div>
+
+              {/* Pro Pack - Most Popular */}
+              <div className="relative p-5 rounded-xl border-2 border-indigo-500 shadow-lg bg-gradient-to-b from-indigo-50/50 to-white">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Badge className="bg-indigo-600 text-white text-xs px-3 py-1">Most Popular</Badge>
+                </div>
+                <div className="text-center">
+                  <div className="inline-flex p-3 rounded-xl bg-indigo-100 mb-3">
+                    <Zap className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Pro</h3>
+                  <div className="flex items-baseline justify-center gap-1 mb-2">
+                    <span className="text-3xl font-bold text-gray-900">$19</span>
+                  </div>
+                  <p className="text-2xl font-bold text-indigo-600 mb-3">120 credits</p>
+                  <ul className="text-xs text-gray-500 space-y-1.5 mb-4">
+                    <li className="flex items-center gap-1.5 justify-center">
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                      12 full analyses
+                    </li>
+                    <li className="flex items-center gap-1.5 justify-center">
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                      60 prompt lab runs
+                    </li>
+                    <li className="flex items-center gap-1.5 justify-center">
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                      <span className="text-indigo-600 font-medium">Save 20%</span>
+                    </li>
+                  </ul>
+                  <Button
+                    className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700"
+                    onClick={() => window.open('mailto:founder@zeeklabs.ai?subject=Buy%20Pro%20Pack%20(120%20credits)', '_blank')}
+                  >
+                    Buy Pro
+                  </Button>
+                </div>
+              </div>
+
+              {/* Enterprise Pack */}
+              <div className="relative p-5 rounded-xl border-2 border-gray-200 hover:border-violet-300 hover:shadow-lg transition-all cursor-pointer group">
+                <div className="text-center">
+                  <div className="inline-flex p-3 rounded-xl bg-gray-100 group-hover:bg-violet-100 transition-colors mb-3">
+                    <Sparkles className="h-6 w-6 text-gray-600 group-hover:text-violet-600" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Enterprise</h3>
+                  <div className="flex items-baseline justify-center gap-1 mb-2">
+                    <span className="text-3xl font-bold text-gray-900">$49</span>
+                  </div>
+                  <p className="text-2xl font-bold text-violet-600 mb-3">350 credits</p>
+                  <ul className="text-xs text-gray-500 space-y-1.5 mb-4">
+                    <li className="flex items-center gap-1.5 justify-center">
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                      35 full analyses
+                    </li>
+                    <li className="flex items-center gap-1.5 justify-center">
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                      175 prompt lab runs
+                    </li>
+                    <li className="flex items-center gap-1.5 justify-center">
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                      <span className="text-violet-600 font-medium">Save 30%</span>
+                    </li>
+                  </ul>
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-lg border-gray-300 hover:border-violet-500 hover:bg-violet-50"
+                    onClick={() => window.open('mailto:founder@zeeklabs.ai?subject=Buy%20Enterprise%20Pack%20(350%20credits)', '_blank')}
+                  >
+                    Contact Sales
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Note */}
+            <div className="mt-6 p-4 rounded-xl bg-gray-50 border border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-white border border-gray-200">
+                  <CreditCard className="h-4 w-4 text-gray-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Secure Payment</p>
+                  <p className="text-xs text-gray-500">
+                    Contact us to complete your purchase. We&apos;ll add credits to your account within 24 hours.
                   </p>
                 </div>
               </div>
