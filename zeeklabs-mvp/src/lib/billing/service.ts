@@ -63,16 +63,43 @@ export async function handleWebhook(rawBody: string, headers: Record<string, str
       });
 
       if (creditsToGrant > 0) {
-        const reason = event.kind === "subscription.active" ? "activation" : "renewal";
-        await grantCreditsTx(
-          tx,
-          sub.userId,
-          creditsToGrant,
-          "PURCHASE",
-          `${plan?.label ?? sub.planId} — ${reason} credits`
-        );
-        // Mark the user as a paying customer (ledger balance remains the gate for usage).
-        await tx.user.update({ where: { id: sub.userId }, data: { accessType: "PAID" } });
+        // Grant at most ONCE per billing cycle. active + renewed can both fire
+        // for the same cycle (distinct webhook-ids, so the event-level gate above
+        // won't dedupe them). Key the grant on the cycle identity instead. Use a
+        // read (findUnique) rather than insert-and-catch: a unique violation
+        // inside a Postgres transaction aborts the whole transaction.
+        const cycleKey = sub.currentPeriodEnd ?? `event:${event.eventId}`;
+        const already = await tx.billingCreditGrant.findUnique({
+          where: {
+            provider_providerSubscriptionId_cycleKey: {
+              provider: dodoProvider.name,
+              providerSubscriptionId: sub.providerSubId,
+              cycleKey,
+            },
+          },
+        });
+
+        if (!already) {
+          await tx.billingCreditGrant.create({
+            data: {
+              provider: dodoProvider.name,
+              providerSubscriptionId: sub.providerSubId,
+              cycleKey,
+              userId: sub.userId,
+              credits: creditsToGrant,
+            },
+          });
+          const reason = event.kind === "subscription.active" ? "activation" : "renewal";
+          await grantCreditsTx(
+            tx,
+            sub.userId,
+            creditsToGrant,
+            "PURCHASE",
+            `${plan?.label ?? sub.planId} — ${reason} credits`
+          );
+          // Mark the user as a paying customer (ledger balance remains the gate for usage).
+          await tx.user.update({ where: { id: sub.userId }, data: { accessType: "PAID" } });
+        }
       }
     });
   } catch (err) {

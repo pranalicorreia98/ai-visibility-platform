@@ -472,3 +472,18 @@ model BillingWebhookEvent {
 
   @@id([provider, providerEventId])
 }
+
+// Per-billing-cycle idempotency for credit grants. `subscription.active` and
+// `subscription.renewed` can BOTH fire for the same cycle (each with its own
+// webhook-id, so BillingWebhookEvent above won't dedupe them). Keying the grant
+// on the cycle identity (currentPeriodEnd) ensures a cycle is credited once only.
+model BillingCreditGrant {
+  provider               String
+  providerSubscriptionId String
+  cycleKey               String // billing-cycle identity (currentPeriodEnd)
+  userId                 String
+  credits                Int
+  grantedAt              DateTime @default(now())
+
+  @@id([provider, providerSubscriptionId, cycleKey])
+}
