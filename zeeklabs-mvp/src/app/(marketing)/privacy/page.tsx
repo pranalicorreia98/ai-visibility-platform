@@ -19,8 +19,8 @@ export default function PrivacyPage() {
           </p>
           <ul className="mt-3 space-y-1 text-sm text-gray-600">
             <li><strong>CIN:</strong> U62013MH2026PTC477590</li>
-            <li><strong>GSTIN:</strong> 27AALCC9498R1ZR</li>
-            <li><strong>Registered Office:</strong> Office No. 2, 2nd Floor, Karan CHS LTD, Azad Road, Vile Parle East, Mumbai, Maharashtra 400057</li>
+            <li><strong>GSTIN:</strong> 27AANCC9371J1Z0</li>
+            <li><strong>Registered Office:</strong> HNO 318, Nivant House, Morwadi Padai, Satpala, Virar (West), Vasai-Virar, Palghar, Maharashtra, India — 401301</li>
           </ul>
           <p className="mt-3">
             This Privacy Policy explains how we collect, use, share, and protect your personal information when you use the ZeekLabs platform and related services (collectively, the &quot;Service&quot;).
@@ -143,7 +143,7 @@ export default function PrivacyPage() {
           </p>
           <ul className="mt-3 space-y-1 text-gray-700">
             <li><strong>Email:</strong> <a href="mailto:founder@zeeklabs.ai" className="text-indigo-600 hover:underline">founder@zeeklabs.ai</a></li>
-            <li><strong>Address:</strong> CLIKBOUND PRIVATE LIMITED, Office No. 2, 2nd Floor, Karan CHS LTD, Azad Road, Vile Parle East, Mumbai, Maharashtra 400057, India</li>
+            <li><strong>Address:</strong> CLIKBOUND PRIVATE LIMITED, HNO 318, Nivant House, Morwadi Padai, Satpala, Virar (West), Vasai-Virar, Palghar, Maharashtra, India — 401301</li>
           </ul>
         </div>
       </section>

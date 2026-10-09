@@ -147,7 +147,7 @@ export default function TermsPage() {
           </p>
           <ul className="mt-3 space-y-1 text-gray-700">
             <li><strong>Email:</strong> <a href="mailto:founder@zeeklabs.ai" className="text-indigo-600 hover:underline">founder@zeeklabs.ai</a></li>
-            <li><strong>Address:</strong> CLIKBOUND PRIVATE LIMITED, Office No. 2, 2nd Floor, Karan CHS LTD, Azad Road, Vile Parle East, Mumbai, Maharashtra 400057, India</li>
+            <li><strong>Address:</strong> CLIKBOUND PRIVATE LIMITED, HNO 318, Nivant House, Morwadi Padai, Satpala, Virar (West), Vasai-Virar, Palghar, Maharashtra, India — 401301</li>
           </ul>
         </div>
       </section>
