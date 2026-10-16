@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { getUserLimits, withinCompetitorCap } from "@/lib/billing/entitlements";
 
 const updateBrandSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -16,7 +17,9 @@ const updateBrandSchema = z.object({
         source: z.enum(["ai", "manual"]).optional(),
       })
     )
-    .max(5)
+    // Absolute anti-abuse ceiling; the real per-tier cap is enforced in PUT
+    // against the user's plan (Scale is "unlimited").
+    .max(100)
     .optional(),
 });
 
@@ -82,6 +85,21 @@ export async function PUT(
     }
 
     const { name, domain, alternateNames, competitors } = validation.data;
+
+    // Feature gate — the tier's competitor cap (fail loud, never silently truncate).
+    if (competitors !== undefined) {
+      const limits = await getUserLimits(session.user.id);
+      if (!withinCompetitorCap(competitors.length, limits)) {
+        return NextResponse.json(
+          {
+            error: `Your plan allows ${limits.competitorsPerBrand} competitors per brand. Upgrade to add more.`,
+            code: "COMPETITOR_LIMIT",
+            limit: limits.competitorsPerBrand,
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     // Update brand
     const brand = await prisma.brand.update({

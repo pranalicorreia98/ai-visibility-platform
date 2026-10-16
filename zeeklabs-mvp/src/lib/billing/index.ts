@@ -10,7 +10,26 @@ export type {
   WebhookEvent,
 } from "./types";
 
-export { PLANS, planById, type Plan } from "./plans";
+export {
+  PLANS,
+  planById,
+  paidPlans,
+  FREE_LIMITS,
+  FREE_CREDITS,
+  type Plan,
+  type TierKey,
+  type TierLimits,
+  type BillingInterval,
+} from "./plans";
 export { providerFor } from "./registry";
 export { dodoProvider } from "./providers/dodo";
 export { startCheckout, handleWebhook, getActiveSubscription, type WebhookOutcome } from "./service";
+export {
+  getUserLimits,
+  getUserTier,
+  limitsForPlanId,
+  tierForPlanId,
+  canAddBrand,
+  withinCompetitorCap,
+  type UserTier,
+} from "./entitlements";
