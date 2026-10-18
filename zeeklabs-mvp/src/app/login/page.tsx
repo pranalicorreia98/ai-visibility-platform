@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   CheckCircle2,
-  ArrowRight,
   AlertTriangle,
   Gift,
   CreditCard,
@@ -137,140 +136,112 @@ function LoginMessages() {
   return null;
 }
 
-function GetAccessForm() {
-  const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || isLoading) return;
-
-    setIsLoading(true);
-    setResult(null);
-
-    try {
-      const res = await fetch("/api/beta-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const data = await res.json();
-      setResult(data);
-      if (data.success) {
-        setEmail("");
-      }
-    } catch {
-      setResult({ success: false, message: "Something went wrong. Please try again." });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+function FreeCreditsNote() {
   return (
-    <div className="bg-gray-50/80 rounded-xl p-5 border border-gray-100">
-      <div className="flex items-center gap-2.5 mb-4">
-        <Gift className="h-5 w-5 text-indigo-600" />
+    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-100">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-emerald-100">
+          <Gift className="h-5 w-5 text-emerald-600" />
+        </div>
         <div>
           <p className="font-medium text-gray-900">New here? Get 20 free credits</p>
+          <p className="text-sm text-gray-600">Create an account above to start analyzing your brand for free</p>
         </div>
       </div>
-
-      {result ? (
-        <div className={`p-4 rounded-xl ${result.success ? "bg-emerald-50 border border-emerald-200" : "bg-red-50 border border-red-200"}`}>
-          <div className="flex items-start gap-2.5">
-            {result.success ? (
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
-            ) : (
-              <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-            )}
-            <p className={`text-sm ${result.success ? "text-emerald-700" : "text-red-700"}`}>
-              {result.message}
-            </p>
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex gap-3">
-          <Input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="h-11 rounded-lg border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/20 bg-white placeholder:text-gray-400 flex-1"
-            required
-          />
-          <Button
-            type="submit"
-            disabled={isLoading || !email.trim()}
-            className="h-11 px-5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm transition-all duration-200"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Get Access"
-            )}
-          </Button>
-        </form>
-      )}
     </div>
   );
 }
 
 function PricingPlans() {
+  const plans = [
+    {
+      name: "Starter",
+      price: 49,
+      credits: 150,
+      analyses: 15,
+      brands: 1,
+      competitors: 5,
+    },
+    {
+      name: "Pro",
+      price: 149,
+      credits: 600,
+      analyses: 60,
+      brands: 5,
+      competitors: 10,
+      popular: true,
+    },
+    {
+      name: "Scale",
+      price: 399,
+      credits: 2500,
+      analyses: 250,
+      brands: 20,
+      competitors: "Unlimited",
+    },
+  ];
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-5">
-        <div className="p-2.5 rounded-xl bg-gray-100">
-          <CreditCard className="h-5 w-5 text-gray-600" />
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100">
+          <CreditCard className="h-5 w-5 text-indigo-600" />
         </div>
         <div>
-          <h3 className="font-semibold text-gray-900">Credit Packs</h3>
-          <p className="text-sm text-gray-500">Pay as you go</p>
+          <h3 className="font-semibold text-gray-900">Subscription Plans</h3>
+          <p className="text-sm text-gray-500">Choose the plan that fits your needs</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        {/* Starter pack */}
-        <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 transition-all duration-200 hover:border-gray-300">
-          <p className="text-sm font-medium text-gray-600 mb-1">10 credits</p>
-          <p className="text-2xl font-bold text-gray-900">₹30<span className="text-sm font-normal text-gray-500 ml-1">one-time</span></p>
-          <p className="text-xs text-gray-500 mt-1.5">Good for 1 brand analysis</p>
-        </div>
-
-        {/* Bulk pack */}
-        <div className="relative p-4 rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/80 to-violet-50/80 transition-all duration-200 hover:border-indigo-300 hover:shadow-md">
-          <div className="absolute -top-2.5 left-3 px-2.5 py-0.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-medium rounded-full shadow-sm">
-            Best Value
+      <div className="space-y-3 mb-5">
+        {plans.map((plan) => (
+          <div
+            key={plan.name}
+            className={`relative p-4 rounded-xl border transition-all duration-200 hover:shadow-md ${
+              plan.popular
+                ? "border-2 border-indigo-300 bg-gradient-to-br from-indigo-50/80 to-violet-50/80"
+                : "border-gray-200 bg-gray-50/50 hover:border-gray-300"
+            }`}
+          >
+            {plan.popular && (
+              <div className="absolute -top-2.5 right-3 px-2.5 py-0.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-medium rounded-full shadow-sm">
+                Most Popular
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-gray-900">{plan.name}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {plan.credits} credits · ~{plan.analyses} analyses/mo · {plan.brands} brand{plan.brands > 1 ? "s" : ""}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xl font-bold text-gray-900">${plan.price}<span className="text-sm font-normal text-gray-500">/mo</span></p>
+              </div>
+            </div>
           </div>
-          <p className="text-sm font-medium text-gray-600 mb-1 mt-1">100 credits</p>
-          <p className="text-2xl font-bold text-gray-900">₹299<span className="text-sm font-normal text-gray-500 ml-1">one-time</span></p>
-          <p className="text-xs text-gray-500 mt-1.5">Good for 10 brand analyses</p>
-        </div>
+        ))}
       </div>
 
-      <div className="space-y-2.5 mb-5 py-4 px-4 bg-gray-50/80 rounded-xl">
+      <div className="space-y-2 mb-5 py-3 px-4 bg-gray-50/80 rounded-xl">
         {[
           "10 credits = 1 full brand analysis",
-          "Credits never expire",
-          "ChatGPT, Gemini & Perplexity",
-          "PDF reports",
-          "Action recommendations",
+          "ChatGPT, Gemini & Perplexity coverage",
+          "PDF report exports",
+          "2 months free on annual plans",
         ].map((feature, i) => (
           <div key={i} className="flex items-center gap-2.5 text-sm text-gray-600">
-            <div className="h-5 w-5 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
-              <Check className="h-3 w-3 text-indigo-600" />
+            <div className="h-4 w-4 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+              <Check className="h-2.5 w-2.5 text-indigo-600" />
             </div>
             <span>{feature}</span>
           </div>
         ))}
       </div>
 
-      <Button
-        disabled
-        className="w-full h-12 rounded-xl bg-gray-100 text-gray-400 cursor-not-allowed font-medium"
-      >
-        Coming Soon
-      </Button>
+      <p className="text-center text-xs text-gray-500">
+        Sign in above to view full pricing and subscribe
+      </p>
     </div>
   );
 }
@@ -476,10 +447,10 @@ function LoginForm() {
         </Button>
       </form>
 
-      {/* Get Access Section - only show for non-signup */}
+      {/* Free credits note - only show for non-signup */}
       {!isSignup && (
         <div className="mt-6">
-          <GetAccessForm />
+          <FreeCreditsNote />
         </div>
       )}
     </div>
