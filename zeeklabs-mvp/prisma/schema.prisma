@@ -38,6 +38,8 @@ model User {
   emailPreference      EmailPreference?
   creditTransactions   CreditTransaction[]
   billingSubscriptions BillingSubscription[]
+  digestEmailLogs      DigestEmailLog[]
+  digestPreferences    DigestPreferences?
 }
 
 // Append-only ledger of every credit grant/spend/refund - the source of
@@ -486,4 +488,45 @@ model BillingCreditGrant {
   grantedAt              DateTime @default(now())
 
   @@id([provider, providerSubscriptionId, cycleKey])
+}
+
+// ─────────────────────────────────────────────────────────────
+// DIGEST EMAILS
+// ─────────────────────────────────────────────────────────────
+
+// Tracks every digest email sent for idempotency and analytics
+model DigestEmailLog {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Email metadata
+  resendMessageId String?  // Resend's message ID for tracking delivery
+  sentAt          DateTime @default(now())
+
+  // Digest content snapshot (for debugging/support)
+  brandsIncluded  Int      // Number of brands included in this digest
+  periodStart     DateTime // Start of comparison period
+  periodEnd       DateTime // End of comparison period (typically "now")
+
+  // Delivery status: sent | delivered | bounced | failed
+  status          String   @default("sent")
+
+  // Prevent duplicate sends for the same period
+  @@unique([userId, periodEnd])
+  @@index([userId])
+  @@index([sentAt])
+}
+
+// User preferences for digest emails (opt-out, frequency)
+model DigestPreferences {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  enabled   Boolean  @default(true)  // false = user opted out of digests
+  frequency Int      @default(30)    // days between digests (7, 14, or 30)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
