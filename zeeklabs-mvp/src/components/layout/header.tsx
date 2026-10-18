@@ -41,7 +41,6 @@ import {
   ArrowRight,
   X,
   Coins,
-  CreditCard,
   Plus,
   Zap,
 } from "lucide-react";
@@ -49,6 +48,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useBrand } from "@/contexts/brand-context";
 import { generateBrandPrompts, getIndustryContext } from "@/lib/prompts/prompt-generator";
+import { PricingModal } from "@/components/billing/PricingModal";
 
 export function Header() {
   const { data: session } = useSession();
@@ -73,7 +73,6 @@ export function Header() {
     ));
   const [promptSimulatorOpen, setPromptSimulatorOpen] = useState(false);
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -183,28 +182,6 @@ export function Header() {
     } finally {
       // Reset downloading state after a short delay
       setTimeout(() => setDownloadingPdf(false), 2000);
-    }
-  };
-
-  const handleCheckout = async (planId: string) => {
-    setCheckoutLoading(true);
-    try {
-      const res = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error(data.error || "Checkout failed");
-      }
-    } catch (err) {
-      console.error("Checkout error:", err);
-      alert("Failed to start checkout. Please try again.");
-    } finally {
-      setCheckoutLoading(false);
     }
   };
 
@@ -550,94 +527,8 @@ export function Header() {
         </DialogContent>
       </Dialog>
 
-      {/* Buy Credits Modal */}
-      <Dialog open={buyCreditsOpen} onOpenChange={setBuyCreditsOpen}>
-        <DialogContent className="max-w-md p-0 rounded-2xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 p-6">
-            <DialogHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm">
-                  <CreditCard className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <DialogTitle className="text-xl font-bold text-white">
-                    Get More Credits
-                  </DialogTitle>
-                  <p className="text-sm text-white/80 mt-1">
-                    Subscribe to continue analyzing your brand
-                  </p>
-                </div>
-              </div>
-            </DialogHeader>
-          </div>
-
-          {/* Pro Plan */}
-          <div className="p-6">
-            <div className="relative p-6 rounded-xl border-2 border-indigo-500 shadow-lg bg-gradient-to-b from-indigo-50/50 to-white">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Badge className="bg-indigo-600 text-white text-xs px-3 py-1">Best Value</Badge>
-              </div>
-              <div className="text-center">
-                <div className="inline-flex p-3 rounded-xl bg-indigo-100 mb-4">
-                  <Zap className="h-7 w-7 text-indigo-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">ZeekLabs Pro</h3>
-                <div className="flex items-baseline justify-center gap-1 mb-1">
-                  <span className="text-4xl font-bold text-gray-900">$9</span>
-                  <span className="text-gray-500">/month</span>
-                </div>
-                <p className="text-2xl font-bold text-indigo-600 mb-4">100 credits/month</p>
-
-                <ul className="text-sm text-gray-600 space-y-2.5 mb-6 text-left">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <span>10 full brand analyses per month</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <span>50 prompt lab simulations</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <span>Unlimited PDF report exports</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <span>Credits refresh every month</span>
-                  </li>
-                </ul>
-
-                <Button
-                  className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold py-3 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all"
-                  onClick={() => handleCheckout("zeeklabs_pro_monthly")}
-                  disabled={checkoutLoading}
-                >
-                  {checkoutLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Redirecting to checkout...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Subscribe Now
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {/* Secure Payment Note */}
-            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <span>Secure payment powered by Dodo Payments</span>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Pricing / Buy Credits Modal */}
+      <PricingModal open={buyCreditsOpen} onOpenChange={setBuyCreditsOpen} />
     </header>
   );
 }
