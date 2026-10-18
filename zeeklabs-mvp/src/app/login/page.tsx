@@ -240,7 +240,7 @@ function PricingPlans() {
       </div>
 
       <p className="text-center text-xs text-gray-500">
-        Sign in above to view full pricing and subscribe
+        Sign in to subscribe from the credits section in your dashboard
       </p>
     </div>
   );
