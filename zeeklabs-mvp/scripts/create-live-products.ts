@@ -83,7 +83,7 @@ async function main() {
     console.log(`  created  ${p.key.padEnd(16)} -> ${product.product_id}`);
   }
 
-  console.log("\nPaste this into DODO_TEST_PRODUCT_IDS in src/lib/billing/plans.ts:\n");
+  console.log("\nPaste this into DODO_PRODUCT_IDS in src/lib/billing/plans.ts:\n");
   console.log(
     Object.entries(ids)
       .map(([k, v]) => `  ${k}: "${v}",`)

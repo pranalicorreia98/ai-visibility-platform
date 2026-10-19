@@ -43,19 +43,21 @@ export interface Plan {
 }
 
 /**
- * Dodo product ids — TEST MODE.
+ * Dodo product ids — LIVE MODE (created 2026-10-19 via scripts/create-live-products.ts).
  *
- * ⚠️ GO-LIVE: replace all six with the live-mode product ids (and flip
- * DODO_PAYMENTS_ENV=live_mode + the live API/webhook keys — all three together).
+ * The app selects test vs live via DODO_PAYMENTS_ENV; these ids are the live
+ * catalog, so the three live vars (DODO_PAYMENTS_ENV=live_mode + live API key +
+ * live webhook signing secret) must be set together in the deployed env.
+ * The retired test ids (pdt_0Nps…) are preserved in git history.
  * This is the single place product ids live.
  */
-const DODO_TEST_PRODUCT_IDS = {
-  starter_monthly: "pdt_0NpsBFfWcC3gbBWjKcUhw",
-  starter_annual: "pdt_0NpsBcJa1wH0XrqT7DcZo",
-  pro_monthly: "pdt_0NpsBkV9veW22KxHQ7Llu",
-  pro_annual: "pdt_0NpsCILLTBPPQJ558ZYud",
-  scale_monthly: "pdt_0NpsCQakaYyEUf0ne1Bqh",
-  scale_annual: "pdt_0NpsCYuZ9INVgASkSnsdt",
+const DODO_PRODUCT_IDS = {
+  starter_monthly: "pdt_0Nq4maORqMVBYwv5K27xe",
+  starter_annual: "pdt_0Nq4maSN6qWJvQGb5X5Rv",
+  pro_monthly: "pdt_0Nq4maTypd2Cd8U1IPgzi",
+  pro_annual: "pdt_0Nq4maWFLVxs6ULla5IvX",
+  scale_monthly: "pdt_0Nq4maa7bJZT8OcBEVEMG",
+  scale_annual: "pdt_0Nq4mabvNu4TbFReAZau8",
 } as const;
 
 /** Monthly credit allowance per paid tier (see docs/PRICING_STRATEGY.md). */
@@ -78,7 +80,7 @@ export const PLANS: Record<string, Plan> = {
     interval: "month",
     label: "Starter",
     priceUsd: 49,
-    dodoProductId: DODO_TEST_PRODUCT_IDS.starter_monthly,
+    dodoProductId: DODO_PRODUCT_IDS.starter_monthly,
     creditsPerCycle: MONTHLY_CREDITS.starter,
     limits: TIER_LIMITS.starter,
   },
@@ -88,7 +90,7 @@ export const PLANS: Record<string, Plan> = {
     interval: "year",
     label: "Starter",
     priceUsd: 490, // 2 months free (10 × $49)
-    dodoProductId: DODO_TEST_PRODUCT_IDS.starter_annual,
+    dodoProductId: DODO_PRODUCT_IDS.starter_annual,
     creditsPerCycle: MONTHLY_CREDITS.starter * 12,
     limits: TIER_LIMITS.starter,
   },
@@ -98,7 +100,7 @@ export const PLANS: Record<string, Plan> = {
     interval: "month",
     label: "Pro",
     priceUsd: 149,
-    dodoProductId: DODO_TEST_PRODUCT_IDS.pro_monthly,
+    dodoProductId: DODO_PRODUCT_IDS.pro_monthly,
     creditsPerCycle: MONTHLY_CREDITS.pro,
     limits: TIER_LIMITS.pro,
   },
@@ -108,7 +110,7 @@ export const PLANS: Record<string, Plan> = {
     interval: "year",
     label: "Pro",
     priceUsd: 1490, // 2 months free (10 × $149)
-    dodoProductId: DODO_TEST_PRODUCT_IDS.pro_annual,
+    dodoProductId: DODO_PRODUCT_IDS.pro_annual,
     creditsPerCycle: MONTHLY_CREDITS.pro * 12,
     limits: TIER_LIMITS.pro,
   },
@@ -118,7 +120,7 @@ export const PLANS: Record<string, Plan> = {
     interval: "month",
     label: "Scale",
     priceUsd: 399,
-    dodoProductId: DODO_TEST_PRODUCT_IDS.scale_monthly,
+    dodoProductId: DODO_PRODUCT_IDS.scale_monthly,
     creditsPerCycle: MONTHLY_CREDITS.scale,
     limits: TIER_LIMITS.scale,
   },
@@ -128,7 +130,7 @@ export const PLANS: Record<string, Plan> = {
     interval: "year",
     label: "Scale",
     priceUsd: 3990, // 2 months free (10 × $399)
-    dodoProductId: DODO_TEST_PRODUCT_IDS.scale_annual,
+    dodoProductId: DODO_PRODUCT_IDS.scale_annual,
     creditsPerCycle: MONTHLY_CREDITS.scale * 12,
     limits: TIER_LIMITS.scale,
   },
