@@ -159,7 +159,6 @@ function PricingPlans() {
       price: 49,
       credits: 150,
       analyses: 15,
-      brands: 1,
       competitors: 5,
     },
     {
@@ -167,7 +166,6 @@ function PricingPlans() {
       price: 149,
       credits: 600,
       analyses: 60,
-      brands: 5,
       competitors: 10,
       popular: true,
     },
@@ -176,7 +174,6 @@ function PricingPlans() {
       price: 399,
       credits: 2500,
       analyses: 250,
-      brands: 20,
       competitors: "Unlimited",
     },
   ];
@@ -212,7 +209,7 @@ function PricingPlans() {
               <div>
                 <p className="font-semibold text-gray-900">{plan.name}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {plan.credits} credits · ~{plan.analyses} analyses/mo · {plan.brands} brand{plan.brands > 1 ? "s" : ""}
+                  {plan.credits} credits · ~{plan.analyses} analyses/mo
                 </p>
               </div>
               <div className="text-right">

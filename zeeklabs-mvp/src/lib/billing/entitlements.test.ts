@@ -48,6 +48,13 @@ describe("canAddBrand", () => {
     expect(canAddBrand(5, limits)).toBe(false);
     expect(canAddBrand(6, limits)).toBe(false);
   });
+
+  it("never blocks on any real plan (brands are uncapped)", () => {
+    expect(canAddBrand(1000, FREE_LIMITS)).toBe(true);
+    for (const plan of Object.values(PLANS)) {
+      expect(canAddBrand(1000, plan.limits)).toBe(true);
+    }
+  });
 });
 
 describe("withinCompetitorCap", () => {
