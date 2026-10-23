@@ -51,6 +51,8 @@ jobs:
       # especially) would be architecture-mismatched. Instead, the build
       # itself runs on the box via SSM (no SSH - Session Manager only, see
       # docs/AWS-DEPLOYMENT-PLAN-MVP.md §10), same as the target architecture.
+      # npm install on the box rewrites package-lock.json (platform-specific
+      # deps), which made every later `git pull` abort; it is reset before pulling.
       - name: Deploy via SSM
         run: |
           COMMAND_ID=$(aws ssm send-command \
@@ -59,6 +61,7 @@ jobs:
             --parameters commands='[
               "set -e",
               "cd /opt/app",
+              "git checkout -- zeeklabs-mvp/package-lock.json",
               "git pull origin master",
               "cd zeeklabs-mvp",
               "export PATH=$PATH:/usr/local/bin",
