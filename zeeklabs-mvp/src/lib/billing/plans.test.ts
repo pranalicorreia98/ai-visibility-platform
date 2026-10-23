@@ -5,12 +5,12 @@ import { PLANS, planById, paidPlans, FREE_LIMITS } from "./plans";
 // If a pricing number changes, it must change HERE deliberately (with sign-off),
 // never drift silently out of the engine.
 const GOLDEN = {
-  starter_monthly: { tier: "starter", interval: "month", priceUsd: 49, creditsPerCycle: 150, brands: 1, competitorsPerBrand: 5 },
-  starter_annual: { tier: "starter", interval: "year", priceUsd: 490, creditsPerCycle: 1800, brands: 1, competitorsPerBrand: 5 },
-  pro_monthly: { tier: "pro", interval: "month", priceUsd: 149, creditsPerCycle: 600, brands: 5, competitorsPerBrand: 10 },
-  pro_annual: { tier: "pro", interval: "year", priceUsd: 1490, creditsPerCycle: 7200, brands: 5, competitorsPerBrand: 10 },
-  scale_monthly: { tier: "scale", interval: "month", priceUsd: 399, creditsPerCycle: 2500, brands: 20, competitorsPerBrand: Infinity },
-  scale_annual: { tier: "scale", interval: "year", priceUsd: 3990, creditsPerCycle: 30000, brands: 20, competitorsPerBrand: Infinity },
+  starter_monthly: { tier: "starter", interval: "month", priceUsd: 49, creditsPerCycle: 150, brands: Infinity, competitorsPerBrand: 5 },
+  starter_annual: { tier: "starter", interval: "year", priceUsd: 490, creditsPerCycle: 1800, brands: Infinity, competitorsPerBrand: 5 },
+  pro_monthly: { tier: "pro", interval: "month", priceUsd: 149, creditsPerCycle: 600, brands: Infinity, competitorsPerBrand: 10 },
+  pro_annual: { tier: "pro", interval: "year", priceUsd: 1490, creditsPerCycle: 7200, brands: Infinity, competitorsPerBrand: 10 },
+  scale_monthly: { tier: "scale", interval: "month", priceUsd: 399, creditsPerCycle: 2500, brands: Infinity, competitorsPerBrand: Infinity },
+  scale_annual: { tier: "scale", interval: "year", priceUsd: 3990, creditsPerCycle: 30000, brands: Infinity, competitorsPerBrand: Infinity },
 } as const;
 
 describe("plan catalog", () => {
@@ -54,6 +54,6 @@ describe("plan catalog", () => {
   });
 
   it("Free tier limits are the tightest", () => {
-    expect(FREE_LIMITS).toEqual({ brands: 1, competitorsPerBrand: 2 });
+    expect(FREE_LIMITS).toEqual({ brands: Infinity, competitorsPerBrand: 2 });
   });
 });

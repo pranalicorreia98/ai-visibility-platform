@@ -62,7 +62,6 @@ function featureList(monthly: Plan, support: string): string[] {
   return [
     `${monthly.creditsPerCycle.toLocaleString()} credits / month`,
     `~${analyses} full brand analyses / month`,
-    `${monthly.limits.brands} brand${monthly.limits.brands === 1 ? "" : "s"} tracked`,
     competitorLabel(monthly.limits.competitorsPerBrand),
     "Continuous AI visibility monitoring",
     "PDF report exports",

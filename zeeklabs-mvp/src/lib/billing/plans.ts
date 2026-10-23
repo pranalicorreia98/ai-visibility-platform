@@ -63,10 +63,11 @@ const DODO_PRODUCT_IDS = {
 /** Monthly credit allowance per paid tier (see docs/PRICING_STRATEGY.md). */
 const MONTHLY_CREDITS = { starter: 150, pro: 600, scale: 2500 } as const;
 
+// Brands are uncapped on every tier — usage is bounded by credits instead.
 const TIER_LIMITS: Record<Exclude<TierKey, "free">, TierLimits> = {
-  starter: { brands: 1, competitorsPerBrand: 5 },
-  pro: { brands: 5, competitorsPerBrand: 10 },
-  scale: { brands: 20, competitorsPerBrand: Infinity },
+  starter: { brands: Infinity, competitorsPerBrand: 5 },
+  pro: { brands: Infinity, competitorsPerBrand: 10 },
+  scale: { brands: Infinity, competitorsPerBrand: Infinity },
 };
 
 /**
@@ -137,7 +138,7 @@ export const PLANS: Record<string, Plan> = {
 };
 
 /** Limits for a user with no active subscription (the Free tier). */
-export const FREE_LIMITS: TierLimits = { brands: 1, competitorsPerBrand: 2 };
+export const FREE_LIMITS: TierLimits = { brands: Infinity, competitorsPerBrand: 2 };
 
 /** One-time starter credits shown for the Free tier in the UI (display only; the
  *  actual signup grant is INITIAL_GRANT_CREDITS in src/lib/credits.ts). */
