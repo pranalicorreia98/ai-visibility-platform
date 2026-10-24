@@ -35,8 +35,10 @@ interface Competitor {
   source?: "ai" | "manual";
 }
 
-// Matches the `.max(5)` cap in the /api/brands Zod schemas (server-side).
-const MAX_COMPETITORS = 5;
+interface TierLimits {
+  brands: number;
+  competitorsPerBrand: number;
+}
 
 interface ManualCompetitorForm {
   name: string;
@@ -61,6 +63,8 @@ export default function SettingsPage() {
   const [discovering, setDiscovering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // Tier-based limits (default to free tier until fetched)
+  const [limits, setLimits] = useState<TierLimits>({ brands: Infinity, competitorsPerBrand: 2 });
 
   // Form state for new/editing brand
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
@@ -80,7 +84,22 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchBrands();
+    fetchLimits();
   }, []);
+
+  const fetchLimits = async () => {
+    try {
+      const response = await fetch("/api/billing/subscription");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.limits) {
+          setLimits(data.limits);
+        }
+      }
+    } catch {
+      // Non-fatal: fall back to default free limits
+    }
+  };
 
   const fetchBrands = async () => {
     try {
@@ -191,7 +210,8 @@ export default function SettingsPage() {
     let competitors = formData.competitors;
     let replacedName: string | null = null;
 
-    if (competitors.length >= MAX_COMPETITORS) {
+    // Only enforce limit if finite (Scale tier has unlimited competitors)
+    if (Number.isFinite(limits.competitorsPerBrand) && competitors.length >= limits.competitorsPerBrand) {
       // Make room by dropping the lowest-ranked AI-discovered competitor
       // (AI discovery returns results ordered by relevance, so the last
       // non-manual entry is its weakest suggestion) rather than blocking a
@@ -207,7 +227,7 @@ export default function SettingsPage() {
       }
       if (evictIndex === -1) {
         setError(
-          `You can track up to ${MAX_COMPETITORS} competitors. Remove one before adding another.`
+          `You can track up to ${limits.competitorsPerBrand} competitors. Remove one before adding another.`
         );
         return;
       }
@@ -339,8 +359,10 @@ export default function SettingsPage() {
 
   // True only once every slot is a manual entry — at that point there's no
   // AI suggestion left to auto-replace, so adding another has to be blocked.
+  // For unlimited tiers (Infinity), this is never true.
   const allCompetitorSlotsManual =
-    formData.competitors.length >= MAX_COMPETITORS &&
+    Number.isFinite(limits.competitorsPerBrand) &&
+    formData.competitors.length >= limits.competitorsPerBrand &&
     formData.competitors.every((c) => c.source === "manual");
 
   return (
@@ -513,8 +535,8 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="text-lg font-semibold">Competitors</h3>
                     <p className="text-sm text-muted-foreground">
-                      Auto-discover or add manually · {formData.competitors.length}/{MAX_COMPETITORS} used
-                      {formData.competitors.length >= MAX_COMPETITORS &&
+                      Auto-discover or add manually · {formData.competitors.length}{Number.isFinite(limits.competitorsPerBrand) ? `/${limits.competitorsPerBrand}` : ""} used
+                      {Number.isFinite(limits.competitorsPerBrand) && formData.competitors.length >= limits.competitorsPerBrand &&
                         !allCompetitorSlotsManual &&
                         " · adding another replaces the lowest AI suggestion"}
                     </p>
@@ -527,7 +549,7 @@ export default function SettingsPage() {
                     disabled={allCompetitorSlotsManual}
                     title={
                       allCompetitorSlotsManual
-                        ? `Maximum of ${MAX_COMPETITORS} competitors reached — remove one first`
+                        ? `Maximum of ${limits.competitorsPerBrand} competitors reached — remove one first`
                         : undefined
                     }
                     className="rounded-xl gap-2"

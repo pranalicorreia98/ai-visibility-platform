@@ -159,14 +159,12 @@ function PricingPlans() {
       price: 49,
       credits: 150,
       analyses: 15,
-      competitors: 5,
     },
     {
       name: "Pro",
       price: 149,
       credits: 600,
       analyses: 60,
-      competitors: 10,
       popular: true,
     },
     {
@@ -174,7 +172,6 @@ function PricingPlans() {
       price: 399,
       credits: 2500,
       analyses: 250,
-      competitors: "Unlimited",
     },
   ];
 
