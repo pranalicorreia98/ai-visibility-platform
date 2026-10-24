@@ -259,9 +259,13 @@ export function Header() {
                   <Zap className="h-3 w-3 text-indigo-500" />
                   <span>1 Analysis = 10 credits</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="h-3 w-3 text-violet-500" />
-                  <span>1 Prompt Lab run = 2 credits</span>
+                  <span>1 Prompt Lab run = 10 credits</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Download className="h-3 w-3 text-emerald-500" />
+                  <span>1 PDF Download = 5 credits</span>
                 </div>
               </div>
 

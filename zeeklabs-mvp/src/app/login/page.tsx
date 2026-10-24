@@ -222,9 +222,9 @@ function PricingPlans() {
 
       <div className="space-y-2 mb-5 py-3 px-4 bg-gray-50/80 rounded-xl">
         {[
-          "10 credits = 1 full brand analysis",
+          "10 credits = 1 analysis or prompt run",
+          "5 credits = 1 PDF report download",
           "ChatGPT, Gemini & Perplexity coverage",
-          "PDF report exports",
           "2 months free on annual plans",
         ].map((feature, i) => (
           <div key={i} className="flex items-center gap-2.5 text-sm text-gray-600">
