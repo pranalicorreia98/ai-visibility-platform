@@ -12,15 +12,18 @@ export const CREDITS_PER_ANALYSIS = 10;
 // given model's response comes from the per-system cache (that caching is
 // interleaved with execution, not a clean up-front check like api/analyze's
 // 24h cache, so it isn't worth the complexity of only charging fresh calls).
-// Cheap relative to a full analysis since it's one prompt, not the 60-prompt
-// sweep.
-export const CREDITS_PER_PROMPT_LAB = 2;
+// Same cost as a full analysis to keep pricing simple.
+export const CREDITS_PER_PROMPT_LAB = 10;
+
+// PDF report download cost - generating comprehensive reports with all
+// analysis data, recommendations, and citations.
+export const CREDITS_PER_PDF_DOWNLOAD = 5;
 
 // Granted once, idempotently, the first time an approved user is seen -
 // to brand-new beta signups as their welcome bonus, and retroactively to
 // every already-approved user from before this system existed (no
 // separate migration script needed - see ensureInitialCreditsGranted).
-export const INITIAL_GRANT_CREDITS = 30;
+export const INITIAL_GRANT_CREDITS = 20;
 
 export type CreditTransactionType =
   | "BETA_GRANT"
@@ -30,6 +33,8 @@ export type CreditTransactionType =
   | "ANALYSIS_REFUND"
   | "PROMPT_LAB_SPEND"
   | "PROMPT_LAB_REFUND"
+  | "PDF_DOWNLOAD_SPEND"
+  | "PDF_DOWNLOAD_REFUND"
   | "ADMIN_ADJUSTMENT";
 
 export class InsufficientCreditsError extends Error {

@@ -7,6 +7,8 @@ import { calculateScoreFromMentions, calculatePresenceScore, calculateSentimentS
 import { extractCitationsFromResponse } from "@/lib/citations";
 import { isBiasedPrompt, isOrganicPromptType } from "@/lib/biased-prompt";
 import { computeCompetitorMetrics } from "@/lib/competitor-metrics";
+import { CREDITS_PER_PDF_DOWNLOAD, spendCredits, InsufficientCreditsError } from "@/lib/credits";
+import { isAdminEmail } from "@/lib/admin";
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,6 +33,33 @@ export async function POST(req: NextRequest) {
 
     if (!brand) {
       return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+    }
+
+    // Charge credits for PDF download (admins are exempt)
+    const isAdmin = isAdminEmail(session.user.email);
+    if (!isAdmin) {
+      try {
+        await spendCredits(
+          session.user.id,
+          CREDITS_PER_PDF_DOWNLOAD,
+          "PDF_DOWNLOAD_SPEND",
+          `PDF report download for brand: ${brand.name}`,
+          brandId
+        );
+      } catch (err) {
+        if (err instanceof InsufficientCreditsError) {
+          return NextResponse.json(
+            {
+              error: `Not enough credits. PDF download costs ${CREDITS_PER_PDF_DOWNLOAD} credits and you have ${err.balance}. Upgrade your plan or contact founder@zeeklabs.ai.`,
+              insufficientCredits: true,
+              balance: err.balance,
+              required: err.required,
+            },
+            { status: 402 }
+          );
+        }
+        throw err;
+      }
     }
 
     // Get visibility data for last 30 days

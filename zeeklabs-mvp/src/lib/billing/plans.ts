@@ -141,7 +141,8 @@ export const PLANS: Record<string, Plan> = {
 export const FREE_LIMITS: TierLimits = { brands: Infinity, competitorsPerBrand: 2 };
 
 /** One-time starter credits shown for the Free tier in the UI (display only; the
- *  actual signup grant is INITIAL_GRANT_CREDITS in src/lib/credits.ts). */
+ *  actual signup grant is INITIAL_GRANT_CREDITS in src/lib/credits.ts).
+ *  Keep in sync with INITIAL_GRANT_CREDITS = 20 in credits.ts. */
 export const FREE_CREDITS = 20;
 
 export function planById(planId: string): Plan | null {
